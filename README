@@ -58,8 +58,8 @@ This is no different from what applications do when mixing audio sources togethe
 the only difference is who the recipient of the output samples is.
 
 Because the daemons are just userspace programs, multiple APIs can exist
-on a platform, they just can't all be sending to the same hardware device
-at the same time, unless they are implemented by the same daemon, as often
+on a platform. They just can't all be sending to the same hardware device
+at the same time unless they are implemented by the same daemon, as often
 happens to maintain support for older APIs.
 
 The story on Linux is that PulseAudio, an API and daemon, has
