@@ -141,6 +141,10 @@ uint32_t FAudioCOMConstructWithCustomAllocatorEXT(
     return 0;
 }
 
+// Preliminary TODO:
+// * Document why this function doesn't increment atomically.
+// * Document the thread safety story of this library (XAudio2 is supposed to be thread safe?)
+// * Look into removing refcounting if it's related to COM, and even if not, perhaps still.
 uint32_t FAudio_AddRef(FAudio *audio)
 {
     LOG_API_ENTER(audio)
