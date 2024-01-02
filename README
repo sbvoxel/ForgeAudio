@@ -66,5 +66,5 @@ The story on Linux is that PulseAudio, an API and daemon, has
 bad latency and so JACK thrives as an alternative among audiophiles.
 
 For this library we're targeting consumers so we're targeting PulseAudio
-on Linux, as well as PipeWire later which supposidely fixes the latency
+on Linux, as well as PipeWire later which supposedly fixes the latency
 issues and even implements the PulseAudio API for backwards compatibility.
