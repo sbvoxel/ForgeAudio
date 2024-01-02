@@ -196,7 +196,7 @@ elseif (DEFINED SDL2_INCLUDE_DIRS AND DEFINED SDL2_LIBRARIES)
     target_include_directories(SbAudio PUBLIC "$<BUILD_INTERFACE:${SDL2_INCLUDE_DIRS}>")
     target_link_libraries(SbAudio PUBLIC ${SDL2_LIBRARIES})
 else()
-    # Try to autodetect if either of the SDL2 variables aren't explicitly set
+    # Try to autodetect if either of the SDL2 variables isn't explicitly set
     find_package(SDL2 CONFIG)
     if (TARGET SDL2::SDL2)
         message(STATUS "using TARGET SDL2::SDL2")
