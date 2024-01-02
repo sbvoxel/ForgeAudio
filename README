@@ -54,8 +54,8 @@ Platform APIs can be understood very simply:
 They are userland daemons which receive audio samples from one or more sources,
 mix them together, and send through the kernel to the appropriate hardware device.
 
-This is no different from what applications do when mixing audio sources together,
-the only difference is who the recipient of the output samples is.
+This is no different from what applications do when mixing audio sources together.
+The only difference is who the recipient of the output samples is.
 
 Because the daemons are just userspace programs, multiple APIs can exist
 on a platform. They just can't all be sending to the same hardware device
