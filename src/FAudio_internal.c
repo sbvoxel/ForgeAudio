@@ -656,7 +656,6 @@ static inline float *FAudio_INTERNAL_ProcessEffectChain(
     float *buffer,
     uint32_t *samples
 ) {
-    uint32_t i;
     FAPO *fapo;
     FAPOProcessBufferParameters srcParams, dstParams;
 
@@ -666,7 +665,7 @@ static inline float *FAudio_INTERNAL_ProcessEffectChain(
     srcParams.pBuffer = buffer;
     srcParams.BufferFlags = FAPO_BUFFER_SILENT;
     srcParams.ValidFrameCount = *samples;
-    for (i = 0; i < srcParams.ValidFrameCount; i += 1)
+    for (uint32_t i = 0; i < srcParams.ValidFrameCount; i += 1)
     {
         if (buffer[i] != 0.0f) /* Arbitrary! */
         {
@@ -681,7 +680,7 @@ static inline float *FAudio_INTERNAL_ProcessEffectChain(
     dstParams.ValidFrameCount = srcParams.ValidFrameCount;
 
     /* Update parameters, process! */
-    for (i = 0; i < voice->effects.count; i += 1)
+    for (uint32_t i = 0; i < voice->effects.count; i += 1)
     {
         fapo = voice->effects.desc[i].pEffect;
 
@@ -756,8 +755,6 @@ static void FAudio_INTERNAL_ResizeResampleCache(FAudio *audio, uint32_t samples)
 
 static void FAudio_INTERNAL_MixSource(FAudioSourceVoice *voice)
 {
-    /* Iterators */
-    uint32_t i;
     /* Decode/Resample variables */
     uint64_t toDecode;
     uint64_t toResample;
@@ -1054,7 +1051,7 @@ sendwork:
     /* Send float cache to sends */
     FAudio_PlatformLockMutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
-    for (i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         out = voice->sends.pSends[i].pOutputVoice;
         if (out->type == FAUDIO_VOICE_MASTER)
@@ -1099,7 +1096,6 @@ sendwork:
 
 static void FAudio_INTERNAL_MixSubmix(FAudioSubmixVoice *voice)
 {
-    uint32_t i;
     float *stream;
     uint32_t oChan;
     FAudioVoice *out;
@@ -1186,7 +1182,7 @@ static void FAudio_INTERNAL_MixSubmix(FAudioSubmixVoice *voice)
     /* Send float cache to sends */
     FAudio_PlatformLockMutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
-    for (i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         out = voice->sends.pSends[i].pOutputVoice;
         if (out->type == FAUDIO_VOICE_MASTER)
@@ -1459,8 +1455,6 @@ void FAudio_INTERNAL_AllocEffectChain(
     FAudioVoice *voice,
     const FAudioEffectChain *pEffectChain
 ) {
-    uint32_t i;
-
     LOG_FUNC_ENTER(voice->audio)
     voice->effects.state = FAPO_BUFFER_VALID;
     voice->effects.count = pEffectChain->EffectCount;
@@ -1470,7 +1464,7 @@ void FAudio_INTERNAL_AllocEffectChain(
         return;
     }
 
-    for (i = 0; i < pEffectChain->EffectCount; i += 1)
+    for (uint32_t i = 0; i < pEffectChain->EffectCount; i += 1)
     {
         pEffectChain->pEffectDescriptors[i].pEffect->AddRef(pEffectChain->pEffectDescriptors[i].pEffect);
     }
@@ -1501,8 +1495,6 @@ void FAudio_INTERNAL_AllocEffectChain(
 
 void FAudio_INTERNAL_FreeEffectChain(FAudioVoice *voice)
 {
-    uint32_t i;
-
     LOG_FUNC_ENTER(voice->audio)
     if (voice->effects.count == 0)
     {
@@ -1510,7 +1502,7 @@ void FAudio_INTERNAL_FreeEffectChain(FAudioVoice *voice)
         return;
     }
 
-    for (i = 0; i < voice->effects.count; i += 1)
+    for (uint32_t i = 0; i < voice->effects.count; i += 1)
     {
         voice->effects.desc[i].pEffect->UnlockForProcess(voice->effects.desc[i].pEffect);
         voice->effects.desc[i].pEffect->Release(voice->effects.desc[i].pEffect);
@@ -1644,7 +1636,6 @@ void FAudio_INTERNAL_DecodePCM24(
     float *decodeCache,
     uint32_t samples
 ) {
-    uint32_t i, j;
     const uint8_t *buf;
     LOG_FUNC_ENTER(voice->audio)
 
@@ -1652,8 +1643,8 @@ void FAudio_INTERNAL_DecodePCM24(
     buf = buffer->pAudioData + (
         voice->src.curBufferOffset * voice->src.format->nBlockAlign
     );
-    for (i = 0; i < samples; i += 1, buf += voice->src.format->nBlockAlign)
-    for (j = 0; j < voice->src.format->nChannels; j += 1)
+    for (uint32_t i = 0; i < samples; i += 1, buf += voice->src.format->nBlockAlign)
+    for (uint32_t j = 0; j < voice->src.format->nChannels; j += 1)
     {
         *decodeCache++ = ((int32_t) (
             ((uint32_t) buf[(j * 3) + 2] << 24) |
@@ -1758,8 +1749,6 @@ static inline void FAudio_INTERNAL_DecodeMonoMSADPCMBlock(
     int16_t *blockCache,
     uint32_t align
 ) {
-    uint32_t i;
-
     /* Temp storage for ADPCM blocks */
     uint8_t predictor;
     int16_t delta;
@@ -1776,7 +1765,7 @@ static inline void FAudio_INTERNAL_DecodeMonoMSADPCMBlock(
     /* Samples */
     *blockCache++ = sample2;
     *blockCache++ = sample1;
-    for (i = 0; i < align; i += 1, *buf += 1)
+    for (uint32_t i = 0; i < align; i += 1, *buf += 1)
     {
         *blockCache++ = FAudio_INTERNAL_ParseNibble(
             *(*buf) >> 4,
@@ -1800,8 +1789,6 @@ static inline void FAudio_INTERNAL_DecodeStereoMSADPCMBlock(
     int16_t *blockCache,
     uint32_t align
 ) {
-    uint32_t i;
-
     /* Temp storage for ADPCM blocks */
     uint8_t l_predictor;
     uint8_t r_predictor;
@@ -1828,7 +1815,7 @@ static inline void FAudio_INTERNAL_DecodeStereoMSADPCMBlock(
     *blockCache++ = r_sample2;
     *blockCache++ = l_sample1;
     *blockCache++ = r_sample1;
-    for (i = 0; i < align; i += 1, *buf += 1)
+    for (uint32_t i = 0; i < align; i += 1, *buf += 1)
     {
         *blockCache++ = FAudio_INTERNAL_ParseNibble(
             *(*buf) >> 4,
