@@ -266,8 +266,6 @@ uint32_t FAudio_CreateSourceVoice(
     const FAudioVoiceSends *pSendList,
     const FAudioEffectChain *pEffectChain
 ) {
-    uint32_t i;
-
     LOG_API_ENTER(audio)
     LOG_FORMAT(audio, pSourceFormat)
 
@@ -521,7 +519,7 @@ uint32_t FAudio_CreateSourceVoice(
     (*ppSourceVoice)->channelVolume = (float*) audio->pMalloc(
         sizeof(float) * (*ppSourceVoice)->outputChannels
     );
-    for (i = 0; i < (*ppSourceVoice)->outputChannels; i += 1)
+    for (uint32_t i = 0; i < (*ppSourceVoice)->outputChannels; i += 1)
     {
         (*ppSourceVoice)->channelVolume[i] = 1.0f;
     }
@@ -581,8 +579,6 @@ uint32_t FAudio_CreateSubmixVoice(
     const FAudioVoiceSends *pSendList,
     const FAudioEffectChain *pEffectChain
 ) {
-    uint32_t i;
-
     LOG_API_ENTER(audio)
 
     *ppSubmixVoice = (FAudioSubmixVoice*) audio->pMalloc(sizeof(FAudioVoice));
@@ -645,7 +641,7 @@ uint32_t FAudio_CreateSubmixVoice(
     (*ppSubmixVoice)->channelVolume = (float*) audio->pMalloc(
         sizeof(float) * (*ppSubmixVoice)->outputChannels
     );
-    for (i = 0; i < (*ppSubmixVoice)->outputChannels; i += 1)
+    for (uint32_t i = 0; i < (*ppSubmixVoice)->outputChannels; i += 1)
     {
         (*ppSubmixVoice)->channelVolume[i] = 1.0f;
     }
@@ -792,7 +788,7 @@ uint32_t FAudio_CreateMasteringVoice8(
     const FAudioEffectChain *pEffectChain,
     FAudioStreamCategory StreamCategory
 ) {
-    uint32_t DeviceIndex, retval;
+    uint32_t DeviceIndex;
 
     LOG_API_ENTER(audio)
 
@@ -815,7 +811,7 @@ uint32_t FAudio_CreateMasteringVoice8(
     }
 
     /* Note that StreamCategory is ignored! */
-    retval = FAudio_CreateMasteringVoice(
+    uint32_t retval = FAudio_CreateMasteringVoice(
         audio,
         ppMasteringVoice,
         InputChannels,
@@ -1083,7 +1079,6 @@ uint32_t FAudioVoice_SetOutputVoices(
     FAudioVoice *voice,
     const FAudioVoiceSends *pSendList
 ) {
-    uint32_t i;
     uint32_t outChannels;
     FAudioVoiceSends defaultSends;
     FAudioSendDescriptor defaultSend;
@@ -1116,7 +1111,7 @@ uint32_t FAudioVoice_SetOutputVoices(
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
 
     /* FIXME: This is lazy... */
-    for (i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         voice->audio->pFree(voice->sendCoefficients[i]);
     }
@@ -1124,7 +1119,7 @@ uint32_t FAudioVoice_SetOutputVoices(
     {
         voice->audio->pFree(voice->sendCoefficients);
     }
-    for (i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         voice->audio->pFree(voice->mixCoefficients[i]);
     }
@@ -1143,7 +1138,7 @@ uint32_t FAudioVoice_SetOutputVoices(
     }
     if (voice->sendFilterState != NULL)
     {
-        for (i = 0; i < voice->sends.SendCount; i += 1)
+        for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
         {
             if (voice->sendFilterState[i] != NULL)
             {
@@ -1205,7 +1200,7 @@ uint32_t FAudioVoice_SetOutputVoices(
         sizeof(FAudioMixCallback) * pSendList->SendCount
     );
 
-    for (i = 0; i < pSendList->SendCount; i += 1)
+    for (uint32_t i = 0; i < pSendList->SendCount; i += 1)
     {
         if (pSendList->pSends[i].pOutputVoice->type == FAUDIO_VOICE_MASTER)
         {
@@ -1330,7 +1325,6 @@ uint32_t FAudioVoice_SetEffectChain(
     FAudioVoice *voice,
     const FAudioEffectChain *pEffectChain
 ) {
-    uint32_t i;
     FAPO *fapo;
     uint32_t channelCount;
     FAudioVoiceDetails voiceDetails;
@@ -1422,7 +1416,7 @@ uint32_t FAudioVoice_SetEffectChain(
         FAudio_memcpy(&srcFmt.SubFormat, &DATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(FAudioGUID));
         FAudio_memcpy(&dstFmt, &srcFmt, sizeof(srcFmt));
 
-        for (i = 0; i < pEffectChain->EffectCount; i += 1)
+        for (uint32_t i = 0; i < pEffectChain->EffectCount; i += 1)
         {
             fapo = pEffectChain->pEffectDescriptors[i].pEffect;
 
@@ -1466,7 +1460,7 @@ uint32_t FAudioVoice_SetEffectChain(
 
         /* check if in-place processing is supported */
         channelCount = voiceDetails.InputChannels;
-        for (i = 0; i < voice->effects.count; i += 1)
+        for (uint32_t i = 0; i < voice->effects.count; i += 1)
         {
             fapo = voice->effects.desc[i].pEffect;
             if (fapo->GetRegistrationProperties(fapo, &pProps) == 0)
@@ -1910,8 +1904,6 @@ uint32_t FAudioVoice_SetVolume(
     float Volume,
     uint32_t OperationSet
 ) {
-    uint32_t i;
-
     LOG_API_ENTER(voice->audio)
 
     if (OperationSet != FAUDIO_COMMIT_NOW && voice->audio->active)
@@ -1937,7 +1929,7 @@ uint32_t FAudioVoice_SetVolume(
         FAUDIO_MAX_VOLUME_LEVEL
     );
 
-    for (i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         FAudio_RecalcMixMatrix(voice, i);
     }
@@ -1985,8 +1977,6 @@ uint32_t FAudioVoice_SetChannelVolumes(
     const float *pVolumes,
     uint32_t OperationSet
 ) {
-    uint32_t i;
-
     LOG_API_ENTER(voice->audio)
 
     if (OperationSet != FAUDIO_COMMIT_NOW && voice->audio->active)
@@ -2031,7 +2021,7 @@ uint32_t FAudioVoice_SetChannelVolumes(
         sizeof(float) * Channels
     );
 
-    for (i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         FAudio_RecalcMixMatrix(voice, i);
     }
@@ -2251,7 +2241,6 @@ void FAudioVoice_GetOutputMatrix(
 
 void FAudioVoice_DestroyVoice(FAudioVoice *voice)
 {
-    uint32_t i;
     LOG_API_ENTER(voice->audio)
 
     /* TODO: Check for dependencies and remove from audio graph first! */
@@ -2340,7 +2329,7 @@ void FAudioVoice_DestroyVoice(FAudioVoice *voice)
     {
         FAudio_PlatformLockMutex(voice->sendLock);
         LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-        for (i = 0; i < voice->sends.SendCount; i += 1)
+        for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
         {
             voice->audio->pFree(voice->sendCoefficients[i]);
         }
@@ -2348,7 +2337,7 @@ void FAudioVoice_DestroyVoice(FAudioVoice *voice)
         {
             voice->audio->pFree(voice->sendCoefficients);
         }
-        for (i = 0; i < voice->sends.SendCount; i += 1)
+        for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
         {
             voice->audio->pFree(voice->mixCoefficients[i]);
         }
@@ -2366,7 +2355,7 @@ void FAudioVoice_DestroyVoice(FAudioVoice *voice)
         }
         if (voice->sendFilterState != NULL)
         {
-            for (i = 0; i < voice->sends.SendCount; i += 1)
+            for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
             {
                 if (voice->sendFilterState[i] != NULL)
                 {
