@@ -145,7 +145,6 @@ target_link_libraries(SbAudio PRIVATE SbBackend)
 if(PLATFORM_WIN32)
     target_link_libraries(SbAudio PRIVATE -ldxguid -luuid -lwinmm -lole32 -ladvapi32 -luser32 -lmfplat -lmfreadwrite -lmfuuid -lpropsys)
     target_compile_definitions(SbAudio PUBLIC FAUDIO_WIN32_PLATFORM)
-    target_compile_definitions(SbAudio PRIVATE HAVE_WMADEC=1)
 endif()
 
 if (FORCE_ENABLE_DEBUGCONFIGURATION)

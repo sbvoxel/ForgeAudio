@@ -456,15 +456,6 @@ uint32_t FAudio_CreateSourceVoice(
                 COMPARE_GUID(WMAUDIO3) ||
                 COMPARE_GUID(WMAUDIO_LOSSLESS)    )
         {
-#ifdef HAVE_WMADEC
-            if (FAudio_WMADEC_init(*ppSourceVoice, fmtex->SubFormat.Data1) != 0)
-            {
-                (*ppSourceVoice)->src.decode = FAudio_INTERNAL_DecodeWMAERROR;
-            }
-#else
-            FAudio_assert(0 && "xWMA is not supported!");
-            (*ppSourceVoice)->src.decode = FAudio_INTERNAL_DecodeWMAERROR;
-#endif /* HAVE_WMADEC */
         }
         else
         {
@@ -474,15 +465,8 @@ uint32_t FAudio_CreateSourceVoice(
     }
     else if ((*ppSourceVoice)->src.format->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
     {
-#ifdef HAVE_WMADEC
-        if (FAudio_WMADEC_init(*ppSourceVoice, FAUDIO_FORMAT_XMAUDIO2) != 0)
-        {
-            (*ppSourceVoice)->src.decode = FAudio_INTERNAL_DecodeWMAERROR;
-        }
-#else
         FAudio_assert(0 && "XMA2 is not supported!");
         (*ppSourceVoice)->src.decode = FAudio_INTERNAL_DecodeWMAERROR;
-#endif /* HAVE_WMADEC */
     }
     else if ((*ppSourceVoice)->src.format->wFormatTag == FAUDIO_FORMAT_MSADPCM)
     {
@@ -2291,12 +2275,6 @@ void FAudioVoice_DestroyVoice(FAudioVoice *voice)
         voice->audio->pFree(voice->src.format);
         LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
         FAudio_PlatformDestroyMutex(voice->src.bufferLock);
-#ifdef HAVE_WMADEC
-        if (voice->src.wmadec)
-        {
-            FAudio_WMADEC_free(voice);
-        }
-#endif /* HAVE_WMADEC */
     }
     else if (voice->type == FAUDIO_VOICE_SUBMIX)
     {
@@ -2504,12 +2482,6 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
     )
 
     FAudio_assert(voice->type == FAUDIO_VOICE_SOURCE);
-#ifdef HAVE_WMADEC
-    FAudio_assert(    (voice->src.wmadec != NULL && (pBufferWMA != NULL ||
-                    (voice->src.format->wFormatTag == FAUDIO_FORMAT_XMAUDIO2 ||
-                     voice->src.format->wFormatTag == FAUDIO_FORMAT_EXTENSIBLE))) ||
-            (voice->src.wmadec == NULL && (pBufferWMA == NULL && voice->src.format->wFormatTag != FAUDIO_FORMAT_XMAUDIO2))    );
-#endif /* HAVE_WMADEC */
 
     /* Start off with whatever they just sent us... */
     playBegin = pBuffer->PlayBegin;

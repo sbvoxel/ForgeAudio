@@ -448,11 +448,6 @@ struct FAudioVoice
             uint64_t curBufferOffsetDec;
             uint32_t curBufferOffset;
 
-            /* WMA decoding */
-#ifdef HAVE_WMADEC
-            struct FAudioWMADEC *wmadec;
-#endif /* HAVE_WMADEC*/
-
             /* Read-only */
             float maxFreqRatio;
             FAudioWaveFormatEx *format;
@@ -714,14 +709,6 @@ DECODE_FUNC(MonoMSADPCM)
 DECODE_FUNC(StereoMSADPCM)
 DECODE_FUNC(WMAERROR)
 #undef DECODE_FUNC
-
-/* WMA decoding */
-
-#ifdef HAVE_WMADEC
-uint32_t FAudio_WMADEC_init(FAudioSourceVoice *pSourceVoice, uint32_t type);
-void FAudio_WMADEC_free(FAudioSourceVoice *voice);
-void FAudio_WMADEC_end_buffer(FAudioSourceVoice *voice);
-#endif /* HAVE_WMADEC */
 
 /* Platform Functions */
 

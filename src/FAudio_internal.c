@@ -306,14 +306,6 @@ static uint32_t FAudio_INTERNAL_GetBytesRequested(
 
     LOG_FUNC_ENTER(voice->audio)
 
-#ifdef HAVE_WMADEC
-    if (voice->src.wmadec != NULL)
-    {
-        /* Always 0, per the spec */
-        LOG_FUNC_EXIT(voice->audio)
-        return 0;
-    }
-#endif /* HAVE_WMADEC */
     while (list != NULL && decoding > 0)
     {
         buffer = &list->buffer;
@@ -456,12 +448,6 @@ static void FAudio_INTERNAL_DecodeBuffers(
             }
             else
             {
-#ifdef HAVE_WMADEC
-                if (voice->src.wmadec != NULL)
-                {
-                    FAudio_WMADEC_end_buffer(voice);
-                }
-#endif /* HAVE_WMADEC */
                 /* For EOS we can stop storing fraction offsets */
                 if (buffer->Flags & FAUDIO_END_OF_STREAM)
                 {
