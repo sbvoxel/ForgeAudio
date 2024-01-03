@@ -150,8 +150,10 @@ if(PLATFORM_WIN32)
     set(XNASONG OFF)
 endif()
 
-# Only enable DebugConfiguration in non-release builds
 if (FORCE_ENABLE_DEBUGCONFIGURATION)
+    target_compile_definitions(SbAudio PRIVATE FAUDIO_ENABLE_DEBUGCONFIGURATION>)
+else()
+    # Only enable DebugConfiguration in non-release builds
     target_compile_definitions(SbAudio PRIVATE $<$<NOT:$<CONFIG:Release>>:FAUDIO_ENABLE_DEBUGCONFIGURATION>)
 endif()
 
