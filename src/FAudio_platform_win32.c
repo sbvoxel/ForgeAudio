@@ -42,8 +42,6 @@
 #include <audioclient.h>
 #include <mmdeviceapi.h>
 
-DEFINE_MEDIATYPE_GUID(MFAudioFormat_XMAudio2, FAUDIO_FORMAT_XMAUDIO2);
-
 static CRITICAL_SECTION faudio_cs = { NULL, -1, 0, 0, 0, 0 };
 static IMMDeviceEnumerator *device_enumerator;
 static HRESULT init_hr;
