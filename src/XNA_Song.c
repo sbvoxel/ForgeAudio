@@ -24,8 +24,6 @@
  *
  */
 
-#ifdef ENABLE_XNASONG
-
 #include "FAudio_internal.h"
 
 /* stb_vorbis */
@@ -346,5 +344,3 @@ FAUDIOAPI void XNA_GetSongVisualizationData(
 ) {
     /* TODO: Visualization FAPO that reads in Song samples, FFT analysis */
 }
-
-#endif /* ENABLE_XNASONG */

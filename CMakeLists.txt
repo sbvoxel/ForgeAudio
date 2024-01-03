@@ -20,7 +20,6 @@ option(BUILD_UTILS "Build utils/ folder" OFF)
 if(WIN32)
 option(PLATFORM_WIN32 "Enable native Win32 platform instead of SDL2" OFF)
 endif()
-option(XNASONG "Build with XNA_Song.c" ON)
 option(LOG_ASSERTIONS "Bind FAudio_assert to log, instead of platform's assert" OFF)
 option(FORCE_ENABLE_DEBUGCONFIGURATION "Enable DebugConfiguration in all build types" OFF)
 option(DUMP_VOICES "Dump voices to RIFF WAVE files" OFF)
@@ -172,11 +171,6 @@ set_target_properties(SbAudio PROPERTIES OUTPUT_NAME "SbAudio"
     VERSION ${LIB_VERSION}
     SOVERSION ${LIB_MAJOR_VERSION}
 )
-
-# XNA_Song Support
-if(XNASONG)
-    target_compile_definitions(SbAudio PRIVATE ENABLE_XNASONG)
-endif()
 
 # Dump source voices to RIFF WAVE files
 if(DUMP_VOICES)

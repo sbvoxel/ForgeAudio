@@ -1361,6 +1361,17 @@ FAUDIOAPI FAudioIOStream* FAudio_memopen(void *mem, int len);
 FAUDIOAPI uint8_t* FAudio_memptr(FAudioIOStream *io, size_t offset);
 FAUDIOAPI void FAudio_close(FAudioIOStream *io);
 
+/* XNA Song */
+
+FAUDIOAPI void XNA_SongInit();
+FAUDIOAPI void XNA_SongQuit();
+FAUDIOAPI float XNA_PlaySong(const char *name);
+FAUDIOAPI void XNA_PauseSong();
+FAUDIOAPI void XNA_ResumeSong();
+FAUDIOAPI void XNA_StopSong();
+FAUDIOAPI void XNA_SetSongVolume(float volume);
+FAUDIOAPI uint32_t XNA_GetSongEnded();
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
