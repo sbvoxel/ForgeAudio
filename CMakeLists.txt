@@ -231,16 +231,12 @@ if(BUILD_UTILS)
     )
 
     # These tools do NOT use uicommon
-    add_executable(testparse utils/testparse/testparse.c)
-    target_link_libraries(testparse PRIVATE SbAudio)
     add_executable(testxwma utils/testxwma/testxwma.cpp)
     target_link_libraries(testxwma PRIVATE SbAudio)
     add_executable(showriffheader utils/showriffheader/showriffheader.cpp)
     target_link_libraries(showriffheader PRIVATE SbAudio)
 
     # These tools use uicommon, but NOT wavs
-    add_executable(facttool utils/facttool/facttool.cpp)
-    target_link_libraries(facttool PRIVATE uicommon)
     add_executable(testfilter
         utils/testfilter/audio.cpp
         utils/testfilter/audio_faudio.cpp
