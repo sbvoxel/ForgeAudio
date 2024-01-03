@@ -117,15 +117,16 @@ uint32_t FAudioCOMConstructWithCustomAllocatorEXT(
     FAudioFreeFunc customFree,
     FAudioReallocFunc customRealloc
 ) {
-#ifndef FAUDIO_DISABLE_DEBUGCONFIGURATION
+
+#ifdef FAUDIO_ENABLE_DEBUGCONFIGURATION
     FAudioDebugConfiguration debugInit = {0};
-#endif /* FAUDIO_DISABLE_DEBUGCONFIGURATION */
+#endif /* FAUDIO_ENABLE_DEBUGCONFIGURATION */
     FAudio_PlatformAddRef();
     *ppFAudio = (FAudio*) customMalloc(sizeof(FAudio));
     FAudio_zero(*ppFAudio, sizeof(FAudio));
-#ifndef FAUDIO_DISABLE_DEBUGCONFIGURATION
+#ifdef FAUDIO_ENABLE_DEBUGCONFIGURATION
     FAudio_SetDebugConfiguration(*ppFAudio, &debugInit, NULL);
-#endif /* FAUDIO_DISABLE_DEBUGCONFIGURATION */
+#endif /* FAUDIO_ENABLE_DEBUGCONFIGURATION */
     (*ppFAudio)->sourceLock = FAudio_PlatformCreateMutex();
     LOG_MUTEX_CREATE((*ppFAudio), (*ppFAudio)->sourceLock)
     (*ppFAudio)->submixLock = FAudio_PlatformCreateMutex();
@@ -923,7 +924,7 @@ void FAudio_SetDebugConfiguration(
     FAudioDebugConfiguration *pDebugConfiguration,
     void* pReserved
 ) {
-#ifndef FAUDIO_DISABLE_DEBUGCONFIGURATION
+#ifdef FAUDIO_ENABLE_DEBUGCONFIGURATION
     char *env;
 
     LOG_API_ENTER(audio)
@@ -991,7 +992,7 @@ void FAudio_SetDebugConfiguration(
     #undef CHECK_ENV
 
     LOG_API_EXIT(audio)
-#endif /* FAUDIO_DISABLE_DEBUGCONFIGURATION */
+#endif /* FAUDIO_ENABLE_DEBUGCONFIGURATION */
 }
 
 void FAudio_GetProcessingQuantum(

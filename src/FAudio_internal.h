@@ -391,10 +391,10 @@ struct FAudio
     void *clientEngineUser;
     FAudioEngineProcedureEXT pClientEngineProc;
 
-#ifndef FAUDIO_DISABLE_DEBUGCONFIGURATION
+#ifdef FAUDIO_ENABLE_DEBUGCONFIGURATION
     /* Debug Information */
     FAudioDebugConfiguration debug;
-#endif /* FAUDIO_DISABLE_DEBUGCONFIGURATION */
+#endif /* FAUDIO_ENABLE_DEBUGCONFIGURATION */
 
     /* Platform opaque pointer */
     void *platform;
@@ -520,27 +520,7 @@ extern const float FAUDIO_INTERNAL_MATRIX_DEFAULTS[8][8][64];
 
 /* Debug */
 
-#ifdef FAUDIO_DISABLE_DEBUGCONFIGURATION
-
-#define LOG_ERROR(engine, fmt, ...)
-#define LOG_WARNING(engine, fmt, ...)
-#define LOG_INFO(engine, fmt, ...)
-#define LOG_DETAIL(engine, fmt, ...)
-#define LOG_API_ENTER(engine)
-#define LOG_API_EXIT(engine)
-#define LOG_FUNC_ENTER(engine)
-#define LOG_FUNC_EXIT(engine)
-/* TODO: LOG_TIMING */
-#define LOG_MUTEX_CREATE(engine, mutex)
-#define LOG_MUTEX_DESTROY(engine, mutex)
-#define LOG_MUTEX_LOCK(engine, mutex)
-#define LOG_MUTEX_UNLOCK(engine, mutex)
-/* TODO: LOG_MEMORY */
-/* TODO: LOG_STREAMING */
-
-#define LOG_FORMAT(engine, waveFormat)
-
-#else
+#ifdef FAUDIO_ENABLE_DEBUGCONFIGURATION
 
 #if defined(_MSC_VER)
 /* VC doesn't support __attribute__ at all, and there's no replacement for format. */
@@ -612,7 +592,28 @@ void FAudio_INTERNAL_debug_fmt(
         ); \
     }
 
-#endif /* FAUDIO_DISABLE_DEBUGCONFIGURATION */
+
+#else
+
+#define LOG_ERROR(engine, fmt, ...)
+#define LOG_WARNING(engine, fmt, ...)
+#define LOG_INFO(engine, fmt, ...)
+#define LOG_DETAIL(engine, fmt, ...)
+#define LOG_API_ENTER(engine)
+#define LOG_API_EXIT(engine)
+#define LOG_FUNC_ENTER(engine)
+#define LOG_FUNC_EXIT(engine)
+/* TODO: LOG_TIMING */
+#define LOG_MUTEX_CREATE(engine, mutex)
+#define LOG_MUTEX_DESTROY(engine, mutex)
+#define LOG_MUTEX_LOCK(engine, mutex)
+#define LOG_MUTEX_UNLOCK(engine, mutex)
+/* TODO: LOG_MEMORY */
+/* TODO: LOG_STREAMING */
+
+#define LOG_FORMAT(engine, waveFormat)
+
+#endif /* FAUDIO_ENABLE_DEBUGCONFIGURATION */
 
 /* FAPOFX Creators */
 
