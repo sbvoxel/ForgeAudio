@@ -111,24 +111,18 @@ endif()
 add_library(SbAudio
     # Public Headers
     include/sb3DAudio.h
-    include/sbACT3D.h
-    include/sbACT.h
     include/sbAPOBase.h
     include/sbAPOFX.h
     include/sbAPO.h
     include/sbAudioFX.h
     include/sbAudio.h
     # Internal Headers
-    src/FACT_internal.h
     src/FAudio_internal.h
     src/stb_modified.h
     src/stb_vorbis_modified.h
     src/qoa_decoder.h
     # Source Files
     src/F3DAudio.c
-    src/FACT3D.c
-    src/FACT.c
-    src/FACT_internal.c
     src/FAPOBase.c
     src/FAPOFX.c
     src/FAPOFX_echo.c
