@@ -35,12 +35,6 @@
 #define FAUDIOCALL
 #endif
 
-#ifdef _MSC_VER
-#define FAUDIODEPRECATED(msg) __declspec(deprecated(msg))
-#else
-#define FAUDIODEPRECATED(msg) __attribute__((deprecated(msg)))
-#endif
-
 /* -Wpedantic nameless union/struct silencing */
 #ifndef FAUDIONAMELESS
 #ifdef __GNUC__
@@ -715,10 +709,6 @@ FAUDIOAPI uint32_t FAudio_CommitOperationSet(
     FAudio *audio,
     uint32_t OperationSet
 );
-
-/* DO NOT USE THIS FUNCTION OR I SWEAR TO GOD */
-FAUDIODEPRECATED("This function will break your program! Use FAudio_CommitOperationSet instead!")
-FAUDIOAPI uint32_t FAudio_CommitChanges(FAudio *audio);
 
 /* Requests various bits of performance information from the engine.
  *

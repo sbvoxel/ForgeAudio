@@ -871,23 +871,6 @@ uint32_t FAudio_CommitOperationSet(FAudio *audio, uint32_t OperationSet)
     return 0;
 }
 
-uint32_t FAudio_CommitChanges(FAudio *audio)
-{
-    FAudio_Log(
-        "IF YOU CAN READ THIS, YOUR PROGRAM IS ABOUT TO BREAK!"
-        "\n\nEither you or somebody else is using FAudio_CommitChanges,"
-        "\nwhen they should be using FAudio_CommitOperationSet instead."
-        "\n\nIf your program calls this, move to CommitOperationSet."
-        "\n\nIf somebody else is calling this, find out who it is and"
-        "\nfile a bug report with them ASAP."
-    );
-
-    /* Seriously, this is like the worst possible thing short of no-oping.
-     * For the love-a Pete, just migrate, do it, what is wrong with you
-     */
-    return FAudio_CommitOperationSet(audio, FAUDIO_COMMIT_ALL);
-}
-
 void FAudio_GetPerformanceData(
     FAudio *audio,
     FAudioPerformanceData *pPerfData
