@@ -93,7 +93,7 @@ of fading, but FAudio implements it by spamming the 'set volume' call from this
 additional audio thread. This is better than doing it from a game thread, but it should still bump
 into the lock issue.
 
-I have yet to learn how the XABO feature works, and it might have a (non-easy?) way
+I have yet to learn how the XAPO feature works, and it might have a (non-easy?) way
 to do fading from the audio thread.
 
 ## Locking
