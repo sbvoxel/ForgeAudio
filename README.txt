@@ -80,18 +80,15 @@ Notes as I learn for and plan for this library.
 It's important to have the ability to fade the volume of a sound and it serves as
 a good example of a high-ish level use case that the library would do good to provide.
 
-Fading has to happen within the API because spamming a 'set volume' call from a lower-priority
-and lower frame rate game thread isn't going to work very well for numerous reasons.
-
-Even if the game thread had the ability to act perfectly for spammming a set volume call,
-there's currently a 'sendLock' and 'volumeLock' involved in setting the volume (gain) of a voice.
-This has to be disruptive to both threads.
+Fading has to happen within the API because having to spam a 'set volume' call from a lower-priority
+and lower frame rate game thread would be far from ideal. Even if the game could do this well enough,
+there's currently a 'sendLock' and 'volumeLock' involved in setting the volume (gain) of a voice
+which is bound to be disruptive when locking so often.
 
 FAudio supports 'XACT' (SbAudio has removed it) and implements it with an additional audio thread,
 matching the thread priority of the main audio thread. The XACT library has the concept
 of fading, but FAudio implements it by spamming the 'set volume' call from this
-additional audio thread. This is better than doing it from a game thread, but it should still bump
-into the lock issue.
+additional audio thread. This is better than doing it from a game thread, but the lock issue remains.
 
 I have yet to learn how the XAPO feature works, and it might have a (non-easy?) way
 to do fading from the audio thread.
@@ -113,3 +110,16 @@ prevent waiting on a lock while the audio thread does source and submix mixing.
 The WebAudio API actually works differently. In it you can't even play a sound
 twice from the same AudioBufferSourceNode, so you have to be able to create
 them very quickly.
+
+2020 comment fragment from one FAudio developer: "FAudio has a ton of different locks"
+
+This does indeed seem to be the case looking at the source code. It'd be surprising
+if 1: this weren't an issue, and 2: this couldn't easily be fixed.
+
+## Pooling
+
+XAudio2 has a SetSourceSampleRate function which according to Microsoft documentation is intended to support pooling:
+
+"The typical use of SetSourceSampleRate is to support voice pooling. For example to support voice pooling an application would precreate all the voices it expects to use. Whenever a new sound will be played the application chooses an inactive voice or, if all voices are busy, picks the least important voice and calls SetSourceSampleRate on the voice with the new sound's sample rate."
+
+TODO: Can format not be changed?
