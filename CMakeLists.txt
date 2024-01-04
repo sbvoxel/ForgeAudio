@@ -25,57 +25,6 @@ option(FORCE_ENABLE_DEBUGCONFIGURATION "Enable DebugConfiguration in all build t
 option(DUMP_VOICES "Dump voices to RIFF WAVE files" OFF)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 
-if(ENABLE_PULSEAUDIO)
-    find_package(PulseAudio)
-    if(PULSEAUDIO_FOUND)
-        set(STATUS_PULSEAUDIO "OK")
-        set(SOUNDIO_HAVE_PULSEAUDIO true)
-        include_directories(${PULSEAUDIO_INCLUDE_DIR})
-    else()
-        set(STATUS_PULSEAUDIO "not found")
-        set(SOUNDIO_HAVE_PULSEAUDIO false)
-        set(PULSEAUDIO_LIBRARY "")
-    endif()
-else()
-    set(STATUS_PULSEAUDIO "disabled")
-    set(SOUNDIO_HAVE_PULSEAUDIO false)
-    set(PULSEAUDIO_LIBRARY "")
-endif()
-
-if(ENABLE_WASAPI)
-    find_package(WASAPI)
-    if(WASAPI_FOUND)
-        set(STATUS_WASAPI "OK")
-        set(SOUNDIO_HAVE_WASAPI true)
-    else()
-        set(STATUS_WASAPI "not found")
-        set(SOUNDIO_HAVE_WASAPI false)
-    endif()
-else()
-    set(STATUS_WASAPI "disabled")
-    set(SOUNDIO_HAVE_WASAPI false)
-endif()
-
-set(SOUNDIO_SOURCES
-    src/soundio/channel_layout.c
-    src/soundio/dummy.c
-    src/soundio/os.c
-    src/soundio/ring_buffer.c
-    src/soundio/soundio.c
-    src/soundio/util.c
-)
-
-if(SOUNDIO_HAVE_PULSEAUDIO)
-    set(SOUNDIO_SOURCES ${SOUNDIO_SOURCES}
-        "src/soundio/pulseaudio.c"
-    )
-endif()
-if(SOUNDIO_HAVE_WASAPI)
-    set(SOUNDIO_SOURCES ${SOUNDIO_SOURCES}
-        "src/soundio/wasapi.c"
-    )
-endif()
-
 # Build Type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     # By default, we use Release
@@ -94,16 +43,6 @@ endif()
 if(APPLE)
     set(CMAKE_MACOSX_RPATH ON)
     set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
-endif()
-
-# Should this be OBJECT instead?
-add_library(SbBackend STATIC ${SOUNDIO_SOURCES})
-
-if(SOUNDIO_HAVE_PULSEAUDIO)
-    target_compile_definitions(SbBackend PRIVATE SOUNDIO_HAVE_PULSEAUDIO)
-endif()
-if(SOUNDIO_HAVE_WASAPI)
-    target_compile_definitions(SbBackend PRIVATE SOUNDIO_HAVE_WASAPI)
 endif()
 
 # Source lists
@@ -136,11 +75,8 @@ add_library(SbAudio
     src/FAudio_operationset.c
     src/FAudio_platform_sdl2.c
     src/FAudio_platform_win32.c
-    # Optional source files
     src/XNA_Song.c
 )
-
-target_link_libraries(SbAudio PRIVATE SbBackend)
 
 if(PLATFORM_WIN32)
     target_link_libraries(SbAudio PRIVATE -ldxguid -luuid -lwinmm -lole32 -ladvapi32 -luser32 -lmfplat -lmfreadwrite -lmfuuid -lpropsys)
