@@ -210,9 +210,9 @@ uint32_t FAudio_Initialize(
     uint32_t Flags,
     FAudioProcessor XAudio2Processor
 ) {
-    LOG_API_ENTER(audio)
-    FAudio_assert(Flags == 0 || Flags == FAUDIO_DEBUG_ENGINE);
-    FAudio_assert(XAudio2Processor == FAUDIO_DEFAULT_PROCESSOR);
+	LOG_API_ENTER(audio)
+	FAudio_assert((Flags & ~(FAUDIO_DEBUG_ENGINE | FAUDIO_1024_QUANTUM)) == 0);
+	FAudio_assert(XAudio2Processor == FAUDIO_DEFAULT_PROCESSOR);
 
     audio->initFlags = Flags;
 
