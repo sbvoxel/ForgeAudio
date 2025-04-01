@@ -260,6 +260,10 @@ void FAudio_PlatformInit(
         eConsole,
         &device
     );
+    if (hr == E_NOTFOUND) {
+        FAudio_PlatformRelease();
+        return FAUDIO_E_INVALID_CALL;
+    }
     FAudio_assert(!FAILED(hr) && "Failed to get default audio endpoint!");
 
     hr = IMMDevice_Activate(
@@ -440,6 +444,10 @@ uint32_t FAudio_PlatformGetDeviceDetails(
         eConsole,
         &device
     );
+    if (hr == E_NOTFOUND) {
+        FAudio_PlatformRelease();
+        return FAUDIO_E_INVALID_CALL;
+    }
     FAudio_assert(!FAILED(hr) && "Failed to get default audio endpoint!");
 
     details->Role = FAudioGlobalDefaultDevice;
