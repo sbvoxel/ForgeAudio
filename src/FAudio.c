@@ -2223,177 +2223,250 @@ void FAudioVoice_GetOutputMatrix(
     LOG_API_EXIT(voice->audio)
 }
 
-void FAudioVoice_DestroyVoice(FAudioVoice *voice)
+static uint32_t check_for_sends_to_voice(FAudioVoice *voice)
 {
-    LOG_API_ENTER(voice->audio)
+	FAudio *audio = voice->audio;
+	uint32_t ret = 0;
+	FAudioSourceVoice *source;
+	FAudioSubmixVoice *submix;
+	LinkedList *list;
+	uint32_t i;
 
-    /* TODO: Check for dependencies and remove from audio graph first! */
-    FAudio_OPERATIONSET_ClearAllForVoice(voice);
+	FAudio_PlatformLockMutex(audio->sourceLock);
+	list = audio->sources;
+	while (list != NULL)
+	{
+		source = (FAudioSourceVoice*) list->entry;
+		for (i = 0; i < source->sends.SendCount; i += 1)
+			if (source->sends.pSends[i].pOutputVoice == voice)
+			{
+				ret = 0x80004005; /* E_FAIL */
+				break;
+			}
+		if (ret)
+			break;
+		list = list->next;
+	}
+	FAudio_PlatformUnlockMutex(audio->sourceLock);
 
-    if (voice->type == FAUDIO_VOICE_SOURCE)
-    {
-        FAudioBufferEntry *entry, *next;
+	if (ret)
+		return ret;
+
+	FAudio_PlatformLockMutex(audio->submixLock);
+	list = audio->submixes;
+	while (list != NULL)
+	{
+		submix = (FAudioSubmixVoice*) list->entry;
+		for (i = 0; i < submix->sends.SendCount; i += 1)
+			if (submix->sends.pSends[i].pOutputVoice == voice)
+			{
+				ret = 0x80004005; /* E_FAIL */
+				break;
+			}
+		if (ret)
+			break;
+		list = list->next;
+	}
+	FAudio_PlatformUnlockMutex(audio->submixLock);
+
+	return ret;
+}
+
+uint32_t FAudioVoice_DestroyVoiceSafeEXT(FAudioVoice *voice)
+{
+	uint32_t i, ret;
+	LOG_API_ENTER(voice->audio)
+
+	if ((ret = check_for_sends_to_voice(voice)))
+	{
+		LOG_ERROR(
+			voice->audio,
+			"Voice %p is an output for other voice(s)",
+			voice
+		)
+		LOG_API_EXIT(voice->audio)
+		return ret;
+	}
+
+	/* TODO: Check for dependencies and remove from audio graph first! */
+	FAudio_OPERATIONSET_ClearAllForVoice(voice);
+
+	if (voice->type == FAUDIO_VOICE_SOURCE)
+	{
+		FAudioBufferEntry *entry, *next;
 
 #ifdef FAUDIO_DUMP_VOICES
-        FAudio_DUMPVOICE_Finalize((FAudioSourceVoice*) voice);
+		FAudio_DUMPVOICE_Finalize((FAudioSourceVoice*) voice);
 #endif /* FAUDIO_DUMP_VOICES */
 
-        FAudio_PlatformLockMutex(voice->audio->sourceLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
-        while (voice == voice->audio->processingSource)
-        {
-            FAudio_PlatformUnlockMutex(voice->audio->sourceLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
-            FAudio_PlatformLockMutex(voice->audio->sourceLock);
-            LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
-        }
-        LinkedList_RemoveEntry(
-            &voice->audio->sources,
-            voice,
-            voice->audio->sourceLock,
-            voice->audio->pFree
-        );
-        FAudio_PlatformUnlockMutex(voice->audio->sourceLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
+		FAudio_PlatformLockMutex(voice->audio->sourceLock);
+		LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
+		while (voice == voice->audio->processingSource)
+		{
+			FAudio_PlatformUnlockMutex(voice->audio->sourceLock);
+			LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
+			FAudio_PlatformLockMutex(voice->audio->sourceLock);
+			LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
+		}
+		LinkedList_RemoveEntry(
+			&voice->audio->sources,
+			voice,
+			voice->audio->sourceLock,
+			voice->audio->pFree
+		);
+		FAudio_PlatformUnlockMutex(voice->audio->sourceLock);
+		LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-        entry = voice->src.bufferList;
-        while (entry != NULL)
-        {
-            next = entry->next;
-            voice->audio->pFree(entry);
-            entry = next;
-        }
+		entry = voice->src.bufferList;
+		while (entry != NULL)
+		{
+			next = entry->next;
+			voice->audio->pFree(entry);
+			entry = next;
+		}
 
-        entry = voice->src.flushList;
-        while (entry != NULL)
-        {
-            next = entry->next;
-            voice->audio->pFree(entry);
-            entry = next;
-        }
+		entry = voice->src.flushList;
+		while (entry != NULL)
+		{
+			next = entry->next;
+			voice->audio->pFree(entry);
+			entry = next;
+		}
 
-        voice->audio->pFree(voice->src.format);
-        LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
-        FAudio_PlatformDestroyMutex(voice->src.bufferLock);
-    }
-    else if (voice->type == FAUDIO_VOICE_SUBMIX)
-    {
-        /* Remove submix from list */
-        LinkedList_RemoveEntry(
-            &voice->audio->submixes,
-            voice,
-            voice->audio->submixLock,
-            voice->audio->pFree
-        );
+		voice->audio->pFree(voice->src.format);
+		LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
+		FAudio_PlatformDestroyMutex(voice->src.bufferLock);
+#ifdef HAVE_WMADEC
+		if (voice->src.wmadec)
+		{
+			FAudio_WMADEC_free(voice);
+		}
+#endif /* HAVE_WMADEC */
+	}
+	else if (voice->type == FAUDIO_VOICE_SUBMIX)
+	{
+		/* Remove submix from list */
+		LinkedList_RemoveEntry(
+			&voice->audio->submixes,
+			voice,
+			voice->audio->submixLock,
+			voice->audio->pFree
+		);
 
-        /* Delete submix data */
-        voice->audio->pFree(voice->mix.inputCache);
-    }
-    else if (voice->type == FAUDIO_VOICE_MASTER)
-    {
-        if (voice->audio->platform != NULL)
-        {
-            FAudio_PlatformQuit(voice->audio->platform);
-            voice->audio->platform = NULL;
-        }
-        if (voice->master.effectCache != NULL)
-        {
-            voice->audio->pFree(voice->master.effectCache);
-        }
-        voice->audio->master = NULL;
-    }
+		/* Delete submix data */
+		voice->audio->pFree(voice->mix.inputCache);
+	}
+	else if (voice->type == FAUDIO_VOICE_MASTER)
+	{
+		if (voice->audio->platform != NULL)
+		{
+			FAudio_PlatformQuit(voice->audio->platform);
+			voice->audio->platform = NULL;
+		}
+		if (voice->master.effectCache != NULL)
+		{
+			voice->audio->pFree(voice->master.effectCache);
+		}
+		voice->audio->master = NULL;
+	}
 
-    if (voice->sendLock != NULL)
-    {
-        FAudio_PlatformLockMutex(voice->sendLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-        for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
-        {
-            voice->audio->pFree(voice->sendCoefficients[i]);
-        }
-        if (voice->sendCoefficients != NULL)
-        {
-            voice->audio->pFree(voice->sendCoefficients);
-        }
-        for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
-        {
-            voice->audio->pFree(voice->mixCoefficients[i]);
-        }
-        if (voice->mixCoefficients != NULL)
-        {
-            voice->audio->pFree(voice->mixCoefficients);
-        }
-        if (voice->sendMix != NULL)
-        {
-            voice->audio->pFree(voice->sendMix);
-        }
-        if (voice->sendFilter != NULL)
-        {
-            voice->audio->pFree(voice->sendFilter);
-        }
-        if (voice->sendFilterState != NULL)
-        {
-            for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
-            {
-                if (voice->sendFilterState[i] != NULL)
-                {
-                    voice->audio->pFree(voice->sendFilterState[i]);
-                }
-            }
-            voice->audio->pFree(voice->sendFilterState);
-        }
-        if (voice->sends.pSends != NULL)
-        {
-            voice->audio->pFree(voice->sends.pSends);
-        }
-        FAudio_PlatformUnlockMutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-        LOG_MUTEX_DESTROY(voice->audio, voice->sendLock)
-        FAudio_PlatformDestroyMutex(voice->sendLock);
-    }
+	if (voice->sendLock != NULL)
+	{
+		FAudio_PlatformLockMutex(voice->sendLock);
+		LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+		for (i = 0; i < voice->sends.SendCount; i += 1)
+		{
+			voice->audio->pFree(voice->sendCoefficients[i]);
+		}
+		if (voice->sendCoefficients != NULL)
+		{
+			voice->audio->pFree(voice->sendCoefficients);
+		}
+		for (i = 0; i < voice->sends.SendCount; i += 1)
+		{
+			voice->audio->pFree(voice->mixCoefficients[i]);
+		}
+		if (voice->mixCoefficients != NULL)
+		{
+			voice->audio->pFree(voice->mixCoefficients);
+		}
+		if (voice->sendMix != NULL)
+		{
+			voice->audio->pFree(voice->sendMix);
+		}
+		if (voice->sendFilter != NULL)
+		{
+			voice->audio->pFree(voice->sendFilter);
+		}
+		if (voice->sendFilterState != NULL)
+		{
+			for (i = 0; i < voice->sends.SendCount; i += 1)
+			{
+				if (voice->sendFilterState[i] != NULL)
+				{
+					voice->audio->pFree(voice->sendFilterState[i]);
+				}
+			}
+			voice->audio->pFree(voice->sendFilterState);
+		}
+		if (voice->sends.pSends != NULL)
+		{
+			voice->audio->pFree(voice->sends.pSends);
+		}
+		FAudio_PlatformUnlockMutex(voice->sendLock);
+		LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+		LOG_MUTEX_DESTROY(voice->audio, voice->sendLock)
+		FAudio_PlatformDestroyMutex(voice->sendLock);
+	}
 
-    if (voice->effectLock != NULL)
-    {
-        FAudio_PlatformLockMutex(voice->effectLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
-        FAudio_INTERNAL_FreeEffectChain(voice);
-        FAudio_PlatformUnlockMutex(voice->effectLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-        LOG_MUTEX_DESTROY(voice->audio, voice->effectLock)
-        FAudio_PlatformDestroyMutex(voice->effectLock);
-    }
+	if (voice->effectLock != NULL)
+	{
+		FAudio_PlatformLockMutex(voice->effectLock);
+		LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+		FAudio_INTERNAL_FreeEffectChain(voice);
+		FAudio_PlatformUnlockMutex(voice->effectLock);
+		LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+		LOG_MUTEX_DESTROY(voice->audio, voice->effectLock)
+		FAudio_PlatformDestroyMutex(voice->effectLock);
+	}
 
-    if (voice->filterLock != NULL)
-    {
-        FAudio_PlatformLockMutex(voice->filterLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
-        if (voice->filterState != NULL)
-        {
-            voice->audio->pFree(voice->filterState);
-        }
-        FAudio_PlatformUnlockMutex(voice->filterLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
-        LOG_MUTEX_DESTROY(voice->audio, voice->filterLock)
-        FAudio_PlatformDestroyMutex(voice->filterLock);
-    }
+	if (voice->filterLock != NULL)
+	{
+		FAudio_PlatformLockMutex(voice->filterLock);
+		LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
+		if (voice->filterState != NULL)
+		{
+			voice->audio->pFree(voice->filterState);
+		}
+		FAudio_PlatformUnlockMutex(voice->filterLock);
+		LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
+		LOG_MUTEX_DESTROY(voice->audio, voice->filterLock)
+		FAudio_PlatformDestroyMutex(voice->filterLock);
+	}
 
-    if (voice->volumeLock != NULL)
-    {
-        FAudio_PlatformLockMutex(voice->volumeLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
-        if (voice->channelVolume != NULL)
-        {
-            voice->audio->pFree(voice->channelVolume);
-        }
-        FAudio_PlatformUnlockMutex(voice->volumeLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
-        LOG_MUTEX_DESTROY(voice->audio, voice->volumeLock)
-        FAudio_PlatformDestroyMutex(voice->volumeLock);
-    }
+	if (voice->volumeLock != NULL)
+	{
+		FAudio_PlatformLockMutex(voice->volumeLock);
+		LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+		if (voice->channelVolume != NULL)
+		{
+			voice->audio->pFree(voice->channelVolume);
+		}
+		FAudio_PlatformUnlockMutex(voice->volumeLock);
+		LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
+		LOG_MUTEX_DESTROY(voice->audio, voice->volumeLock)
+		FAudio_PlatformDestroyMutex(voice->volumeLock);
+	}
 
-    LOG_API_EXIT(voice->audio)
-    FAudio_Release(voice->audio);
-    voice->audio->pFree(voice);
+	LOG_API_EXIT(voice->audio)
+	FAudio_Release(voice->audio);
+	voice->audio->pFree(voice);
+	return 0;
+}
+
+void FAudioVoice_DestroyVoice(FAudioVoice *voice)
+{
+    FAudioVoice_DestroyVoiceSafeEXT(voice);
 }
 
 /* FAudioSourceVoice Interface */
