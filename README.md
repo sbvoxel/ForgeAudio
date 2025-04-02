@@ -21,6 +21,7 @@ Platforms
 
 - SoLoud
     - Easy to use. Not the best design for AAA games I hear (?)
+    - Very little development, but considered stable by author
 
 - OpenAL
     - Very old
