@@ -51,3 +51,5 @@ Platforms
     - Steam Audio
         - Steam Audio is a spatial audio middleware that adds realistic 3D sound propagation,
         occlusion, and HRTF-based rendering to existing audio engines.
+    - libsamplerate
+        - An audio Sample Rate Conversion library
