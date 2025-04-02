@@ -29,11 +29,14 @@ Platforms
 - FAudio
     - What this project is forked from
 
+* miniaudio
+    - Tries to do everything itself
+    - Odd looking project
+
 - Low-level (wrap the drivers / platform APIs):
     - libsoundio
     - PortAudio
     - RtAudio
-    - miniaudio
     - SDL
 
 - Platform APIs:
