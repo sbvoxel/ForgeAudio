@@ -28,8 +28,6 @@ Platforms
 
 - FAudio
     - What this project is forked from
-- Steam Audio
-	- Recently open-sourced and very interesting. Probably one of the best solutions.
 
 - Low-level (wrap the drivers / platform APIs):
     - libsoundio
@@ -44,3 +42,8 @@ Platforms
        * PipeWire
     - Windows
     	* WASAPI
+
+* Middleware
+    - Steam Audio
+        - Steam Audio is a spatial audio middleware that adds realistic 3D sound propagation,
+        occlusion, and HRTF-based rendering to existing audio engines.
