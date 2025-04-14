@@ -37,8 +37,8 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include <windef.h>
-#include <winbase.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 #define FAudio_malloc malloc
 #define FAudio_realloc realloc
@@ -57,6 +57,7 @@
 #define FAudio_strlcpy(ptr1, ptr2, size) lstrcpynA(ptr1, ptr2, size)
 
 #define FAudio_pow(x, y) pow(x, y)
+#define FAudio_powf(x, y) powf(x, y)
 #define FAudio_log(x) log(x)
 #define FAudio_log10(x) log10(x)
 #define FAudio_sin(x) sin(x)
@@ -90,29 +91,44 @@ extern void FAudio_Log(char const *msg);
 /* FIXME: Assuming little-endian! */
 #define FAudio_swap16LE(x) (x)
 #define FAudio_swap16BE(x) \
-    ((x >> 8)    & 0x00FF) | \
-    ((x << 8)    & 0xFF00)
+	((x >> 8)	& 0x00FF) | \
+	((x << 8)	& 0xFF00)
 #define FAudio_swap32LE(x) (x)
 #define FAudio_swap32BE(x) \
-    ((x >> 24)    & 0x000000FF) | \
-    ((x >> 8)    & 0x0000FF00) | \
-    ((x << 8)    & 0x00FF0000) | \
-    ((x << 24)    & 0xFF000000)
+	((x >> 24)	& 0x000000FF) | \
+	((x >> 8)	& 0x0000FF00) | \
+	((x << 8)	& 0x00FF0000) | \
+	((x << 24)	& 0xFF000000)
 #define FAudio_swap64LE(x) (x)
 #define FAudio_swap64BE(x) \
-    ((x >> 32)    & 0x00000000000000FF) | \
-    ((x >> 24)    & 0x000000000000FF00) | \
-    ((x >> 16)    & 0x0000000000FF0000) | \
-    ((x >> 8)    & 0x00000000FF000000) | \
-    ((x << 8)    & 0x000000FF00000000) | \
-    ((x << 16)    & 0x0000FF0000000000) | \
-    ((x << 24)    & 0x00FF000000000000) | \
-    ((x << 32)    & 0xFF00000000000000)
+	((x >> 32)	& 0x00000000000000FF) | \
+	((x >> 24)	& 0x000000000000FF00) | \
+	((x >> 16)	& 0x0000000000FF0000) | \
+	((x >> 8)	& 0x00000000FF000000) | \
+	((x << 8)	& 0x000000FF00000000) | \
+	((x << 16)	& 0x0000FF0000000000) | \
+	((x << 24)	& 0x00FF000000000000) | \
+	((x << 32)	& 0xFF00000000000000)
 #else
-#include <SDL_stdinc.h>
-#include <SDL_assert.h>
-#include <SDL_endian.h>
-#include <SDL_log.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_endian.h>
+#include <SDL3/SDL_log.h>
+
+#define FAudio_swap16LE(x) SDL_Swap16LE(x)
+#define FAudio_swap16BE(x) SDL_Swap16BE(x)
+#define FAudio_swap32LE(x) SDL_Swap32LE(x)
+#define FAudio_swap32BE(x) SDL_Swap32BE(x)
+#define FAudio_swap64LE(x) SDL_Swap64LE(x)
+#define FAudio_swap64BE(x) SDL_Swap64BE(x)
+
+/* SDL3 allows memcpy/memset for compiler optimization reasons */
+#ifdef SDL_SLOW_MEMCPY
+#define STB_MEMCPY_OVERRIDE
+#endif
+#ifdef SDL_SLOW_MEMSET
+#define STB_MEMSET_OVERRIDE
+#endif
 
 #define FAudio_malloc SDL_malloc
 #define FAudio_realloc SDL_realloc
@@ -131,6 +147,7 @@ extern void FAudio_Log(char const *msg);
 #define FAudio_strlcpy(ptr1, ptr2, size) SDL_strlcpy(ptr1, ptr2, size)
 
 #define FAudio_pow(x, y) SDL_pow(x, y)
+#define FAudio_powf(x, y) SDL_powf(x, y)
 #define FAudio_log(x) SDL_log(x)
 #define FAudio_log10(x) SDL_log10(x)
 #define FAudio_sin(x) SDL_sin(x)
@@ -154,14 +171,14 @@ extern void FAudio_Log(char const *msg);
 
 #ifdef FAUDIO_LOG_ASSERTIONS
 #define FAudio_assert(condition) \
-    { \
-        static uint8_t logged = 0; \
-        if (!(condition) && !logged) \
-        { \
-            SDL_Log("Assertion failed: %s", #condition); \
-            logged = 1; \
-        } \
-    }
+	{ \
+		static uint8_t logged = 0; \
+		if (!(condition) && !logged) \
+		{ \
+			SDL_Log("Assertion failed: %s", #condition); \
+			logged = 1; \
+		} \
+	}
 #else
 #define FAudio_assert SDL_assert
 #endif
@@ -171,13 +188,6 @@ extern void FAudio_Log(char const *msg);
 #define FAudio_getenv SDL_getenv
 #define FAudio_PRIu64 SDL_PRIu64
 #define FAudio_PRIx64 SDL_PRIx64
-
-#define FAudio_swap16LE(x) SDL_SwapLE16(x)
-#define FAudio_swap16BE(x) SDL_SwapBE16(x)
-#define FAudio_swap32LE(x) SDL_SwapLE32(x)
-#define FAudio_swap32BE(x) SDL_SwapBE32(x)
-#define FAudio_swap64LE(x) SDL_SwapLE64(x)
-#define FAudio_swap64BE(x) SDL_SwapBE64(x)
 #endif
 
 /* Easy Macros */

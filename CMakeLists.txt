@@ -18,7 +18,7 @@ option(ENABLE_WASAPI "Enable WASAPI backend" ON)
 
 option(BUILD_UTILS "Build utils/ folder" OFF)
 if(WIN32)
-option(PLATFORM_WIN32 "Enable native Win32 platform instead of SDL2" OFF)
+option(PLATFORM_WIN32 "Enable native Win32 platform instead of SDL3" OFF)
 endif()
 option(LOG_ASSERTIONS "Bind FAudio_assert to log, instead of platform's assert" OFF)
 option(FORCE_ENABLE_DEBUGCONFIGURATION "Enable DebugConfiguration in all build types" OFF)
@@ -73,7 +73,7 @@ add_library(SbAudio
     src/FAudio_internal.c
     src/FAudio_internal_simd.c
     src/FAudio_operationset.c
-    src/FAudio_platform_sdl2.c
+    src/FAudio_platform_sdl3.c
     src/FAudio_platform_win32.c
     src/XNA_Song.c
 )
@@ -112,26 +112,26 @@ if(DUMP_VOICES)
     target_compile_definitions(SbAudio PRIVATE FAUDIO_DUMP_VOICES)
 endif()
 
-# SDL2 Dependency
+# SDL3 Dependency
 if (PLATFORM_WIN32)
-    message(STATUS "not using SDL2")
-elseif (DEFINED SDL2_INCLUDE_DIRS AND DEFINED SDL2_LIBRARIES)
-    message(STATUS "using pre-defined variables SDL2_INCLUDE_DIRS and SDL2_LIBRARIES")
-    target_include_directories(SbAudio PUBLIC "$<BUILD_INTERFACE:${SDL2_INCLUDE_DIRS}>")
-    target_link_libraries(SbAudio PUBLIC ${SDL2_LIBRARIES})
+    message(STATUS "not using SDL3")
+elseif (DEFINED SDL3_INCLUDE_DIRS AND DEFINED SDL3_LIBRARIES)
+    message(STATUS "using pre-defined variables SDL3_INCLUDE_DIRS and SDL3_LIBRARIES")
+    target_include_directories(SbAudio PUBLIC "$<BUILD_INTERFACE:${SDL3_INCLUDE_DIRS}>")
+    target_link_libraries(SbAudio PUBLIC ${SDL3_LIBRARIES})
 else()
-    # Try to autodetect if either of the SDL2 variables isn't explicitly set
-    find_package(SDL2 CONFIG)
-    if (TARGET SDL2::SDL2)
-        message(STATUS "using TARGET SDL2::SDL2")
-        target_link_libraries(SbAudio PUBLIC SDL2::SDL2)
-    elseif (TARGET SDL2)
-        message(STATUS "using TARGET SDL2")
-        target_link_libraries(SbAudio PUBLIC SDL2)
+    # Try to autodetect if either of the SDL3 variables isn't explicitly set
+    find_package(SDL3 CONFIG)
+    if (TARGET SDL3::SDL3)
+        message(STATUS "using TARGET SDL3::SDL3")
+        target_link_libraries(SbAudio PUBLIC SDL3::SDL3)
+    elseif (TARGET SDL3)
+        message(STATUS "using TARGET SDL3")
+        target_link_libraries(SbAudio PUBLIC SDL3)
     else()
-        message(STATUS "no TARGET SDL2::SDL2, or SDL2, using variables")
-        target_include_directories(SbAudio PUBLIC "$<BUILD_INTERFACE:${SDL2_INCLUDE_DIRS}>")
-        target_link_libraries(SbAudio PUBLIC ${SDL2_LIBRARIES})
+        message(STATUS "no TARGET SDL3::SDL3, or SDL3, using variables")
+        target_include_directories(SbAudio PUBLIC "$<BUILD_INTERFACE:${SDL3_INCLUDE_DIRS}>")
+        target_link_libraries(SbAudio PUBLIC ${SDL3_LIBRARIES})
     endif()
 endif()
 
