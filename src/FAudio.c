@@ -154,35 +154,51 @@ uint32_t FAudio_AddRef(FAudio *audio)
     return audio->refcount;
 }
 
+static void destroy_voice(FAudioVoice *voice);
+
 uint32_t FAudio_Release(FAudio *audio)
 {
-    uint32_t refcount;
-    LOG_API_ENTER(audio)
-    audio->refcount -= 1;
-    refcount = audio->refcount;
-    if (audio->refcount == 0)
-    {
-        FAudio_OPERATIONSET_ClearAll(audio);
-        FAudio_StopEngine(audio);
-        audio->pFree(audio->decodeCache);
-        audio->pFree(audio->resampleCache);
-        audio->pFree(audio->effectChainCache);
-        LOG_MUTEX_DESTROY(audio, audio->sourceLock)
-        FAudio_PlatformDestroyMutex(audio->sourceLock);
-        LOG_MUTEX_DESTROY(audio, audio->submixLock)
-        FAudio_PlatformDestroyMutex(audio->submixLock);
-        LOG_MUTEX_DESTROY(audio, audio->callbackLock)
-        FAudio_PlatformDestroyMutex(audio->callbackLock);
-        LOG_MUTEX_DESTROY(audio, audio->operationLock)
-        FAudio_PlatformDestroyMutex(audio->operationLock);
-        audio->pFree(audio);
-        FAudio_PlatformRelease();
-    }
-    else
-    {
-        LOG_API_EXIT(audio)
-    }
-    return refcount;
+	uint32_t refcount;
+	FAudioVoice *voice;
+
+	LOG_API_ENTER(audio)
+	audio->refcount -= 1;
+	refcount = audio->refcount;
+	if (audio->refcount == 0)
+	{
+		while (audio->sources)
+		{
+			voice = (FAudioSourceVoice*) audio->sources->entry;
+			destroy_voice(voice);
+		}
+		while (audio->submixes)
+		{
+			voice = (FAudioSourceVoice*) audio->submixes->entry;
+			destroy_voice(voice);
+		}
+		if (audio->master)
+			destroy_voice(audio->master);
+		FAudio_OPERATIONSET_ClearAll(audio);
+		FAudio_StopEngine(audio);
+		audio->pFree(audio->decodeCache);
+		audio->pFree(audio->resampleCache);
+		audio->pFree(audio->effectChainCache);
+		LOG_MUTEX_DESTROY(audio, audio->sourceLock)
+		FAudio_PlatformDestroyMutex(audio->sourceLock);
+		LOG_MUTEX_DESTROY(audio, audio->submixLock)
+		FAudio_PlatformDestroyMutex(audio->submixLock);
+		LOG_MUTEX_DESTROY(audio, audio->callbackLock)
+		FAudio_PlatformDestroyMutex(audio->callbackLock);
+		LOG_MUTEX_DESTROY(audio, audio->operationLock)
+		FAudio_PlatformDestroyMutex(audio->operationLock);
+		audio->pFree(audio);
+		FAudio_PlatformRelease();
+	}
+	else
+	{
+		LOG_API_EXIT(audio)
+	}
+	return refcount;
 }
 
 uint32_t FAudio_GetDeviceCount(FAudio *audio, uint32_t *pCount)
@@ -536,14 +552,15 @@ uint32_t FAudio_CreateSourceVoice(
 
     LOG_INFO(audio, "-> %p", (void*) (*ppSourceVoice))
 
-    /* Add to list, finally. */
-    LinkedList_PrependEntry(
-        &audio->sources,
-        *ppSourceVoice,
-        audio->sourceLock,
-        audio->pMalloc
-    );
-    FAudio_AddRef(audio);
+	LOG_INFO(audio, "-> %p", (void*) (*ppSourceVoice))
+
+	/* Add to list, finally. */
+	LinkedList_PrependEntry(
+		&audio->sources,
+		*ppSourceVoice,
+		audio->sourceLock,
+		audio->pMalloc
+	);
 
 #ifdef FAUDIO_DUMP_VOICES
     FAudio_DUMPVOICE_Init(*ppSourceVoice);
@@ -653,8 +670,16 @@ uint32_t FAudio_CreateSubmixVoice(
     );
     FAudio_AddRef(audio);
 
-    LOG_API_EXIT(audio)
-    return 0;
+	/* Add to list, finally. */
+	FAudio_INTERNAL_InsertSubmixSorted(
+		&audio->submixes,
+		*ppSubmixVoice,
+		audio->submixLock,
+		audio->pMalloc
+	);
+
+	LOG_API_EXIT(audio)
+	return 0;
 }
 
 uint32_t FAudio_CreateMasteringVoice(
@@ -727,20 +752,19 @@ uint32_t FAudio_CreateMasteringVoice(
         &DATAFORMAT_SUBTYPE_IEEE_FLOAT
     );
 
-    /* Platform Device */
-    FAudio_AddRef(audio);
-    FAudio_PlatformInit(
-        audio,
-        audio->initFlags,
-        DeviceIndex,
-        &audio->mixFormat,
-        &audio->updateSize,
-        &audio->platform
-    );
-    if (audio->platform == NULL)
-    {
-        FAudioVoice_DestroyVoice(*ppMasteringVoice);
-        *ppMasteringVoice = NULL;
+	/* Platform Device */
+	FAudio_PlatformInit(
+		audio,
+		audio->initFlags,
+		DeviceIndex,
+		&audio->mixFormat,
+		&audio->updateSize,
+		&audio->platform
+	);
+	if (audio->platform == NULL)
+	{
+		FAudioVoice_DestroyVoice(*ppMasteringVoice);
+		*ppMasteringVoice = NULL;
 
         /* Not the best code, but it's probably true? */
         return FAUDIO_E_DEVICE_INVALIDATED;
@@ -2467,7 +2491,6 @@ uint32_t FAudioVoice_DestroyVoiceSafeEXT(FAudioVoice *voice)
 	}
 	destroy_voice(voice);
 	LOG_API_EXIT(voice->audio)
-	FAudio_Release(voice->audio);
 	return 0;
 }
 
