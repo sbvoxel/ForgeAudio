@@ -4,3 +4,6 @@ Commits not ported:
     68a555e
     all SDL3 commits
     522a349 (FACT has been removed)
+
+    CollectorEXT
+    https://github.com/FNA-XNA/FAudio/commit/7d14fdb7910040a0bdaa6ef82c8052c5ed25e238
