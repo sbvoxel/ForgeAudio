@@ -101,10 +101,7 @@ typedef struct ForgeApoProcessBuffer
 typedef struct ForgeApo ForgeApo;
 #endif /* FORGE_APO_DECL */
 
-typedef int32_t (FORGE_APO_CALL * ForgeApoAddRefFunc)(
-    void *fapo
-);
-typedef int32_t (FORGE_APO_CALL * ForgeApoReleaseFunc)(
+typedef void (FORGE_APO_CALL * ForgeApoDestroyFunc)(
     void *fapo
 );
 typedef ForgeResult (FORGE_APO_CALL * ForgeApoGetPropertiesFunc)(
@@ -170,8 +167,7 @@ typedef void (FORGE_APO_CALL * ForgeApoGetParametersFunc)(
 
 struct ForgeApo
 {
-    ForgeApoAddRefFunc AddRef;
-    ForgeApoReleaseFunc Release;
+    ForgeApoDestroyFunc Destroy;
     ForgeApoGetPropertiesFunc GetRegistrationProperties;
     ForgeApoIsInputFormatSupportedFunc IsInputFormatSupported;
     ForgeApoIsOutputFormatSupportedFunc IsOutputFormatSupported;
@@ -185,6 +181,8 @@ struct ForgeApo
     ForgeApoSetParametersFunc SetParameters;
     ForgeApoGetParametersFunc GetParameters;
 };
+
+FORGE_APO_API void forge_apo_destroy(ForgeApo *apo);
 
 #ifdef __cplusplus
 }

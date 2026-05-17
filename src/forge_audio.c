@@ -334,6 +334,8 @@ ForgeResult forge_audio_create_source_voice(
     const ForgeSendList *send_list,
     const ForgeEffectChain *effect_chain
 ) {
+    ForgeResult result;
+
     LOG_API_ENTER(audio)
     LOG_FORMAT(audio, source_format)
 
@@ -539,7 +541,25 @@ ForgeResult forge_audio_create_source_voice(
 
     /* Sends/Effects */
     ForgeAudio_Internal_VoiceOutputFrequency(*source_voice, send_list);
-    forge_voice_set_effect_chain(*source_voice, effect_chain);
+    result = forge_voice_set_effect_chain(*source_voice, effect_chain);
+    if (result != 0)
+    {
+        audio->free_func((*source_voice)->src.format);
+        LOG_MUTEX_DESTROY(audio, (*source_voice)->src.bufferLock)
+        ForgeAudio_PlatformDestroyMutex((*source_voice)->src.bufferLock);
+        LOG_MUTEX_DESTROY(audio, (*source_voice)->sendLock)
+        ForgeAudio_PlatformDestroyMutex((*source_voice)->sendLock);
+        LOG_MUTEX_DESTROY(audio, (*source_voice)->effectLock)
+        ForgeAudio_PlatformDestroyMutex((*source_voice)->effectLock);
+        LOG_MUTEX_DESTROY(audio, (*source_voice)->filterLock)
+        ForgeAudio_PlatformDestroyMutex((*source_voice)->filterLock);
+        LOG_MUTEX_DESTROY(audio, (*source_voice)->volumeLock)
+        ForgeAudio_PlatformDestroyMutex((*source_voice)->volumeLock);
+        audio->free_func(*source_voice);
+        *source_voice = NULL;
+        LOG_API_EXIT(audio)
+        return result;
+    }
 
     /* Default Levels */
     (*source_voice)->volume = 1.0f;
@@ -607,6 +627,8 @@ ForgeResult forge_audio_create_submix_voice(
     const ForgeSendList *send_list,
     const ForgeEffectChain *effect_chain
 ) {
+    ForgeResult result;
+
     LOG_API_ENTER(audio)
 
     if (send_list == NULL && audio->master == NULL)
@@ -668,7 +690,23 @@ ForgeResult forge_audio_create_submix_voice(
 
     /* Sends/Effects */
     ForgeAudio_Internal_VoiceOutputFrequency(*submix_voice, send_list);
-    forge_voice_set_effect_chain(*submix_voice, effect_chain);
+    result = forge_voice_set_effect_chain(*submix_voice, effect_chain);
+    if (result != 0)
+    {
+        audio->free_func((*submix_voice)->mix.inputCache);
+        LOG_MUTEX_DESTROY(audio, (*submix_voice)->sendLock)
+        ForgeAudio_PlatformDestroyMutex((*submix_voice)->sendLock);
+        LOG_MUTEX_DESTROY(audio, (*submix_voice)->effectLock)
+        ForgeAudio_PlatformDestroyMutex((*submix_voice)->effectLock);
+        LOG_MUTEX_DESTROY(audio, (*submix_voice)->filterLock)
+        ForgeAudio_PlatformDestroyMutex((*submix_voice)->filterLock);
+        LOG_MUTEX_DESTROY(audio, (*submix_voice)->volumeLock)
+        ForgeAudio_PlatformDestroyMutex((*submix_voice)->volumeLock);
+        audio->free_func(*submix_voice);
+        *submix_voice = NULL;
+        LOG_API_EXIT(audio)
+        return result;
+    }
 
     /* Default Levels */
     (*submix_voice)->volume = 1.0f;
@@ -715,6 +753,8 @@ ForgeResult forge_audio_create_master_voice(
     uint32_t DeviceIndex,
     const ForgeEffectChain *effect_chain
 ) {
+    ForgeResult result;
+
     LOG_API_ENTER(audio)
 
     /* For now we only support one allocated master voice at a time */
@@ -757,7 +797,18 @@ ForgeResult forge_audio_create_master_voice(
 
     /* Sends/Effects */
     ForgeAudio_zero(&(*mastering_voice)->sends, sizeof(ForgeSendList));
-    forge_voice_set_effect_chain(*mastering_voice, effect_chain);
+    result = forge_voice_set_effect_chain(*mastering_voice, effect_chain);
+    if (result != 0)
+    {
+        LOG_MUTEX_DESTROY(audio, (*mastering_voice)->effectLock)
+        ForgeAudio_PlatformDestroyMutex((*mastering_voice)->effectLock);
+        LOG_MUTEX_DESTROY(audio, (*mastering_voice)->volumeLock)
+        ForgeAudio_PlatformDestroyMutex((*mastering_voice)->volumeLock);
+        audio->free_func(*mastering_voice);
+        *mastering_voice = NULL;
+        LOG_API_EXIT(audio)
+        return result;
+    }
 
     /* This is now safe enough to assign */
     audio->master = *mastering_voice;
@@ -1334,18 +1385,22 @@ ForgeResult forge_voice_set_effect_chain(
     const ForgeEffectChain *effect_chain
 ) {
     ForgeApo *fapo;
+    ForgeResult result;
+    uint32_t lockedEffects;
     uint32_t channelCount;
     ForgeVoiceDetails voiceDetails;
     ForgeApoProperties *props;
     ForgeAudioFormatExtensible srcFmt, dstFmt;
     ForgeApoLockBuffer srcLockParams, dstLockParams;
+    uint8_t hasEffectChain;
 
     LOG_API_ENTER(voice->audio)
 
     forge_voice_get_details(voice, &voiceDetails);
+    hasEffectChain = (effect_chain != NULL && effect_chain->EffectCount > 0);
 
     /* SetEffectChain must not change the number of output channels once the voice has been created */
-    if (effect_chain == NULL && voice->outputChannels != 0)
+    if (!hasEffectChain && voice->outputChannels != 0)
     {
         /* cannot remove an effect chain that changes the number of channels */
         if (voice->outputChannels != voiceDetails.InputChannels)
@@ -1361,7 +1416,7 @@ ForgeResult forge_voice_set_effect_chain(
         }
     }
 
-    if (effect_chain != NULL && voice->outputChannels != 0)
+    if (hasEffectChain && voice->outputChannels != 0)
     {
         uint32_t lst = effect_chain->EffectCount - 1;
 
@@ -1382,7 +1437,7 @@ ForgeResult forge_voice_set_effect_chain(
     ForgeAudio_PlatformLockMutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
 
-    if (effect_chain == NULL)
+    if (!hasEffectChain)
     {
         ForgeAudio_Internal_FreeEffectChain(voice);
         ForgeAudio_zero(&voice->effects, sizeof(voice->effects));
@@ -1424,6 +1479,7 @@ ForgeResult forge_voice_set_effect_chain(
         ForgeAudio_memcpy(&srcFmt.SubFormat, &FORGE_AUDIO_SUBTYPE_IEEE_FLOAT, sizeof(ForgeGuid));
         ForgeAudio_memcpy(&dstFmt, &srcFmt, sizeof(srcFmt));
 
+        lockedEffects = 0;
         for (uint32_t i = 0; i < effect_chain->EffectCount; i += 1)
         {
             fapo = effect_chain->effects[i].effect;
@@ -1433,14 +1489,21 @@ ForgeResult forge_voice_set_effect_chain(
             dstFmt.Format.block_align = dstFmt.Format.channels * (dstFmt.Format.bits_per_sample / 8);
             dstFmt.Format.average_bytes_per_second = dstFmt.Format.sample_rate * dstFmt.Format.block_align;
 
-            /* FIXME: This error needs to be found _before_ we start
-             * shredding the voice's state. This function is highly
-             * destructive so any errors need to be found at the
-             * beginning, not in the middle! We can't undo this!
-             * -flibit
-             */
-            if (fapo->LockForProcess(fapo, 1, &srcLockParams, 1, &dstLockParams))
+            result = fapo->LockForProcess(
+                fapo,
+                1,
+                &srcLockParams,
+                1,
+                &dstLockParams
+            );
+            if (result != 0)
             {
+                for (uint32_t j = 0; j < lockedEffects; j += 1)
+                {
+                    effect_chain->effects[j].effect->UnlockForProcess(
+                        effect_chain->effects[j].effect
+                    );
+                }
                 LOG_ERROR(
                     voice->audio,
                     "%s",
@@ -1450,8 +1513,9 @@ ForgeResult forge_voice_set_effect_chain(
                 ForgeAudio_PlatformUnlockMutex(voice->effectLock);
                 LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
                 LOG_API_EXIT(voice->audio)
-                return ForgeResultUnsupportedFormat;
+                return result;
             }
+            lockedEffects += 1;
 
             /* Okay, now this effect is the source and the next
              * effect will be the destination. Repeat until no

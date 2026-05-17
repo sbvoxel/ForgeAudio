@@ -59,8 +59,7 @@ void forge_apo_base_init_with_allocator(
     ForgeReallocFunc customRealloc
 ) {
     /* Base Classes/Interfaces */
-    fapo->base.AddRef = (ForgeApoAddRefFunc) forge_apo_base_retain;
-    fapo->base.Release = (ForgeApoReleaseFunc) forge_apo_base_release;
+    fapo->base.Destroy = (ForgeApoDestroyFunc) forge_apo_base_destroy;
     fapo->base.GetRegistrationProperties = (ForgeApoGetPropertiesFunc)
         forge_apo_base_get_properties;
     fapo->base.IsInputFormatSupported = (ForgeApoIsInputFormatSupportedFunc)
@@ -105,26 +104,16 @@ void forge_apo_base_init_with_allocator(
     fapo->malloc_func = customMalloc;
     fapo->free_func = customFree;
     fapo->realloc_func = customRealloc;
-
-    /* Protected Variables */
-    fapo->reference_count = 1;
 }
 
-int32_t forge_apo_base_retain(ForgeApoBase *fapo)
+void forge_apo_destroy(ForgeApo *apo)
 {
-    fapo->reference_count += 1;
-    return fapo->reference_count;
+    apo->Destroy(apo);
 }
 
-int32_t forge_apo_base_release(ForgeApoBase *fapo)
+void forge_apo_base_destroy(ForgeApoBase *fapo)
 {
-    fapo->reference_count -= 1;
-    if (fapo->reference_count == 0)
-    {
-        fapo->Destructor(fapo);
-        return 0;
-    }
-    return fapo->reference_count;
+    fapo->Destructor(fapo);
 }
 
 ForgeResult forge_apo_base_get_properties(

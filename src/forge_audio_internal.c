@@ -1482,11 +1482,6 @@ void ForgeAudio_Internal_AllocEffectChain(
         return;
     }
 
-    for (uint32_t i = 0; i < effect_chain->EffectCount; i += 1)
-    {
-        effect_chain->effects[i].effect->AddRef(effect_chain->effects[i].effect);
-    }
-
     voice->effects.desc = (ForgeEffect*) voice->audio->malloc_func(
         voice->effects.count * sizeof(ForgeEffect)
     );
@@ -1523,7 +1518,7 @@ void ForgeAudio_Internal_FreeEffectChain(ForgeVoice *voice)
     for (uint32_t i = 0; i < voice->effects.count; i += 1)
     {
         voice->effects.desc[i].effect->UnlockForProcess(voice->effects.desc[i].effect);
-        voice->effects.desc[i].effect->Release(voice->effects.desc[i].effect);
+        forge_apo_destroy(voice->effects.desc[i].effect);
     }
 
     voice->audio->free_func(voice->effects.desc);

@@ -426,7 +426,7 @@ extern ForgeGuid FORGE_AUDIO_SUBTYPE_WMAUDIO_LOSSLESS;
 
 /* Version API */
 
-#define FORGE_AUDIO_ABI_VERSION     1
+#define FORGE_AUDIO_ABI_VERSION     2
 #define FORGE_AUDIO_MAJOR_VERSION     0
 #define FORGE_AUDIO_MINOR_VERSION     1
 #define FORGE_AUDIO_PATCH_VERSION     0
@@ -521,7 +521,10 @@ FORGE_AUDIO_API void forge_audio_unregister_callback(
  * callback:        Voice callbacks, see ForgeVoiceCallback documentation.
  * send_list:        List of output voices. If NULL, defaults to master.
  *            All output voices must have the same sample rate!
- * effect_chain:    List of ForgeApo effects. This value can be NULL.
+ * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
+ *            On success, ownership of every ForgeApo in the chain is transferred
+ *            to the voice. On failure, ownership remains with the caller.
+ *            Sharing one ForgeApo object across multiple voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -550,7 +553,10 @@ FORGE_AUDIO_API ForgeResult forge_audio_create_source_voice(
  *            stage 0 will process first, then stage 1, 2, and so on.
  * send_list:        List of output voices. If NULL, defaults to master.
  *            All output voices must have the same sample rate!
- * effect_chain:    List of ForgeApo effects. This value can be NULL.
+ * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
+ *            On success, ownership of every ForgeApo in the chain is transferred
+ *            to the voice. On failure, ownership remains with the caller.
+ *            Sharing one ForgeApo object across multiple voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -573,7 +579,10 @@ FORGE_AUDIO_API ForgeResult forge_audio_create_submix_voice(
  * InputSampleRate:    Device sample rate. Can be FORGE_AUDIO_DEFAULT_SAMPLERATE.
  * Flags:        This value must be 0.
  * DeviceIndex:        0 for the default device. See forge_audio_get_device_count.
- * effect_chain:    List of ForgeApo effects. This value can be NULL.
+ * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
+ *            On success, ownership of every ForgeApo in the chain is transferred
+ *            to the voice. On failure, ownership remains with the caller.
+ *            Sharing one ForgeApo object across multiple voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -675,10 +684,15 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_outputs(
 
 /* Change/Remove the effect chain for this voice.
  *
- * effect_chain:    List of ForgeApo effects. This value can be NULL.
+ * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
  *            Note that the final channel counts for this chain MUST
  *            match the input/output channel count that was
  *            determined at voice creation time!
+ *            On success, ownership of every ForgeApo in the new chain is
+ *            transferred to the voice. On failure, ownership remains with the
+ *            caller and the current chain is unchanged. Passing NULL destroys
+ *            the current chain. Sharing one ForgeApo object across multiple
+ *            voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
  */

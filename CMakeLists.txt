@@ -5,6 +5,7 @@ project(ForgeAudio C)
 SET(LIB_MAJOR_VERSION "0")
 SET(LIB_MINOR_VERSION "1")
 SET(LIB_REVISION "00")
+SET(LIB_ABI_VERSION "2")
 SET(LIB_VERSION "${LIB_MAJOR_VERSION}.${LIB_MINOR_VERSION}.${LIB_REVISION}")
 
 set(CMAKE_C_STANDARD 23)
@@ -104,7 +105,7 @@ target_include_directories(ForgeAudio PUBLIC
 # Shared object name (soname)
 set_target_properties(ForgeAudio PROPERTIES OUTPUT_NAME "ForgeAudio"
     VERSION ${LIB_VERSION}
-    SOVERSION ${LIB_MAJOR_VERSION}
+    SOVERSION ${LIB_ABI_VERSION}
 )
 
 # Dump source voices to RIFF WAVE files

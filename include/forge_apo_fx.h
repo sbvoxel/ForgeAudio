@@ -144,7 +144,8 @@ typedef struct ForgeApoEchoParameters
 /* Creates an effect from the pre-made ForgeApoFx effect library.
  *
  * clsid:        A reference to one of the FORGE_APO_FX_ID_* GUIDs
- * effect:        Filled with the resulting ForgeApo object
+ * effect:        Filled with the resulting caller-owned ForgeApo object. Destroy
+ *            with forge_apo_destroy, or transfer to a voice effect chain.
  * init_data:        Starting parameters, pass NULL to use the default values
  * InitDataByteSize:    Parameter struct size, pass 0 if init_data is NULL
  *

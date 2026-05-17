@@ -255,6 +255,9 @@ typedef struct ForgeAudioReverbI3DL2Parameters
 
 /* Functions */
 
+/* These return caller-owned ForgeApo objects. Destroy with forge_apo_destroy,
+ * or transfer to a voice effect chain.
+ */
 FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeApo** apo, uint32_t Flags);
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeApo** apo, uint32_t Flags);
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeApo** apo, uint32_t Flags);

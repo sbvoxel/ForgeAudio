@@ -1363,6 +1363,8 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
     uint32_t OutputLockedParameterCount,
     const ForgeApoLockBuffer *output_locked_parameters
 ) {
+    ForgeResult result;
+
     /* Reverb specific validation */
     if (!IsFloatFormat(input_locked_parameters->format))
     {
@@ -1385,6 +1387,18 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
             output_locked_parameters->format->channels == 6)))
     {
         return ForgeResultApoFormatUnsupported;
+    }
+
+    result = forge_apo_base_lock_for_process(
+        &fapo->base,
+        InputLockedParameterCount,
+        input_locked_parameters,
+        OutputLockedParameterCount,
+        output_locked_parameters
+    );
+    if (result != 0)
+    {
+        return result;
     }
 
     /* Save the things we care about */
@@ -1419,14 +1433,14 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
         );
     }
 
-    /* Call    parent to do basic validation */
-    return forge_apo_base_lock_for_process(
-        &fapo->base,
-        InputLockedParameterCount,
-        input_locked_parameters,
-        OutputLockedParameterCount,
-        output_locked_parameters
-    );
+    return 0;
+}
+
+void ForgeAudioFxReverb_UnlockForProcess(ForgeAudioFxReverb *fapo)
+{
+    DspReverb_Destroy(&fapo->reverb, fapo->base.free_func);
+    ForgeAudio_zero(&fapo->reverb, sizeof(DspReverb));
+    forge_apo_base_unlock_for_process(&fapo->base);
 }
 
 static inline void ForgeAudioFxReverb_CopyBuffer(
@@ -1705,6 +1719,8 @@ ForgeResult forge_audio_create_reverb_with_allocator(
     /* Function table... */
     result->base.base.LockForProcess = (ForgeApoLockForProcessFunc)
         ForgeAudioFxReverb_LockForProcess;
+    result->base.base.UnlockForProcess = (ForgeApoUnlockForProcessFunc)
+        ForgeAudioFxReverb_UnlockForProcess;
     result->base.base.IsInputFormatSupported = (ForgeApoIsInputFormatSupportedFunc)
         ForgeAudioFxReverb_IsInputFormatSupported;
     result->base.base.IsOutputFormatSupported = (ForgeApoIsOutputFormatSupportedFunc)
@@ -1876,6 +1892,8 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     /* Function table... */
     result->base.base.LockForProcess = (ForgeApoLockForProcessFunc)
         ForgeAudioFxReverb_LockForProcess;
+    result->base.base.UnlockForProcess = (ForgeApoUnlockForProcessFunc)
+        ForgeAudioFxReverb_UnlockForProcess;
     result->base.base.IsInputFormatSupported = (ForgeApoIsInputFormatSupportedFunc)
         ForgeAudioFxReverb_IsInputFormatSupported;
     result->base.base.IsOutputFormatSupported = (ForgeApoIsOutputFormatSupportedFunc)

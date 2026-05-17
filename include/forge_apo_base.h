@@ -87,9 +87,6 @@ struct ForgeApoBase
     uint8_t newer_results_ready;
     uint8_t producer;
 
-    /* Protected Variables */
-    int32_t reference_count; /* LONG */
-
     /* Allocator callbacks, NOT part of ForgeApoBase spec! */
     ForgeMallocFunc malloc_func;
     ForgeFreeFunc free_func;
@@ -117,9 +114,7 @@ FORGE_APO_API void forge_apo_base_init_with_allocator(
     ForgeReallocFunc customRealloc
 );
 
-FORGE_APO_API int32_t forge_apo_base_retain(ForgeApoBase *fapo);
-
-FORGE_APO_API int32_t forge_apo_base_release(ForgeApoBase *fapo);
+FORGE_APO_API void forge_apo_base_destroy(ForgeApoBase *fapo);
 
 FORGE_APO_API ForgeResult forge_apo_base_get_properties(
     ForgeApoBase *fapo,
