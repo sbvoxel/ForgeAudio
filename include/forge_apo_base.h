@@ -121,26 +121,26 @@ FORGE_APO_API int32_t forge_apo_base_retain(ForgeApoBase *fapo);
 
 FORGE_APO_API int32_t forge_apo_base_release(ForgeApoBase *fapo);
 
-FORGE_APO_API uint32_t forge_apo_base_get_properties(
+FORGE_APO_API ForgeResult forge_apo_base_get_properties(
     ForgeApoBase *fapo,
     ForgeApoProperties **ppRegistrationProperties
 );
 
-FORGE_APO_API uint32_t forge_apo_base_is_input_format_supported(
+FORGE_APO_API ForgeResult forge_apo_base_is_input_format_supported(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pOutputFormat,
     const ForgeAudioFormat *pRequestedInputFormat,
     ForgeAudioFormat **ppSupportedInputFormat
 );
 
-FORGE_APO_API uint32_t forge_apo_base_is_output_format_supported(
+FORGE_APO_API ForgeResult forge_apo_base_is_output_format_supported(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pInputFormat,
     const ForgeAudioFormat *pRequestedOutputFormat,
     ForgeAudioFormat **ppSupportedOutputFormat
 );
 
-FORGE_APO_API uint32_t forge_apo_base_initialize(
+FORGE_APO_API ForgeResult forge_apo_base_initialize(
     ForgeApoBase *fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -148,7 +148,7 @@ FORGE_APO_API uint32_t forge_apo_base_initialize(
 
 FORGE_APO_API void forge_apo_base_reset(ForgeApoBase *fapo);
 
-FORGE_APO_API uint32_t forge_apo_base_lock_for_process(
+FORGE_APO_API ForgeResult forge_apo_base_lock_for_process(
     ForgeApoBase *fapo,
     uint32_t InputLockedParameterCount,
     const ForgeApoLockBuffer *pInputLockedParameters,
@@ -168,13 +168,13 @@ FORGE_APO_API uint32_t forge_apo_base_calc_output_frames(
     uint32_t InputFrameCount
 );
 
-FORGE_APO_API uint32_t forge_apo_base_validate_default_format(
+FORGE_APO_API ForgeResult forge_apo_base_validate_default_format(
     ForgeApoBase *fapo,
     ForgeAudioFormat *pFormat,
     uint8_t fOverwrite
 );
 
-FORGE_APO_API uint32_t forge_apo_base_validate_format_pair(
+FORGE_APO_API ForgeResult forge_apo_base_validate_format_pair(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pSupportedFormat,
     ForgeAudioFormat *pRequestedFormat,

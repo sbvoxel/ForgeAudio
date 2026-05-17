@@ -107,23 +107,23 @@ typedef int32_t (FORGE_APO_CALL * ForgeApoAddRefFunc)(
 typedef int32_t (FORGE_APO_CALL * ForgeApoReleaseFunc)(
     void *fapo
 );
-typedef uint32_t (FORGE_APO_CALL * ForgeApoGetPropertiesFunc)(
+typedef ForgeResult (FORGE_APO_CALL * ForgeApoGetPropertiesFunc)(
     void* fapo,
     ForgeApoProperties **ppRegistrationProperties
 );
-typedef uint32_t (FORGE_APO_CALL * ForgeApoIsInputFormatSupportedFunc)(
+typedef ForgeResult (FORGE_APO_CALL * ForgeApoIsInputFormatSupportedFunc)(
     void* fapo,
     const ForgeAudioFormat *pOutputFormat,
     const ForgeAudioFormat *pRequestedInputFormat,
     ForgeAudioFormat **ppSupportedInputFormat
 );
-typedef uint32_t (FORGE_APO_CALL * ForgeApoIsOutputFormatSupportedFunc)(
+typedef ForgeResult (FORGE_APO_CALL * ForgeApoIsOutputFormatSupportedFunc)(
     void* fapo,
     const ForgeAudioFormat *pInputFormat,
     const ForgeAudioFormat *pRequestedOutputFormat,
     ForgeAudioFormat **ppSupportedOutputFormat
 );
-typedef uint32_t (FORGE_APO_CALL * ForgeApoInitializeFunc)(
+typedef ForgeResult (FORGE_APO_CALL * ForgeApoInitializeFunc)(
     void* fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -131,7 +131,7 @@ typedef uint32_t (FORGE_APO_CALL * ForgeApoInitializeFunc)(
 typedef void (FORGE_APO_CALL * ForgeApoResetFunc)(
     void* fapo
 );
-typedef uint32_t (FORGE_APO_CALL * ForgeApoLockForProcessFunc)(
+typedef ForgeResult (FORGE_APO_CALL * ForgeApoLockForProcessFunc)(
     void* fapo,
     uint32_t InputLockedParameterCount,
     const ForgeApoLockBuffer *pInputLockedParameters,

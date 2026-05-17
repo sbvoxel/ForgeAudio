@@ -255,26 +255,26 @@ typedef struct ForgeAudioReverbI3DL2Parameters
 
 /* Functions */
 
-FORGE_AUDIO_API uint32_t forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags);
-FORGE_AUDIO_API uint32_t forge_audio_create_reverb(ForgeApo** ppApo, uint32_t Flags);
-FORGE_AUDIO_API uint32_t forge_audio_create_reverb_7point1(ForgeApo** ppApo, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeApo** ppApo, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeApo** ppApo, uint32_t Flags);
 
 /* See "extensions/custom allocator.txt" for more information. */
-FORGE_AUDIO_API uint32_t forge_audio_create_volume_meter_with_allocator(
+FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter_with_allocator(
     ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-FORGE_AUDIO_API uint32_t forge_audio_create_reverb_with_allocator(
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_with_allocator(
     ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-FORGE_AUDIO_API uint32_t forge_audio_create_reverb_7point1_with_allocator(
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,

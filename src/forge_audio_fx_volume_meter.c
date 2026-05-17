@@ -80,7 +80,7 @@ typedef struct ForgeAudioFxVolumeMeter
     uint16_t channels;
 } ForgeAudioFxVolumeMeter;
 
-uint32_t ForgeAudioFxVolumeMeter_LockForProcess(
+ForgeResult ForgeAudioFxVolumeMeter_LockForProcess(
     ForgeAudioFxVolumeMeter *fapo,
     uint32_t InputLockedParameterCount,
     const ForgeApoLockBuffer *pInputLockedParameters,
@@ -96,7 +96,7 @@ uint32_t ForgeAudioFxVolumeMeter_LockForProcess(
         OutputLockedParameterCount < fapo->base.m_pRegistrationProperties->MinOutputBufferCount ||
         OutputLockedParameterCount > fapo->base.m_pRegistrationProperties->MaxOutputBufferCount    )
     {
-        return FORGE_AUDIO_E_INVALID_ARG;
+        return ForgeResultInvalidArgument;
     }
 
 
@@ -105,7 +105,7 @@ uint32_t ForgeAudioFxVolumeMeter_LockForProcess(
         if (    (fapo->base.m_pRegistrationProperties->Flags & flag) && \
             (pInputLockedParameters->pFormat->prop != pOutputLockedParameters->pFormat->prop)    ) \
         { \
-            return FORGE_AUDIO_E_INVALID_ARG; \
+            return ForgeResultInvalidArgument; \
         }
     VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_CHANNELS_MUST_MATCH, nChannels)
     VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH, nSamplesPerSec)
@@ -114,7 +114,7 @@ uint32_t ForgeAudioFxVolumeMeter_LockForProcess(
     if (    (fapo->base.m_pRegistrationProperties->Flags & FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH) &&
         (InputLockedParameterCount != OutputLockedParameterCount)    )
     {
-        return FORGE_AUDIO_E_INVALID_ARG;
+        return ForgeResultInvalidArgument;
     }
 
     /* Allocate volume meter arrays */
@@ -218,7 +218,7 @@ void ForgeAudioFxVolumeMeter_Free(void* fapo)
 
 /* Public API */
 
-uint32_t forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags)
+ForgeResult forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags)
 {
     return forge_audio_create_volume_meter_with_allocator(
         ppApo,
@@ -229,7 +229,7 @@ uint32_t forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags)
     );
 }
 
-uint32_t forge_audio_create_volume_meter_with_allocator(
+ForgeResult forge_audio_create_volume_meter_with_allocator(
     ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,

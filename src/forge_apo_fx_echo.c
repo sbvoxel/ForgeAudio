@@ -80,7 +80,7 @@ typedef struct ForgeApoEcho
     /* TODO */
 } ForgeApoEcho;
 
-uint32_t ForgeApoEcho_Initialize(
+ForgeResult ForgeApoEcho_Initialize(
     ForgeApoEcho *fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -122,7 +122,7 @@ void ForgeApoEcho_Free(void* fapo)
 
 /* Public API */
 
-uint32_t forge_apo_create_echo(
+ForgeResult forge_apo_create_echo(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,

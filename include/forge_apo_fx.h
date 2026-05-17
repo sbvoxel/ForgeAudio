@@ -148,9 +148,9 @@ typedef struct ForgeApoEchoParameters
  * pInitData:        Starting parameters, pass NULL to use the default values
  * InitDataByteSize:    Parameter struct size, pass 0 if pInitData is NULL
  *
- * Returns 0 on success.
+ * Returns ForgeResultSuccess on success.
  */
-FORGE_APO_FX_API uint32_t forge_apo_create_effect(
+FORGE_APO_FX_API ForgeResult forge_apo_create_effect(
     const ForgeGuid *clsid,
     ForgeApo **pEffect,
     const void *pInitData,
@@ -158,7 +158,7 @@ FORGE_APO_FX_API uint32_t forge_apo_create_effect(
 );
 
 /* See "extensions/custom allocator.txt" for more details. */
-FORGE_APO_FX_API uint32_t forge_apo_create_effect_with_allocator(
+FORGE_APO_FX_API ForgeResult forge_apo_create_effect_with_allocator(
     const ForgeGuid *clsid,
     ForgeApo **pEffect,
     const void *pInitData,

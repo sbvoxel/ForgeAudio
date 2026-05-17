@@ -1534,7 +1534,7 @@ void ForgeAudio_Internal_FreeEffectChain(ForgeVoice *voice)
     LOG_FUNC_EXIT(voice->audio)
 }
 
-uint32_t ForgeAudio_Internal_VoiceOutputFrequency(
+ForgeResult ForgeAudio_Internal_VoiceOutputFrequency(
     ForgeVoice *voice,
     const ForgeSendList *pSendList
 ) {
@@ -1567,7 +1567,7 @@ uint32_t ForgeAudio_Internal_VoiceOutputFrequency(
             (voice->effects.count > 0)    )
         {
             LOG_FUNC_EXIT(voice->audio)
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
         voice->src.resampleSamples = newResampleSamples;
     }
@@ -1578,7 +1578,7 @@ uint32_t ForgeAudio_Internal_VoiceOutputFrequency(
             (voice->effects.count > 0)    )
         {
             LOG_FUNC_EXIT(voice->audio)
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
         voice->mix.outputSamples = newResampleSamples;
 

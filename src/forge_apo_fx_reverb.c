@@ -80,7 +80,7 @@ typedef struct ForgeApoReverb
     /* TODO */
 } ForgeApoReverb;
 
-uint32_t ForgeApoReverb_Initialize(
+ForgeResult ForgeApoReverb_Initialize(
     ForgeApoReverb *fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -122,7 +122,7 @@ void ForgeApoReverb_Free(void* fapo)
 
 /* Public API */
 
-uint32_t forge_apo_create_reverb(
+ForgeResult forge_apo_create_reverb(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,

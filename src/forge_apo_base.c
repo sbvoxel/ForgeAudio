@@ -127,7 +127,7 @@ int32_t forge_apo_base_release(ForgeApoBase *fapo)
     return fapo->m_lReferenceCount;
 }
 
-uint32_t forge_apo_base_get_properties(
+ForgeResult forge_apo_base_get_properties(
     ForgeApoBase *fapo,
     ForgeApoProperties **ppRegistrationProperties
 ) {
@@ -142,7 +142,7 @@ uint32_t forge_apo_base_get_properties(
     return 0;
 }
 
-uint32_t forge_apo_base_is_input_format_supported(
+ForgeResult forge_apo_base_is_input_format_supported(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pOutputFormat,
     const ForgeAudioFormat *pRequestedInputFormat,
@@ -172,12 +172,12 @@ uint32_t forge_apo_base_is_input_format_supported(
             (*ppSupportedInputFormat)->wBitsPerSample =
                 FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FORGE_APO_E_FORMAT_UNSUPPORTED;
+        return ForgeResultApoFormatUnsupported;
     }
     return 0;
 }
 
-uint32_t forge_apo_base_is_output_format_supported(
+ForgeResult forge_apo_base_is_output_format_supported(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pInputFormat,
     const ForgeAudioFormat *pRequestedOutputFormat,
@@ -207,12 +207,12 @@ uint32_t forge_apo_base_is_output_format_supported(
             (*ppSupportedOutputFormat)->wBitsPerSample =
                 FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FORGE_APO_E_FORMAT_UNSUPPORTED;
+        return ForgeResultApoFormatUnsupported;
     }
     return 0;
 }
 
-uint32_t forge_apo_base_initialize(
+ForgeResult forge_apo_base_initialize(
     ForgeApoBase *fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -224,7 +224,7 @@ void forge_apo_base_reset(ForgeApoBase *fapo)
 {
 }
 
-uint32_t forge_apo_base_lock_for_process(
+ForgeResult forge_apo_base_lock_for_process(
     ForgeApoBase *fapo,
     uint32_t InputLockedParameterCount,
     const ForgeApoLockBuffer *pInputLockedParameters,
@@ -237,7 +237,7 @@ uint32_t forge_apo_base_lock_for_process(
         OutputLockedParameterCount < fapo->m_pRegistrationProperties->MinOutputBufferCount ||
         OutputLockedParameterCount > fapo->m_pRegistrationProperties->MaxOutputBufferCount    )
     {
-        return FORGE_AUDIO_E_INVALID_ARG;
+        return ForgeResultInvalidArgument;
     }
 
 
@@ -246,7 +246,7 @@ uint32_t forge_apo_base_lock_for_process(
         if (    (fapo->m_pRegistrationProperties->Flags & flag) && \
             (pInputLockedParameters->pFormat->prop != pOutputLockedParameters->pFormat->prop)    ) \
         { \
-            return FORGE_AUDIO_E_INVALID_ARG; \
+            return ForgeResultInvalidArgument; \
         }
     VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_CHANNELS_MUST_MATCH, nChannels)
     VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH, nSamplesPerSec)
@@ -255,7 +255,7 @@ uint32_t forge_apo_base_lock_for_process(
     if (    (fapo->m_pRegistrationProperties->Flags & FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH) &&
         (InputLockedParameterCount != OutputLockedParameterCount)    )
     {
-        return FORGE_AUDIO_E_INVALID_ARG;
+        return ForgeResultInvalidArgument;
     }
     fapo->m_fIsLocked = 1;
     return 0;
@@ -276,7 +276,7 @@ uint32_t forge_apo_base_calc_output_frames(ForgeApoBase *fapo, uint32_t InputFra
     return InputFrameCount;
 }
 
-uint32_t forge_apo_base_validate_default_format(
+ForgeResult forge_apo_base_validate_default_format(
     ForgeApoBase *fapo,
     ForgeAudioFormat *pFormat,
     uint8_t fOverwrite
@@ -305,12 +305,12 @@ uint32_t forge_apo_base_validate_default_format(
             pFormat->wBitsPerSample =
                 FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FORGE_APO_E_FORMAT_UNSUPPORTED;
+        return ForgeResultApoFormatUnsupported;
     }
     return 0;
 }
 
-uint32_t forge_apo_base_validate_format_pair(
+ForgeResult forge_apo_base_validate_format_pair(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pSupportedFormat,
     ForgeAudioFormat *pRequestedFormat,
@@ -340,7 +340,7 @@ uint32_t forge_apo_base_validate_format_pair(
             pRequestedFormat->wBitsPerSample =
                 FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FORGE_APO_E_FORMAT_UNSUPPORTED;
+        return ForgeResultApoFormatUnsupported;
     }
     return 0;
 }

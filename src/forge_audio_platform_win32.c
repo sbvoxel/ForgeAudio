@@ -548,7 +548,7 @@ uint32_t ForgeAudio_PlatformGetDeviceCount(void)
 	return count;
 }
 
-uint32_t ForgeAudio_PlatformGetDeviceDetails(
+ForgeResult ForgeAudio_PlatformGetDeviceDetails(
     uint32_t index,
     ForgeDeviceDetails *details
 ) {
@@ -559,7 +559,7 @@ uint32_t ForgeAudio_PlatformGetDeviceDetails(
 	IPropertyStore* properties;
 	PROPVARIANT deviceName;
 	uint32_t count = 0;
-	uint32_t ret = 0;
+	ForgeResult ret = ForgeResultSuccess;
 	HRESULT hr;
 	WCHAR *str;
 	GUID sub;
@@ -572,7 +572,7 @@ uint32_t ForgeAudio_PlatformGetDeviceDetails(
 	if (index >= count)
 	{
 		ForgeAudio_PlatformRelease();
-		return FORGE_AUDIO_E_INVALID_CALL;
+		return ForgeResultInvalidCall;
 	}
 
 	if (FAILED(hr = ForgeAudio_OpenDevice(index, &device)))

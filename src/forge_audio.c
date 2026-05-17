@@ -146,7 +146,7 @@ uint32_t forge_audio_linked_version(void)
 
 /* ForgeAudioEngine Interface */
 
-uint32_t forge_audio_create(
+ForgeResult forge_audio_create(
     ForgeAudioEngine **engine,
     uint32_t Flags
 ) {
@@ -159,19 +159,19 @@ uint32_t forge_audio_create(
     );
 }
 
-static uint32_t engine_construct_with_allocator(
+static ForgeResult engine_construct_with_allocator(
     ForgeAudioEngine **engine,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 
-static uint32_t engine_initialize(
+static ForgeResult engine_initialize(
     ForgeAudioEngine *audio,
     uint32_t Flags
 );
 
-uint32_t forge_audio_create_with_allocator(
+ForgeResult forge_audio_create_with_allocator(
     ForgeAudioEngine **engine,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
@@ -188,7 +188,7 @@ uint32_t forge_audio_create_with_allocator(
     return 0;
 }
 
-static uint32_t engine_construct_with_allocator(
+static ForgeResult engine_construct_with_allocator(
     ForgeAudioEngine **engine,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -297,7 +297,7 @@ uint32_t forge_audio_engine_release(ForgeAudioEngine *audio)
 	return refcount;
 }
 
-uint32_t forge_audio_get_device_count(ForgeAudioEngine *audio, uint32_t *pCount)
+ForgeResult forge_audio_get_device_count(ForgeAudioEngine *audio, uint32_t *pCount)
 {
     LOG_API_ENTER(audio)
     *pCount = ForgeAudio_PlatformGetDeviceCount();
@@ -305,7 +305,7 @@ uint32_t forge_audio_get_device_count(ForgeAudioEngine *audio, uint32_t *pCount)
     return 0;
 }
 
-uint32_t forge_audio_get_device_details(
+ForgeResult forge_audio_get_device_details(
     ForgeAudioEngine *audio,
     uint32_t Index,
     ForgeDeviceDetails *pDeviceDetails
@@ -317,7 +317,7 @@ uint32_t forge_audio_get_device_details(
     return result;
 }
 
-static uint32_t engine_initialize(
+static ForgeResult engine_initialize(
     ForgeAudioEngine *audio,
     uint32_t Flags
 ) {
@@ -337,7 +337,7 @@ static uint32_t engine_initialize(
     return 0;
 }
 
-uint32_t forge_audio_register_callback(
+ForgeResult forge_audio_register_callback(
     ForgeAudioEngine *audio,
     ForgeEngineCallback *pCallback
 ) {
@@ -366,7 +366,7 @@ void forge_audio_unregister_callback(
     LOG_API_EXIT(audio)
 }
 
-uint32_t forge_audio_create_source_voice(
+ForgeResult forge_audio_create_source_voice(
     ForgeAudioEngine *audio,
     ForgeSourceVoice **ppSourceVoice,
     const ForgeAudioFormat *pSourceFormat,
@@ -382,12 +382,12 @@ uint32_t forge_audio_create_source_voice(
     if (pSendList == NULL && audio->master == NULL)
     {
         LOG_ERROR(audio, "%s", "CreateSourceVoice called before mastering voice was initialized");
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     if (!ForgeAudio_Internal_ValidateUncompressedFormat(audio, pSourceFormat))
     {
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     *ppSourceVoice = (ForgeSourceVoice*) audio->pMalloc(sizeof(ForgeVoice));
@@ -639,7 +639,7 @@ uint32_t forge_audio_create_source_voice(
     return 0;
 }
 
-uint32_t forge_audio_create_submix_voice(
+ForgeResult forge_audio_create_submix_voice(
     ForgeAudioEngine *audio,
     ForgeSubmixVoice **ppSubmixVoice,
     uint32_t InputChannels,
@@ -654,7 +654,7 @@ uint32_t forge_audio_create_submix_voice(
     if (pSendList == NULL && audio->master == NULL)
     {
         LOG_ERROR(audio, "%s", "CreateSubmixVoice called before mastering voice was initialized");
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     *ppSubmixVoice = (ForgeSubmixVoice*) audio->pMalloc(sizeof(ForgeVoice));
@@ -748,7 +748,7 @@ uint32_t forge_audio_create_submix_voice(
 	return 0;
 }
 
-uint32_t forge_audio_create_master_voice(
+ForgeResult forge_audio_create_master_voice(
     ForgeAudioEngine *audio,
     ForgeMasterVoice **ppMasteringVoice,
     uint32_t InputChannels,
@@ -768,7 +768,7 @@ uint32_t forge_audio_create_master_voice(
         ForgeDeviceDetails details;
         if (forge_audio_get_device_details(audio, DeviceIndex, &details) != 0)
         {
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
         if (InputChannels == FORGE_AUDIO_DEFAULT_CHANNELS)
         {
@@ -833,7 +833,7 @@ uint32_t forge_audio_create_master_voice(
 		*ppMasteringVoice = NULL;
 
         /* Not the best code, but it's probably true? */
-        return FORGE_AUDIO_E_DEVICE_INVALIDATED;
+        return ForgeResultDeviceInvalidated;
     }
     audio->master->outputChannels = audio->mixFormat.Format.nChannels;
     audio->master->master.inputSampleRate = audio->mixFormat.Format.nSamplesPerSec;
@@ -863,7 +863,7 @@ void forge_audio_set_engine_procedure(
     LOG_API_EXIT(audio)
 }
 
-uint32_t forge_audio_start_engine(ForgeAudioEngine *audio)
+ForgeResult forge_audio_start_engine(ForgeAudioEngine *audio)
 {
     LOG_API_ENTER(audio)
     audio->active = 1;
@@ -880,7 +880,7 @@ void forge_audio_stop_engine(ForgeAudioEngine *audio)
     LOG_API_EXIT(audio)
 }
 
-uint32_t forge_audio_commit_operation_set(ForgeAudioEngine *audio, uint32_t OperationSet)
+ForgeResult forge_audio_commit_operation_set(ForgeAudioEngine *audio, uint32_t OperationSet)
 {
     LOG_API_ENTER(audio)
     if (OperationSet == FORGE_AUDIO_COMMIT_ALL)
@@ -1102,7 +1102,7 @@ void forge_voice_get_details(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_voice_set_outputs(
+ForgeResult forge_voice_set_outputs(
     ForgeVoice *voice,
     const ForgeSendList *pSendList
 ) {
@@ -1115,7 +1115,7 @@ uint32_t forge_voice_set_outputs(
     if (voice->type == FORGE_AUDIO_VOICE_MASTER)
     {
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     if (pSendList != NULL && pSendList->SendCount > 1)
@@ -1123,7 +1123,7 @@ uint32_t forge_voice_set_outputs(
         if (pSendList->pSends[0].pOutputVoice->type == FORGE_AUDIO_VOICE_SOURCE)
         {
             LOG_API_EXIT(voice->audio)
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
         sendRate = (pSendList->pSends[0].pOutputVoice->type == FORGE_AUDIO_VOICE_MASTER) ?
             pSendList->pSends[0].pOutputVoice->master.inputSampleRate :
@@ -1136,7 +1136,7 @@ uint32_t forge_voice_set_outputs(
             if (nextRate != sendRate)
             {
                 LOG_API_EXIT(voice->audio)
-                return FORGE_AUDIO_E_INVALID_CALL;
+                return ForgeResultInvalidCall;
             }
         }
     }
@@ -1154,7 +1154,7 @@ uint32_t forge_voice_set_outputs(
         ForgeAudio_PlatformUnlockMutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     ForgeAudio_PlatformLockMutex(voice->volumeLock);
@@ -1371,7 +1371,7 @@ uint32_t forge_voice_set_outputs(
     return 0;
 }
 
-uint32_t forge_voice_set_effect_chain(
+ForgeResult forge_voice_set_effect_chain(
     ForgeVoice *voice,
     const ForgeEffectChain *pEffectChain
 ) {
@@ -1399,7 +1399,7 @@ uint32_t forge_voice_set_effect_chain(
             )
             ForgeAudio_assert(0 && "Cannot remove effect chain that changes the number of channels");
             LOG_API_EXIT(voice->audio)
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
     }
 
@@ -1417,7 +1417,7 @@ uint32_t forge_voice_set_effect_chain(
             )
             ForgeAudio_assert(0 && "New effect chain must have same number of output channels as the old chain");
             LOG_API_EXIT(voice->audio)
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
     }
 
@@ -1492,7 +1492,7 @@ uint32_t forge_voice_set_effect_chain(
                 ForgeAudio_PlatformUnlockMutex(voice->effectLock);
                 LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
                 LOG_API_EXIT(voice->audio)
-                return FORGE_AUDIO_E_UNSUPPORTED_FORMAT;
+                return ForgeResultUnsupportedFormat;
             }
 
             /* Okay, now this effect is the source and the next
@@ -1539,7 +1539,7 @@ uint32_t forge_voice_set_effect_chain(
     return 0;
 }
 
-uint32_t forge_voice_enable_effect(
+ForgeResult forge_voice_enable_effect(
     ForgeVoice *voice,
     uint32_t EffectIndex,
     uint32_t OperationSet
@@ -1566,7 +1566,7 @@ uint32_t forge_voice_enable_effect(
     return 0;
 }
 
-uint32_t forge_voice_disable_effect(
+ForgeResult forge_voice_disable_effect(
     ForgeVoice *voice,
     uint32_t EffectIndex,
     uint32_t OperationSet
@@ -1607,7 +1607,7 @@ void forge_voice_get_effect_state(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_voice_set_effect_parameters(
+ForgeResult forge_voice_set_effect_parameters(
     ForgeVoice *voice,
     uint32_t EffectIndex,
     const void *pParameters,
@@ -1636,7 +1636,7 @@ uint32_t forge_voice_set_effect_parameters(
             "Setting effect parameters on voice with no effect chain: %p",
             (void*) voice
         );
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     if (voice->effects.parameters[EffectIndex] == NULL)
@@ -1668,7 +1668,7 @@ uint32_t forge_voice_set_effect_parameters(
     return 0;
 }
 
-uint32_t forge_voice_get_effect_parameters(
+ForgeResult forge_voice_get_effect_parameters(
     ForgeVoice *voice,
     uint32_t EffectIndex,
     void *pParameters,
@@ -1686,7 +1686,7 @@ uint32_t forge_voice_get_effect_parameters(
     return 0;
 }
 
-uint32_t forge_voice_set_filter_parameters(
+ForgeResult forge_voice_set_filter_parameters(
     ForgeVoice *voice,
     const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
@@ -1766,7 +1766,7 @@ void forge_voice_get_filter_parameters(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_voice_set_output_filter_parameters(
+ForgeResult forge_voice_set_output_filter_parameters(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
     const ForgeFilterParameters *pParameters,
@@ -1822,7 +1822,7 @@ uint32_t forge_voice_set_output_filter_parameters(
         ForgeAudio_PlatformUnlockMutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     if (!(voice->sends.pSends[i].Flags & FORGE_AUDIO_SEND_USEFILTER))
@@ -1913,7 +1913,7 @@ void forge_voice_get_output_filter_parameters(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_voice_set_volume(
+ForgeResult forge_voice_set_volume(
     ForgeVoice *voice,
     float Volume,
     uint32_t OperationSet
@@ -1967,7 +1967,7 @@ void forge_voice_get_volume(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_voice_set_channel_volumes(
+ForgeResult forge_voice_set_channel_volumes(
     ForgeVoice *voice,
     uint32_t Channels,
     const float *pVolumes,
@@ -1990,19 +1990,19 @@ uint32_t forge_voice_set_channel_volumes(
     if (pVolumes == NULL)
     {
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     if (voice->type == FORGE_AUDIO_VOICE_MASTER)
     {
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     if (Channels != voice->outputChannels)
     {
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     ForgeAudio_PlatformLockMutex(voice->sendLock);
@@ -2050,7 +2050,7 @@ void forge_voice_get_channel_volumes(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_voice_set_output_matrix(
+ForgeResult forge_voice_set_output_matrix(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
     uint32_t SourceChannels,
@@ -2058,7 +2058,8 @@ uint32_t forge_voice_set_output_matrix(
     const float *pLevelMatrix,
     uint32_t OperationSet
 ) {
-    uint32_t i, result = 0;
+    uint32_t i;
+    ForgeResult result = ForgeResultSuccess;
     LOG_API_ENTER(voice->audio)
 
     if (OperationSet != FORGE_AUDIO_COMMIT_NOW && voice->audio->active)
@@ -2099,7 +2100,7 @@ uint32_t forge_voice_set_output_matrix(
             (void*) voice,
             (void*) pDestinationVoice
         )
-        result = FORGE_AUDIO_E_INVALID_CALL;
+        result = ForgeResultInvalidCall;
         goto end;
     }
 
@@ -2113,7 +2114,7 @@ uint32_t forge_voice_set_output_matrix(
             SourceChannels,
             voice->outputChannels
         )
-        result = FORGE_AUDIO_E_INVALID_CALL;
+        result = ForgeResultInvalidCall;
         goto end;
     }
 
@@ -2128,7 +2129,7 @@ uint32_t forge_voice_set_output_matrix(
                 DestinationChannels,
                 pDestinationVoice->master.inputChannels
             )
-            result = FORGE_AUDIO_E_INVALID_CALL;
+            result = ForgeResultInvalidCall;
             goto end;
         }
     }
@@ -2143,7 +2144,7 @@ uint32_t forge_voice_set_output_matrix(
                 DestinationChannels,
                 pDestinationVoice->mix.inputChannels
             )
-            result = FORGE_AUDIO_E_INVALID_CALL;
+            result = ForgeResultInvalidCall;
             goto end;
         }
     }
@@ -2235,10 +2236,10 @@ void forge_voice_get_output_matrix(
     LOG_API_EXIT(voice->audio)
 }
 
-static uint32_t check_for_sends_to_voice(ForgeVoice *voice)
+static ForgeResult check_for_sends_to_voice(ForgeVoice *voice)
 {
 	ForgeAudioEngine *audio = voice->audio;
-	uint32_t ret = 0;
+	ForgeResult ret = ForgeResultSuccess;
 	ForgeSourceVoice *source;
 	ForgeSubmixVoice *submix;
 	LinkedList *list;
@@ -2252,7 +2253,7 @@ static uint32_t check_for_sends_to_voice(ForgeVoice *voice)
 		for (i = 0; i < source->sends.SendCount; i += 1)
 			if (source->sends.pSends[i].pOutputVoice == voice)
 			{
-				ret = 0x80004005; /* E_FAIL */
+				ret = ForgeResultFailed;
 				break;
 			}
 		if (ret)
@@ -2272,7 +2273,7 @@ static uint32_t check_for_sends_to_voice(ForgeVoice *voice)
 		for (i = 0; i < submix->sends.SendCount; i += 1)
 			if (submix->sends.pSends[i].pOutputVoice == voice)
 			{
-				ret = 0x80004005; /* E_FAIL */
+				ret = ForgeResultFailed;
 				break;
 			}
 		if (ret)
@@ -2445,9 +2446,9 @@ static void destroy_voice(ForgeVoice *voice)
 	voice->audio->pFree(voice);
 }
 
-uint32_t forge_voice_try_destroy(ForgeVoice *voice)
+ForgeResult forge_voice_try_destroy(ForgeVoice *voice)
 {
-	uint32_t ret;
+	ForgeResult ret;
 
 	ForgeAudioEngine* audio = voice->audio;
 
@@ -2475,7 +2476,7 @@ void forge_voice_destroy(ForgeVoice *voice)
 
 /* ForgeSourceVoice Interface */
 
-uint32_t forge_source_voice_start(
+ForgeResult forge_source_voice_start(
     ForgeSourceVoice *voice,
     uint32_t Flags,
     uint32_t OperationSet
@@ -2502,7 +2503,7 @@ uint32_t forge_source_voice_start(
     return 0;
 }
 
-uint32_t forge_source_voice_stop(
+ForgeResult forge_source_voice_stop(
     ForgeSourceVoice *voice,
     uint32_t Flags,
     uint32_t OperationSet
@@ -2534,7 +2535,7 @@ uint32_t forge_source_voice_stop(
     return 0;
 }
 
-uint32_t forge_source_voice_submit_buffer(
+ForgeResult forge_source_voice_submit_buffer(
     ForgeSourceVoice *voice,
     const ForgeBuffer *pBuffer,
     const ForgeBufferWMA *pBufferWMA
@@ -2564,7 +2565,7 @@ uint32_t forge_source_voice_submit_buffer(
     {
         LOG_ERROR(voice->audio, "%s", "Source voice has zero block alignment");
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     if (pBufferWMA == NULL &&
@@ -2578,7 +2579,7 @@ uint32_t forge_source_voice_submit_buffer(
             block_size
         )
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
     /* Start off with whatever they just sent us... */
@@ -2591,7 +2592,7 @@ uint32_t forge_source_voice_submit_buffer(
     if (pBuffer->LoopCount == 0 && (loopBegin > 0 || loopLength > 0))
     {
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
 
 	if (voice->src.format->wFormatTag == FORGE_AUDIO_FORMAT_XMAUDIO2)
@@ -2617,7 +2618,7 @@ uint32_t forge_source_voice_submit_buffer(
 		/* Reading past the end of the buffer, or begin + length overflow uint32_t, which
 		 * would also read past the end of the buffer. */
 		LOG_API_EXIT(voice->audio)
-		return FORGE_AUDIO_E_INVALID_CALL;
+		return ForgeResultInvalidCall;
 	}
 
     if (pBuffer->LoopCount > 0 && pBufferWMA == NULL && voice->src.format->wFormatTag != FORGE_AUDIO_FORMAT_XMAUDIO2)
@@ -2641,7 +2642,7 @@ uint32_t forge_source_voice_submit_buffer(
         if (loopBegin >= (playBegin + realPlayLength))
         {
             LOG_API_EXIT(voice->audio)
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
 
         /* "The value of LoopBegin + LoopLength must be greater than PlayBegin
@@ -2651,7 +2652,7 @@ uint32_t forge_source_voice_submit_buffer(
            (loopBegin + realLoopLength) > (playBegin + realPlayLength))
         {
             LOG_API_EXIT(voice->audio)
-            return FORGE_AUDIO_E_INVALID_CALL;
+            return ForgeResultInvalidCall;
         }
     }
 
@@ -2732,7 +2733,7 @@ uint32_t forge_source_voice_submit_buffer(
     return 0;
 }
 
-uint32_t forge_source_voice_flush_buffers(
+ForgeResult forge_source_voice_flush_buffers(
     ForgeSourceVoice *voice
 ) {
     size_t offset = 0;
@@ -2780,7 +2781,7 @@ uint32_t forge_source_voice_flush_buffers(
     return 0;
 }
 
-uint32_t forge_source_voice_end_stream(
+ForgeResult forge_source_voice_end_stream(
     ForgeSourceVoice *voice
 ) {
     LOG_API_ENTER(voice->audio)
@@ -2800,7 +2801,7 @@ uint32_t forge_source_voice_end_stream(
     return 0;
 }
 
-uint32_t forge_source_voice_break_loop(
+ForgeResult forge_source_voice_break_loop(
     ForgeSourceVoice *voice,
     uint32_t OperationSet
 ) {
@@ -2872,7 +2873,7 @@ void forge_source_voice_get_state(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_source_voice_set_rate(
+ForgeResult forge_source_voice_set_rate(
     ForgeSourceVoice *voice,
     float Ratio,
     uint32_t OperationSet
@@ -2917,7 +2918,7 @@ void forge_source_voice_get_rate(
     LOG_API_EXIT(voice->audio)
 }
 
-uint32_t forge_source_voice_set_sample_rate(
+ForgeResult forge_source_voice_set_sample_rate(
     ForgeSourceVoice *voice,
     uint32_t NewSourceSampleRate
 ) {
@@ -2936,7 +2937,7 @@ uint32_t forge_source_voice_set_sample_rate(
         ForgeAudio_PlatformUnlockMutex(voice->src.bufferLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
         LOG_API_EXIT(voice->audio)
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return ForgeResultInvalidCall;
     }
     ForgeAudio_PlatformUnlockMutex(voice->src.bufferLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
@@ -2986,7 +2987,7 @@ uint32_t forge_source_voice_set_sample_rate(
 
 /* ForgeMasterVoice Interface */
 
-FORGE_AUDIO_API uint32_t forge_master_voice_get_channel_mask(
+FORGE_AUDIO_API ForgeResult forge_master_voice_get_channel_mask(
     ForgeMasterVoice *voice,
     uint32_t *pChannelMask
 ) {

@@ -80,7 +80,7 @@ typedef struct ForgeApoMasteringLimiter
     /* TODO */
 } ForgeApoMasteringLimiter;
 
-uint32_t ForgeApoMasteringLimiter_Initialize(
+ForgeResult ForgeApoMasteringLimiter_Initialize(
     ForgeApoMasteringLimiter *fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -122,7 +122,7 @@ void ForgeApoMasteringLimiter_Free(void* fapo)
 
 /* Public API */
 
-uint32_t forge_apo_create_mastering_limiter(
+ForgeResult forge_apo_create_mastering_limiter(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,

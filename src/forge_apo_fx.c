@@ -27,7 +27,7 @@
 #include "forge_apo_fx.h"
 #include "forge_audio_internal.h"
 
-uint32_t forge_apo_create_effect(
+ForgeResult forge_apo_create_effect(
     const ForgeGuid *clsid,
     ForgeApo **pEffect,
     const void *pInitData,
@@ -44,7 +44,7 @@ uint32_t forge_apo_create_effect(
     );
 }
 
-uint32_t forge_apo_create_effect_with_allocator(
+ForgeResult forge_apo_create_effect_with_allocator(
     const ForgeGuid *clsid,
     ForgeApo **pEffect,
     const void *pInitData,
@@ -73,5 +73,5 @@ uint32_t forge_apo_create_effect_with_allocator(
     CHECK_AND_RETURN(FORGE_APO_FX_ID_REVERB, forge_apo_create_reverb)
     CHECK_AND_RETURN(FORGE_APO_FX_ID_ECHO, forge_apo_create_echo)
 #undef CHECK_AND_RETURN
-    return -1;
+    return ForgeResultFailed;
 }

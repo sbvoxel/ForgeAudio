@@ -530,7 +530,7 @@ void ForgeAudio_Internal_AllocEffectChain(
     const ForgeEffectChain *pEffectChain
 );
 void ForgeAudio_Internal_FreeEffectChain(ForgeVoice *voice);
-uint32_t ForgeAudio_Internal_VoiceOutputFrequency(
+ForgeResult ForgeAudio_Internal_VoiceOutputFrequency(
     ForgeVoice *voice,
     const ForgeSendList *pSendList
 );
@@ -637,7 +637,7 @@ void ForgeAudio_Internal_debug_fmt(
 
 /* ForgeApoFx Creators */
 
-extern uint32_t forge_apo_create_eq(
+extern ForgeResult forge_apo_create_eq(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
@@ -645,7 +645,7 @@ extern uint32_t forge_apo_create_eq(
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-extern uint32_t forge_apo_create_mastering_limiter(
+extern ForgeResult forge_apo_create_mastering_limiter(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
@@ -653,7 +653,7 @@ extern uint32_t forge_apo_create_mastering_limiter(
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-extern uint32_t forge_apo_create_reverb(
+extern ForgeResult forge_apo_create_reverb(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
@@ -661,7 +661,7 @@ extern uint32_t forge_apo_create_reverb(
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-extern uint32_t forge_apo_create_echo(
+extern ForgeResult forge_apo_create_echo(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
@@ -765,7 +765,7 @@ void ForgeAudio_PlatformInit(
 void ForgeAudio_PlatformQuit(void* platformDevice);
 
 uint32_t ForgeAudio_PlatformGetDeviceCount(void);
-uint32_t ForgeAudio_PlatformGetDeviceDetails(
+ForgeResult ForgeAudio_PlatformGetDeviceDetails(
     uint32_t index,
     ForgeDeviceDetails *details
 );

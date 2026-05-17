@@ -80,7 +80,7 @@ typedef struct ForgeApoEq
     /* TODO */
 } ForgeApoEq;
 
-uint32_t FORGE_APO_EQ_Initialize(
+ForgeResult FORGE_APO_EQ_Initialize(
     ForgeApoEq *fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -122,7 +122,7 @@ void FORGE_APO_EQ_Free(void* fapo)
 
 /* Public API */
 
-uint32_t forge_apo_create_eq(
+ForgeResult forge_apo_create_eq(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,

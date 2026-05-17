@@ -1230,16 +1230,16 @@ static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
     return 0;
 }
 
-uint32_t ForgeAudioFxReverb_IsInputFormatSupported(
+ForgeResult ForgeAudioFxReverb_IsInputFormatSupported(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pOutputFormat,
     const ForgeAudioFormat *pRequestedInputFormat,
     ForgeAudioFormat **ppSupportedInputFormat
 ) {
-    uint32_t result = 0;
+    ForgeResult result = ForgeResultSuccess;
 
 #define SET_SUPPORTED_FIELD(field, value)    \
-    result = 1;    \
+    result = ForgeResultFormatSuggested;    \
     if (ppSupportedInputFormat && *ppSupportedInputFormat)    \
     {    \
         (*ppSupportedInputFormat)->field = (value);    \
@@ -1285,16 +1285,16 @@ uint32_t ForgeAudioFxReverb_IsInputFormatSupported(
 }
 
 
-uint32_t ForgeAudioFxReverb_IsOutputFormatSupported(
+ForgeResult ForgeAudioFxReverb_IsOutputFormatSupported(
     ForgeApoBase *fapo,
     const ForgeAudioFormat *pInputFormat,
     const ForgeAudioFormat *pRequestedOutputFormat,
     ForgeAudioFormat **ppSupportedOutputFormat
 ) {
-    uint32_t result = 0;
+    ForgeResult result = ForgeResultSuccess;
 
 #define SET_SUPPORTED_FIELD(field, value)    \
-    result = 1;    \
+    result = ForgeResultFormatSuggested;    \
     if (ppSupportedOutputFormat && *ppSupportedOutputFormat)    \
     {    \
         (*ppSupportedOutputFormat)->field = (value);    \
@@ -1338,7 +1338,7 @@ uint32_t ForgeAudioFxReverb_IsOutputFormatSupported(
     return result;
 }
 
-uint32_t ForgeAudioFxReverb_Initialize(
+ForgeResult ForgeAudioFxReverb_Initialize(
     ForgeAudioFxReverb *fapo,
     const void* pData,
     uint32_t DataByteSize
@@ -1356,7 +1356,7 @@ uint32_t ForgeAudioFxReverb_Initialize(
     return 0;
 }
 
-uint32_t ForgeAudioFxReverb_LockForProcess(
+ForgeResult ForgeAudioFxReverb_LockForProcess(
     ForgeAudioFxReverb *fapo,
     uint32_t InputLockedParameterCount,
     const ForgeApoLockBuffer *pInputLockedParameters,
@@ -1366,13 +1366,13 @@ uint32_t ForgeAudioFxReverb_LockForProcess(
     /* Reverb specific validation */
     if (!IsFloatFormat(pInputLockedParameters->pFormat))
     {
-        return FORGE_APO_E_FORMAT_UNSUPPORTED;
+        return ForgeResultApoFormatUnsupported;
     }
 
     if (    pInputLockedParameters->pFormat->nSamplesPerSec < FORGE_AUDIO_REVERB_MIN_SAMPLE_RATE ||
         pInputLockedParameters->pFormat->nSamplesPerSec > FORGE_AUDIO_REVERB_MAX_SAMPLE_RATE    )
     {
-        return FORGE_APO_E_FORMAT_UNSUPPORTED;
+        return ForgeResultApoFormatUnsupported;
     }
 
     if (!(    (pInputLockedParameters->pFormat->nChannels == 1 &&
@@ -1384,7 +1384,7 @@ uint32_t ForgeAudioFxReverb_LockForProcess(
         (pInputLockedParameters->pFormat->nChannels == 6 &&
             pOutputLockedParameters->pFormat->nChannels == 6)))
     {
-        return FORGE_APO_E_FORMAT_UNSUPPORTED;
+        return ForgeResultApoFormatUnsupported;
     }
 
     /* Save the things we care about */
@@ -1629,7 +1629,7 @@ void ForgeAudioFxReverb_Free(void* fapo)
 
 /* Public API (Version 7) */
 
-uint32_t forge_audio_create_reverb(ForgeApo** ppApo, uint32_t Flags)
+ForgeResult forge_audio_create_reverb(ForgeApo** ppApo, uint32_t Flags)
 {
     return forge_audio_create_reverb_with_allocator(
         ppApo,
@@ -1640,7 +1640,7 @@ uint32_t forge_audio_create_reverb(ForgeApo** ppApo, uint32_t Flags)
     );
 }
 
-uint32_t forge_audio_create_reverb_with_allocator(
+ForgeResult forge_audio_create_reverb_with_allocator(
     ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
@@ -1799,7 +1799,7 @@ void forge_audio_reverb_convert_i3dl2(
 
 /* Public API (Version 9) */
 
-uint32_t forge_audio_create_reverb_7point1(ForgeApo** ppApo, uint32_t Flags)
+ForgeResult forge_audio_create_reverb_7point1(ForgeApo** ppApo, uint32_t Flags)
 {
     return forge_audio_create_reverb_7point1_with_allocator(
         ppApo,
@@ -1810,7 +1810,7 @@ uint32_t forge_audio_create_reverb_7point1(ForgeApo** ppApo, uint32_t Flags)
     );
 }
 
-uint32_t forge_audio_create_reverb_7point1_with_allocator(
+ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,

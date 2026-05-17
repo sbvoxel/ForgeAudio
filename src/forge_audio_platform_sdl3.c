@@ -252,7 +252,7 @@ uint32_t ForgeAudio_PlatformGetDeviceCount()
 
 void ForgeAudio_UTF8_To_UTF16(const char *src, uint16_t *dst, size_t len);
 
-uint32_t ForgeAudio_PlatformGetDeviceDetails(
+ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 	uint32_t index,
 	ForgeDeviceDetails *details
 ) {
@@ -268,7 +268,7 @@ uint32_t ForgeAudio_PlatformGetDeviceDetails(
 	if (index > devcount)
 	{
 		SDL_free(devs);
-		return FORGE_AUDIO_E_INVALID_CALL;
+		return ForgeResultInvalidCall;
 	}
 
 	details->DeviceID[0] = L'0' + index;
