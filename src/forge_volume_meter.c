@@ -38,7 +38,7 @@
 
 /* volume Meter ForgeEffect Implementation */
 
-const ForgeGuid FORGE_AUDIO_FX_ID_VOLUME_METER = /* 2.7 */
+static const ForgeGuid VolumeMeterId =
 {
     0xCAC1105F,
     0x619B,
@@ -83,20 +83,20 @@ static ForgeEffectProperties VolumeMeterProperties =
     /*.max_output_buffer_count =*/ 1
 };
 
-typedef struct ForgeAudioFxVolumeMeter
+typedef struct ForgeVolumeMeter
 {
     ForgeEffectBase base;
     uint16_t channels;
-} ForgeAudioFxVolumeMeter;
+} ForgeVolumeMeter;
 
-ForgeResult ForgeAudioFxVolumeMeter_LockForProcess(
-    ForgeAudioFxVolumeMeter *effect,
+ForgeResult ForgeVolumeMeter_LockForProcess(
+    ForgeVolumeMeter *effect,
     uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
     uint32_t output_locked_parameter_count,
     const ForgeEffectLockBuffer *output_locked_parameters
 ) {
-    ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
+    ForgeVolumeMeterLevels *levels = (ForgeVolumeMeterLevels*)
         effect->base.parameter_blocks;
 
     /* Verify parameter counts... */
@@ -142,16 +142,16 @@ ForgeResult ForgeAudioFxVolumeMeter_LockForProcess(
     return 0;
 }
 
-void ForgeAudioFxVolumeMeter_UnlockForProcess(ForgeAudioFxVolumeMeter *effect)
+void ForgeVolumeMeter_UnlockForProcess(ForgeVolumeMeter *effect)
 {
-    ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
+    ForgeVolumeMeterLevels *levels = (ForgeVolumeMeterLevels*)
         effect->base.parameter_blocks;
     effect->base.free_func(levels[0].peak_levels);
     effect->base.is_locked = 0;
 }
 
-void ForgeAudioFxVolumeMeter_Process(
-    ForgeAudioFxVolumeMeter *effect,
+void ForgeVolumeMeter_Process(
+    ForgeVolumeMeter *effect,
     uint32_t input_process_parameter_count,
     const ForgeEffectProcessBuffer* input_process_parameters,
     uint32_t output_process_parameter_count,
@@ -162,7 +162,7 @@ void ForgeAudioFxVolumeMeter_Process(
     float total;
     float *buffer;
     uint32_t i, j;
-    ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
+    ForgeVolumeMeterLevels *levels = (ForgeVolumeMeterLevels*)
         forge_effect_base_begin_process(&effect->base);
 
     /* TODO: This could probably be SIMD-ified... */
@@ -189,14 +189,14 @@ void ForgeAudioFxVolumeMeter_Process(
     forge_effect_base_end_process(&effect->base);
 }
 
-void ForgeAudioFxVolumeMeter_GetParameters(
-    ForgeAudioFxVolumeMeter *effect,
-    ForgeAudioFxVolumeMeterLevels *parameters,
+void ForgeVolumeMeter_GetParameters(
+    ForgeVolumeMeter *effect,
+    ForgeVolumeMeterLevels *parameters,
     uint32_t parameter_byte_size
 ) {
-    ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
+    ForgeVolumeMeterLevels *levels = (ForgeVolumeMeterLevels*)
         effect->base.current_parameters;
-    ForgeAudio_assert(parameter_byte_size == sizeof(ForgeAudioFxVolumeMeterLevels));
+    ForgeAudio_assert(parameter_byte_size == sizeof(ForgeVolumeMeterLevels));
     ForgeAudio_assert(parameters->channel_count == effect->channels);
 
     /* Copy what's current as of the last process */
@@ -218,18 +218,18 @@ void ForgeAudioFxVolumeMeter_GetParameters(
     }
 }
 
-void ForgeAudioFxVolumeMeter_Free(void* effect)
+void ForgeVolumeMeter_Free(void* effect)
 {
-    ForgeAudioFxVolumeMeter *volumemeter = (ForgeAudioFxVolumeMeter*) effect;
+    ForgeVolumeMeter *volumemeter = (ForgeVolumeMeter*) effect;
     volumemeter->base.free_func(volumemeter->base.parameter_blocks);
     volumemeter->base.free_func(effect);
 }
 
 /* Public API */
 
-ForgeResult forge_audio_create_volume_meter(ForgeEffect** effect, uint32_t flags)
+ForgeResult forge_create_volume_meter(ForgeEffect** effect, uint32_t flags)
 {
-    return forge_audio_create_volume_meter_with_allocator(
+    return forge_create_volume_meter_with_allocator(
         effect,
         flags,
         ForgeAudio_malloc,
@@ -238,7 +238,7 @@ ForgeResult forge_audio_create_volume_meter(ForgeEffect** effect, uint32_t flags
     );
 }
 
-ForgeResult forge_audio_create_volume_meter_with_allocator(
+ForgeResult forge_create_volume_meter_with_allocator(
     ForgeEffect** effect,
     uint32_t flags,
     ForgeMallocFunc custom_malloc,
@@ -246,25 +246,25 @@ ForgeResult forge_audio_create_volume_meter_with_allocator(
     ForgeReallocFunc custom_realloc
 ) {
     /* Allocate... */
-    ForgeAudioFxVolumeMeter *result = (ForgeAudioFxVolumeMeter*) custom_malloc(
-        sizeof(ForgeAudioFxVolumeMeter)
+    ForgeVolumeMeter *result = (ForgeVolumeMeter*) custom_malloc(
+        sizeof(ForgeVolumeMeter)
     );
     uint8_t *params = (uint8_t*) custom_malloc(
-        sizeof(ForgeAudioFxVolumeMeterLevels) * 3
+        sizeof(ForgeVolumeMeterLevels) * 3
     );
-    ForgeAudio_zero(params, sizeof(ForgeAudioFxVolumeMeterLevels) * 3);
+    ForgeAudio_zero(params, sizeof(ForgeVolumeMeterLevels) * 3);
 
     /* initialize... */
     ForgeAudio_memcpy(
         &VolumeMeterProperties.clsid,
-        &FORGE_AUDIO_FX_ID_VOLUME_METER,
+        &VolumeMeterId,
         sizeof(ForgeGuid)
     );
     forge_effect_base_init_with_allocator(
         &result->base,
         &VolumeMeterProperties,
         params,
-        sizeof(ForgeAudioFxVolumeMeterLevels),
+        sizeof(ForgeVolumeMeterLevels),
         1,
         custom_malloc,
         custom_free,
@@ -273,14 +273,14 @@ ForgeResult forge_audio_create_volume_meter_with_allocator(
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
-        ForgeAudioFxVolumeMeter_LockForProcess;
+        ForgeVolumeMeter_LockForProcess;
     result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
-        ForgeAudioFxVolumeMeter_UnlockForProcess;
+        ForgeVolumeMeter_UnlockForProcess;
     result->base.base.process = (ForgeEffectProcessFunc)
-        ForgeAudioFxVolumeMeter_Process;
+        ForgeVolumeMeter_Process;
     result->base.base.get_parameters = (ForgeEffectGetParametersFunc)
-        ForgeAudioFxVolumeMeter_GetParameters;
-    result->base.destructor = ForgeAudioFxVolumeMeter_Free;
+        ForgeVolumeMeter_GetParameters;
+    result->base.destructor = ForgeVolumeMeter_Free;
 
     /* Finally. */
     *effect = &result->base.base;

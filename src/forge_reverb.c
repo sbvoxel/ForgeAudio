@@ -698,7 +698,7 @@ static inline void DspReverb_Destroy(DspReverb *reverb, ForgeFreeFunc free_func)
 
 static inline void DspReverb_SetParameters(
     DspReverb *reverb,
-    ForgeAudioReverbParameters *params
+    ForgeReverbParameters *params
 ) {
     float early_diffusion, late_diffusion;
     DspCombShelving *comb;
@@ -743,7 +743,7 @@ static inline void DspReverb_SetParameters(
             );
             comb->comb_feedback_gain = DspComb_FeedbackFromRT60(
                 &comb->comb_delay,
-                ForgeAudio_max(params->decay_time, FORGE_AUDIO_REVERB_MIN_DECAY_TIME) * 1000.0f
+                ForgeAudio_max(params->decay_time, FORGE_REVERB_MIN_DECAY_TIME) * 1000.0f
             );
 
             /* High/Low shelving */
@@ -840,9 +840,9 @@ static inline void DspReverb_SetParameters(
 
 static inline void DspReverb_SetParameters9(
     DspReverb *reverb,
-    ForgeAudioReverbParameters7Point1 *params
+    ForgeReverbParameters7Point1 *params
 ) {
-    ForgeAudioReverbParameters oldParams;
+    ForgeReverbParameters oldParams;
     oldParams.wet_dry_mix = params->wet_dry_mix;
     oldParams.reflections_delay = params->reflections_delay;
     oldParams.reverb_delay = params->reverb_delay;
@@ -1148,7 +1148,7 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(
 
 /* reverb ForgeEffect Implementation */
 
-const ForgeGuid FORGE_AUDIO_FX_ID_REVERB = /* 2.7 */
+static const ForgeGuid ReverbId =
 {
     0x6A93130E,
     0xCB4E,
@@ -1190,7 +1190,7 @@ static ForgeEffectProperties ReverbProperties =
     /*.max_output_buffer_count = */ 1
 };
 
-typedef struct ForgeAudioFxReverb
+typedef struct ForgeReverb
 {
     ForgeEffectBase base;
 
@@ -1202,7 +1202,7 @@ typedef struct ForgeAudioFxReverb
 
     uint8_t apiVersion;
     DspReverb reverb;
-} ForgeAudioFxReverb;
+} ForgeReverb;
 
 static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
 {
@@ -1239,7 +1239,7 @@ static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
     return 0;
 }
 
-ForgeResult ForgeAudioFxReverb_IsInputFormatSupported(
+ForgeResult ForgeReverb_IsInputFormatSupported(
     ForgeEffectBase *effect,
     const ForgeAudioFormat *output_format,
     const ForgeAudioFormat *requested_input_format,
@@ -1294,7 +1294,7 @@ ForgeResult ForgeAudioFxReverb_IsInputFormatSupported(
 }
 
 
-ForgeResult ForgeAudioFxReverb_IsOutputFormatSupported(
+ForgeResult ForgeReverb_IsOutputFormatSupported(
     ForgeEffectBase *effect,
     const ForgeAudioFormat *input_format,
     const ForgeAudioFormat *requested_output_format,
@@ -1347,8 +1347,8 @@ ForgeResult ForgeAudioFxReverb_IsOutputFormatSupported(
     return result;
 }
 
-ForgeResult ForgeAudioFxReverb_Initialize(
-    ForgeAudioFxReverb *effect,
+ForgeResult ForgeReverb_Initialize(
+    ForgeReverb *effect,
     const void* data,
     uint32_t data_byte_size
 ) {
@@ -1365,8 +1365,8 @@ ForgeResult ForgeAudioFxReverb_Initialize(
     return 0;
 }
 
-ForgeResult ForgeAudioFxReverb_LockForProcess(
-    ForgeAudioFxReverb *effect,
+ForgeResult ForgeReverb_LockForProcess(
+    ForgeReverb *effect,
     uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
     uint32_t output_locked_parameter_count,
@@ -1380,8 +1380,8 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
         return ForgeResultEffectFormatUnsupported;
     }
 
-    if (    input_locked_parameters->format->sample_rate < FORGE_AUDIO_REVERB_MIN_SAMPLE_RATE ||
-        input_locked_parameters->format->sample_rate > FORGE_AUDIO_REVERB_MAX_SAMPLE_RATE    )
+    if (    input_locked_parameters->format->sample_rate < FORGE_REVERB_MIN_SAMPLE_RATE ||
+        input_locked_parameters->format->sample_rate > FORGE_REVERB_MAX_SAMPLE_RATE    )
     {
         return ForgeResultEffectFormatUnsupported;
     }
@@ -1431,29 +1431,29 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
     {
         DspReverb_SetParameters9(
             &effect->reverb,
-            (ForgeAudioReverbParameters7Point1*) effect->base.parameter_blocks
+            (ForgeReverbParameters7Point1*) effect->base.parameter_blocks
         );
     }
     else
     {
         DspReverb_SetParameters(
             &effect->reverb,
-            (ForgeAudioReverbParameters*) effect->base.parameter_blocks
+            (ForgeReverbParameters*) effect->base.parameter_blocks
         );
     }
 
     return 0;
 }
 
-void ForgeAudioFxReverb_UnlockForProcess(ForgeAudioFxReverb *effect)
+void ForgeReverb_UnlockForProcess(ForgeReverb *effect)
 {
     DspReverb_Destroy(&effect->reverb, effect->base.free_func);
     ForgeAudio_zero(&effect->reverb, sizeof(DspReverb));
     forge_effect_base_unlock_for_process(&effect->base);
 }
 
-static inline void ForgeAudioFxReverb_CopyBuffer(
-    ForgeAudioFxReverb *effect,
+static inline void ForgeReverb_CopyBuffer(
+    ForgeReverb *effect,
     float *restrict buffer_in,
     float *restrict buffer_out,
     size_t frames_in
@@ -1511,19 +1511,19 @@ static inline void ForgeAudioFxReverb_CopyBuffer(
     ForgeAudio_zero(buffer_out, effect->outBlockAlign * frames_in);
 }
 
-void ForgeAudioFxReverb_Process(
-    ForgeAudioFxReverb *effect,
+void ForgeReverb_Process(
+    ForgeReverb *effect,
     uint32_t input_process_parameter_count,
     const ForgeEffectProcessBuffer* input_process_parameters,
     uint32_t output_process_parameter_count,
     ForgeEffectProcessBuffer* output_process_parameters,
     int32_t is_enabled
 ) {
-    ForgeAudioReverbParameters *params;
+    ForgeReverbParameters *params;
     uint8_t update_params = forge_effect_base_parameters_changed(&effect->base);
     float total;
 
-    params = (ForgeAudioReverbParameters*) forge_effect_base_begin_process(&effect->base);
+    params = (ForgeReverbParameters*) forge_effect_base_begin_process(&effect->base);
 
     /* Update parameters before doing anything else  */
     if (update_params)
@@ -1532,7 +1532,7 @@ void ForgeAudioFxReverb_Process(
         {
             DspReverb_SetParameters9(
                 &effect->reverb,
-                (ForgeAudioReverbParameters7Point1*) params
+                (ForgeReverbParameters7Point1*) params
             );
         }
         else
@@ -1548,7 +1548,7 @@ void ForgeAudioFxReverb_Process(
 
         if (output_process_parameters->buffer_flags != FORGE_EFFECT_BUFFER_SILENT)
         {
-            ForgeAudioFxReverb_CopyBuffer(
+            ForgeReverb_CopyBuffer(
                 effect,
                 (float*) input_process_parameters->buffer,
                 (float*) output_process_parameters->buffer,
@@ -1611,7 +1611,7 @@ void ForgeAudioFxReverb_Process(
     forge_effect_base_end_process(&effect->base);
 }
 
-void ForgeAudioFxReverb_Reset(ForgeAudioFxReverb *effect)
+void ForgeReverb_Reset(ForgeReverb *effect)
 {
     int32_t i, c;
     forge_effect_base_reset(&effect->base);
@@ -1642,9 +1642,9 @@ void ForgeAudioFxReverb_Reset(ForgeAudioFxReverb *effect)
     }
 }
 
-void ForgeAudioFxReverb_Free(void* effect)
+void ForgeReverb_Free(void* effect)
 {
-    ForgeAudioFxReverb *reverb = (ForgeAudioFxReverb*) effect;
+    ForgeReverb *reverb = (ForgeReverb*) effect;
     DspReverb_Destroy(&reverb->reverb, reverb->base.free_func);
     reverb->base.free_func(reverb->base.parameter_blocks);
     reverb->base.free_func(effect);
@@ -1652,9 +1652,9 @@ void ForgeAudioFxReverb_Free(void* effect)
 
 /* Public API (Version 7) */
 
-ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t flags)
+ForgeResult forge_create_reverb(ForgeEffect** effect, uint32_t flags)
 {
-    return forge_audio_create_reverb_with_allocator(
+    return forge_create_reverb_with_allocator(
         effect,
         flags,
         ForgeAudio_malloc,
@@ -1663,57 +1663,57 @@ ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t flags)
     );
 }
 
-ForgeResult forge_audio_create_reverb_with_allocator(
+ForgeResult forge_create_reverb_with_allocator(
     ForgeEffect** effect,
     uint32_t flags,
     ForgeMallocFunc custom_malloc,
     ForgeFreeFunc custom_free,
     ForgeReallocFunc custom_realloc
 ) {
-    const ForgeAudioReverbParameters fxdefault =
+    const ForgeReverbParameters fxdefault =
     {
-        FORGE_AUDIO_REVERB_DEFAULT_WET_DRY_MIX,
-        FORGE_AUDIO_REVERB_DEFAULT_REFLECTIONS_DELAY,
-        FORGE_AUDIO_REVERB_DEFAULT_REVERB_DELAY,
-        FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX,
-        FORGE_AUDIO_REVERB_DEFAULT_EARLY_DIFFUSION,
-        FORGE_AUDIO_REVERB_DEFAULT_LATE_DIFFUSION,
-        FORGE_AUDIO_REVERB_DEFAULT_LOW_EQ_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_LOW_EQ_CUTOFF,
-        FORGE_AUDIO_REVERB_DEFAULT_HIGH_EQ_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_HIGH_EQ_CUTOFF,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_FREQ,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_MAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_HF,
-        FORGE_AUDIO_REVERB_DEFAULT_REFLECTIONS_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_REVERB_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_DECAY_TIME,
-        FORGE_AUDIO_REVERB_DEFAULT_DENSITY,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE
+        FORGE_REVERB_DEFAULT_WET_DRY_MIX,
+        FORGE_REVERB_DEFAULT_REFLECTIONS_DELAY,
+        FORGE_REVERB_DEFAULT_REVERB_DELAY,
+        FORGE_REVERB_DEFAULT_REAR_DELAY,
+        FORGE_REVERB_DEFAULT_POSITION,
+        FORGE_REVERB_DEFAULT_POSITION,
+        FORGE_REVERB_DEFAULT_POSITION_MATRIX,
+        FORGE_REVERB_DEFAULT_POSITION_MATRIX,
+        FORGE_REVERB_DEFAULT_EARLY_DIFFUSION,
+        FORGE_REVERB_DEFAULT_LATE_DIFFUSION,
+        FORGE_REVERB_DEFAULT_LOW_EQ_GAIN,
+        FORGE_REVERB_DEFAULT_LOW_EQ_CUTOFF,
+        FORGE_REVERB_DEFAULT_HIGH_EQ_GAIN,
+        FORGE_REVERB_DEFAULT_HIGH_EQ_CUTOFF,
+        FORGE_REVERB_DEFAULT_ROOM_FILTER_FREQ,
+        FORGE_REVERB_DEFAULT_ROOM_FILTER_MAIN,
+        FORGE_REVERB_DEFAULT_ROOM_FILTER_HF,
+        FORGE_REVERB_DEFAULT_REFLECTIONS_GAIN,
+        FORGE_REVERB_DEFAULT_REVERB_GAIN,
+        FORGE_REVERB_DEFAULT_DECAY_TIME,
+        FORGE_REVERB_DEFAULT_DENSITY,
+        FORGE_REVERB_DEFAULT_ROOM_SIZE
     };
 
     /* Allocate... */
-    ForgeAudioFxReverb *result = (ForgeAudioFxReverb*) custom_malloc(sizeof(ForgeAudioFxReverb));
+    ForgeReverb *result = (ForgeReverb*) custom_malloc(sizeof(ForgeReverb));
     uint8_t *params = (uint8_t*) custom_malloc(
-        sizeof(ForgeAudioReverbParameters) * 3
+        sizeof(ForgeReverbParameters) * 3
     );
     result->apiVersion = 7;
 
     /* initialize... */
     ForgeAudio_memcpy(
         &ReverbProperties.clsid,
-        &FORGE_AUDIO_FX_ID_REVERB,
+        &ReverbId,
         sizeof(ForgeGuid)
     );
     forge_effect_base_init_with_allocator(
         &result->base,
         &ReverbProperties,
         params,
-        sizeof(ForgeAudioReverbParameters),
+        sizeof(ForgeReverbParameters),
         0,
         custom_malloc,
         custom_free,
@@ -1727,24 +1727,24 @@ ForgeResult forge_audio_create_reverb_with_allocator(
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
-        ForgeAudioFxReverb_LockForProcess;
+        ForgeReverb_LockForProcess;
     result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
-        ForgeAudioFxReverb_UnlockForProcess;
+        ForgeReverb_UnlockForProcess;
     result->base.base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
-        ForgeAudioFxReverb_IsInputFormatSupported;
+        ForgeReverb_IsInputFormatSupported;
     result->base.base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
-        ForgeAudioFxReverb_IsOutputFormatSupported;
+        ForgeReverb_IsOutputFormatSupported;
     result->base.base.initialize = (ForgeEffectInitializeFunc)
-        ForgeAudioFxReverb_Initialize;
-    result->base.base.reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
-    result->base.base.process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
-    result->base.destructor = ForgeAudioFxReverb_Free;
+        ForgeReverb_Initialize;
+    result->base.base.reset = (ForgeEffectResetFunc) ForgeReverb_Reset;
+    result->base.base.process = (ForgeEffectProcessFunc) ForgeReverb_Process;
+    result->base.destructor = ForgeReverb_Free;
 
     /* Prepare the default parameters */
     result->base.base.initialize(
         result,
         &fxdefault,
-        sizeof(ForgeAudioReverbParameters)
+        sizeof(ForgeReverbParameters)
     );
 
     /* Finally. */
@@ -1752,19 +1752,19 @@ ForgeResult forge_audio_create_reverb_with_allocator(
     return 0;
 }
 
-void forge_audio_reverb_convert_i3dl2(
-    const ForgeAudioReverbI3DL2Parameters *i3dl2,
-    ForgeAudioReverbParameters *native
+void forge_reverb_convert_i3dl2(
+    const ForgeReverbI3DL2Parameters *i3dl2,
+    ForgeReverbParameters *native
 ) {
     float reflectionsDelay;
     float reverbDelay;
 
-    native->rear_delay = FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY;
-    native->position_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->position_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->position_matrix_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->position_matrix_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->room_size = FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE;
+    native->rear_delay = FORGE_REVERB_DEFAULT_REAR_DELAY;
+    native->position_left = FORGE_REVERB_DEFAULT_POSITION;
+    native->position_right = FORGE_REVERB_DEFAULT_POSITION;
+    native->position_matrix_left = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    native->position_matrix_right = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    native->room_size = FORGE_REVERB_DEFAULT_ROOM_SIZE;
     native->low_eq_cutoff = 4;
     native->high_eq_cutoff = 6;
 
@@ -1795,9 +1795,9 @@ void forge_audio_reverb_convert_i3dl2(
     }
 
     reflectionsDelay = i3dl2->reflections_delay * 1000.0f;
-    if (reflectionsDelay >= FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY)
+    if (reflectionsDelay >= FORGE_REVERB_MAX_REFLECTIONS_DELAY)
     {
-        reflectionsDelay = (float) (FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY - 1);
+        reflectionsDelay = (float) (FORGE_REVERB_MAX_REFLECTIONS_DELAY - 1);
     }
     else if (reflectionsDelay <= 1)
     {
@@ -1806,9 +1806,9 @@ void forge_audio_reverb_convert_i3dl2(
     native->reflections_delay = (uint32_t) reflectionsDelay;
 
     reverbDelay = i3dl2->reverb_delay * 1000.0f;
-    if (reverbDelay >= FORGE_AUDIO_REVERB_MAX_REVERB_DELAY)
+    if (reverbDelay >= FORGE_REVERB_MAX_REVERB_DELAY)
     {
-        reverbDelay = (float) (FORGE_AUDIO_REVERB_MAX_REVERB_DELAY - 1);
+        reverbDelay = (float) (FORGE_REVERB_MAX_REVERB_DELAY - 1);
     }
     native->reverb_delay = (uint8_t) reverbDelay;
 
@@ -1824,9 +1824,9 @@ void forge_audio_reverb_convert_i3dl2(
 
 /* Public API (Version 9) */
 
-ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t flags)
+ForgeResult forge_create_reverb_7point1(ForgeEffect** effect, uint32_t flags)
 {
-    return forge_audio_create_reverb_7point1_with_allocator(
+    return forge_create_reverb_7point1_with_allocator(
         effect,
         flags,
         ForgeAudio_malloc,
@@ -1835,58 +1835,58 @@ ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t fla
     );
 }
 
-ForgeResult forge_audio_create_reverb_7point1_with_allocator(
+ForgeResult forge_create_reverb_7point1_with_allocator(
     ForgeEffect** effect,
     uint32_t flags,
     ForgeMallocFunc custom_malloc,
     ForgeFreeFunc custom_free,
     ForgeReallocFunc custom_realloc
 ) {
-    const ForgeAudioReverbParameters7Point1 fxdefault =
+    const ForgeReverbParameters7Point1 fxdefault =
     {
-        FORGE_AUDIO_REVERB_DEFAULT_WET_DRY_MIX,
-        FORGE_AUDIO_REVERB_DEFAULT_REFLECTIONS_DELAY,
-        FORGE_AUDIO_REVERB_DEFAULT_REVERB_DELAY,
-        FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY, /* FIXME: 7POINT1? */
-        FORGE_AUDIO_REVERB_DEFAULT_7_1_SIDE_DELAY,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX,
-        FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX,
-        FORGE_AUDIO_REVERB_DEFAULT_EARLY_DIFFUSION,
-        FORGE_AUDIO_REVERB_DEFAULT_LATE_DIFFUSION,
-        FORGE_AUDIO_REVERB_DEFAULT_LOW_EQ_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_LOW_EQ_CUTOFF,
-        FORGE_AUDIO_REVERB_DEFAULT_HIGH_EQ_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_HIGH_EQ_CUTOFF,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_FREQ,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_MAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_HF,
-        FORGE_AUDIO_REVERB_DEFAULT_REFLECTIONS_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_REVERB_GAIN,
-        FORGE_AUDIO_REVERB_DEFAULT_DECAY_TIME,
-        FORGE_AUDIO_REVERB_DEFAULT_DENSITY,
-        FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE
+        FORGE_REVERB_DEFAULT_WET_DRY_MIX,
+        FORGE_REVERB_DEFAULT_REFLECTIONS_DELAY,
+        FORGE_REVERB_DEFAULT_REVERB_DELAY,
+        FORGE_REVERB_DEFAULT_REAR_DELAY, /* FIXME: 7POINT1? */
+        FORGE_REVERB_DEFAULT_7_1_SIDE_DELAY,
+        FORGE_REVERB_DEFAULT_POSITION,
+        FORGE_REVERB_DEFAULT_POSITION,
+        FORGE_REVERB_DEFAULT_POSITION_MATRIX,
+        FORGE_REVERB_DEFAULT_POSITION_MATRIX,
+        FORGE_REVERB_DEFAULT_EARLY_DIFFUSION,
+        FORGE_REVERB_DEFAULT_LATE_DIFFUSION,
+        FORGE_REVERB_DEFAULT_LOW_EQ_GAIN,
+        FORGE_REVERB_DEFAULT_LOW_EQ_CUTOFF,
+        FORGE_REVERB_DEFAULT_HIGH_EQ_GAIN,
+        FORGE_REVERB_DEFAULT_HIGH_EQ_CUTOFF,
+        FORGE_REVERB_DEFAULT_ROOM_FILTER_FREQ,
+        FORGE_REVERB_DEFAULT_ROOM_FILTER_MAIN,
+        FORGE_REVERB_DEFAULT_ROOM_FILTER_HF,
+        FORGE_REVERB_DEFAULT_REFLECTIONS_GAIN,
+        FORGE_REVERB_DEFAULT_REVERB_GAIN,
+        FORGE_REVERB_DEFAULT_DECAY_TIME,
+        FORGE_REVERB_DEFAULT_DENSITY,
+        FORGE_REVERB_DEFAULT_ROOM_SIZE
     };
 
     /* Allocate... */
-    ForgeAudioFxReverb *result = (ForgeAudioFxReverb*) custom_malloc(sizeof(ForgeAudioFxReverb));
+    ForgeReverb *result = (ForgeReverb*) custom_malloc(sizeof(ForgeReverb));
     uint8_t *params = (uint8_t*) custom_malloc(
-        sizeof(ForgeAudioReverbParameters7Point1) * 3
+        sizeof(ForgeReverbParameters7Point1) * 3
     );
     result->apiVersion = 9;
 
     /* initialize... */
     ForgeAudio_memcpy(
         &ReverbProperties.clsid,
-        &FORGE_AUDIO_FX_ID_REVERB,
+        &ReverbId,
         sizeof(ForgeGuid)
     );
     forge_effect_base_init_with_allocator(
         &result->base,
         &ReverbProperties,
         params,
-        sizeof(ForgeAudioReverbParameters7Point1),
+        sizeof(ForgeReverbParameters7Point1),
         0,
         custom_malloc,
         custom_free,
@@ -1900,24 +1900,24 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
-        ForgeAudioFxReverb_LockForProcess;
+        ForgeReverb_LockForProcess;
     result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
-        ForgeAudioFxReverb_UnlockForProcess;
+        ForgeReverb_UnlockForProcess;
     result->base.base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
-        ForgeAudioFxReverb_IsInputFormatSupported;
+        ForgeReverb_IsInputFormatSupported;
     result->base.base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
-        ForgeAudioFxReverb_IsOutputFormatSupported;
+        ForgeReverb_IsOutputFormatSupported;
     result->base.base.initialize = (ForgeEffectInitializeFunc)
-        ForgeAudioFxReverb_Initialize;
-    result->base.base.reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
-    result->base.base.process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
-    result->base.destructor = ForgeAudioFxReverb_Free;
+        ForgeReverb_Initialize;
+    result->base.base.reset = (ForgeEffectResetFunc) ForgeReverb_Reset;
+    result->base.base.process = (ForgeEffectProcessFunc) ForgeReverb_Process;
+    result->base.destructor = ForgeReverb_Free;
 
     /* Prepare the default parameters */
     result->base.base.initialize(
         result,
         &fxdefault,
-        sizeof(ForgeAudioReverbParameters7Point1)
+        sizeof(ForgeReverbParameters7Point1)
     );
 
     /* Finally. */
@@ -1925,9 +1925,9 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     return 0;
 }
 
-void forge_audio_reverb_convert_i3dl2_7point1(
-    const ForgeAudioReverbI3DL2Parameters *i3dl2,
-    ForgeAudioReverbParameters7Point1 *native,
+void forge_reverb_convert_i3dl2_7point1(
+    const ForgeReverbI3DL2Parameters *i3dl2,
+    ForgeReverbParameters7Point1 *native,
     int32_t seven_point_one_reverb
 ) {
     float reflectionsDelay;
@@ -1935,18 +1935,18 @@ void forge_audio_reverb_convert_i3dl2_7point1(
 
     if (seven_point_one_reverb)
     {
-        native->rear_delay = FORGE_AUDIO_REVERB_DEFAULT_7_1_REAR_DELAY;
+        native->rear_delay = FORGE_REVERB_DEFAULT_7_1_REAR_DELAY;
     }
     else
     {
-        native->rear_delay = FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY;
+        native->rear_delay = FORGE_REVERB_DEFAULT_REAR_DELAY;
     }
-    native->side_delay = FORGE_AUDIO_REVERB_DEFAULT_7_1_SIDE_DELAY;
-    native->position_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->position_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->position_matrix_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->position_matrix_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->room_size = FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE;
+    native->side_delay = FORGE_REVERB_DEFAULT_7_1_SIDE_DELAY;
+    native->position_left = FORGE_REVERB_DEFAULT_POSITION;
+    native->position_right = FORGE_REVERB_DEFAULT_POSITION;
+    native->position_matrix_left = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    native->position_matrix_right = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    native->room_size = FORGE_REVERB_DEFAULT_ROOM_SIZE;
     native->low_eq_cutoff = 4;
     native->high_eq_cutoff = 6;
 
@@ -1977,9 +1977,9 @@ void forge_audio_reverb_convert_i3dl2_7point1(
     }
 
     reflectionsDelay = i3dl2->reflections_delay * 1000.0f;
-    if (reflectionsDelay >= FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY)
+    if (reflectionsDelay >= FORGE_REVERB_MAX_REFLECTIONS_DELAY)
     {
-        reflectionsDelay = (float) (FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY - 1);
+        reflectionsDelay = (float) (FORGE_REVERB_MAX_REFLECTIONS_DELAY - 1);
     }
     else if (reflectionsDelay <= 1)
     {
@@ -1988,9 +1988,9 @@ void forge_audio_reverb_convert_i3dl2_7point1(
     native->reflections_delay = (uint32_t) reflectionsDelay;
 
     reverbDelay = i3dl2->reverb_delay * 1000.0f;
-    if (reverbDelay >= FORGE_AUDIO_REVERB_MAX_REVERB_DELAY)
+    if (reverbDelay >= FORGE_REVERB_MAX_REVERB_DELAY)
     {
-        reverbDelay = (float) (FORGE_AUDIO_REVERB_MAX_REVERB_DELAY - 1);
+        reverbDelay = (float) (FORGE_REVERB_MAX_REVERB_DELAY - 1);
     }
     native->reverb_delay = (uint8_t) reverbDelay;
 

@@ -61,8 +61,8 @@ add_library(ForgeAudio
     src/forge_spatial_audio.c
     src/forge_effect_base.c
     src/forge_audio.c
-    src/forge_audio_fx_reverb.c
-    src/forge_audio_fx_volume_meter.c
+    src/forge_reverb.c
+    src/forge_volume_meter.c
     src/forge_audio_internal.c
     src/forge_audio_internal_simd.c
     src/forge_audio_operation_set.c
