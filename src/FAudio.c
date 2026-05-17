@@ -148,43 +148,47 @@ uint32_t forge_audio_linked_version(void)
 
 uint32_t forge_audio_create(
     ForgeAudioEngine **ppFAudio,
-    uint32_t Flags,
-    ForgeProcessor XAudio2Processor
+    uint32_t Flags
 ) {
-    forge_audio_construct(ppFAudio);
-    forge_audio_initialize(*ppFAudio, Flags, XAudio2Processor);
-    return 0;
-}
-
-uint32_t forge_audio_construct(ForgeAudioEngine **ppFAudio)
-{
-    return forge_audio_construct_with_allocator(
+    return forge_audio_create_with_allocator(
         ppFAudio,
+        Flags,
         FAudio_malloc,
         FAudio_free,
         FAudio_realloc
     );
 }
 
+static uint32_t engine_construct_with_allocator(
+    ForgeAudioEngine **ppFAudio,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
+);
+
+static uint32_t engine_initialize(
+    ForgeAudioEngine *audio,
+    uint32_t Flags
+);
+
 uint32_t forge_audio_create_with_allocator(
     ForgeAudioEngine **ppFAudio,
     uint32_t Flags,
-    ForgeProcessor XAudio2Processor,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-    forge_audio_construct_with_allocator(
+    engine_construct_with_allocator(
         ppFAudio,
         customMalloc,
         customFree,
         customRealloc
     );
-    forge_audio_initialize(*ppFAudio, Flags, XAudio2Processor);
+    engine_initialize(*ppFAudio, Flags);
     return 0;
 }
 
-uint32_t forge_audio_construct_with_allocator(
+static uint32_t engine_construct_with_allocator(
     ForgeAudioEngine **ppFAudio,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -313,14 +317,12 @@ uint32_t forge_audio_get_device_details(
     return result;
 }
 
-uint32_t forge_audio_initialize(
+static uint32_t engine_initialize(
     ForgeAudioEngine *audio,
-    uint32_t Flags,
-    ForgeProcessor XAudio2Processor
+    uint32_t Flags
 ) {
 	LOG_API_ENTER(audio)
 	FAudio_assert((Flags & ~(FORGE_AUDIO_DEBUG_ENGINE | FORGE_AUDIO_1024_QUANTUM)) == 0);
-	FAudio_assert(XAudio2Processor == FORGE_AUDIO_DEFAULT_PROCESSOR);
 
     audio->initFlags = Flags;
 
@@ -396,7 +398,7 @@ uint32_t forge_audio_create_source_voice(
     (*ppSourceVoice)->filter.Type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
     (*ppSourceVoice)->filter.Frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
     (*ppSourceVoice)->filter.OneOverQ = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
-    (*ppSourceVoice)->filter.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT;
+    (*ppSourceVoice)->filter.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
     (*ppSourceVoice)->sendLock = FAudio_PlatformCreateMutex();
     LOG_MUTEX_CREATE(audio, (*ppSourceVoice)->sendLock)
     (*ppSourceVoice)->effectLock = FAudio_PlatformCreateMutex();
@@ -663,7 +665,7 @@ uint32_t forge_audio_create_submix_voice(
     (*ppSubmixVoice)->filter.Type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
     (*ppSubmixVoice)->filter.Frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
     (*ppSubmixVoice)->filter.OneOverQ = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
-    (*ppSubmixVoice)->filter.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT;
+    (*ppSubmixVoice)->filter.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
     (*ppSubmixVoice)->sendLock = FAudio_PlatformCreateMutex();
     LOG_MUTEX_CREATE(audio, (*ppSubmixVoice)->sendLock)
     (*ppSubmixVoice)->effectLock = FAudio_PlatformCreateMutex();
@@ -848,53 +850,6 @@ uint32_t forge_audio_create_master_voice(
 
     LOG_API_EXIT(audio)
     return 0;
-}
-
-uint32_t forge_audio_create_master_voice_with_category(
-    ForgeAudioEngine *audio,
-    ForgeMasterVoice **ppMasteringVoice,
-    uint32_t InputChannels,
-    uint32_t InputSampleRate,
-    uint32_t Flags,
-    uint16_t *szDeviceId,
-    const ForgeEffectChain *pEffectChain,
-    ForgeStreamCategory StreamCategory
-) {
-    uint32_t DeviceIndex;
-
-    LOG_API_ENTER(audio)
-
-    /* Eventually, we'll want the old CreateMastering to call the new one.
-     * That will depend on us being able to use DeviceID though.
-     * For now, use our little ID hack to turn szDeviceId into DeviceIndex.
-     * -flibit
-     */
-    if (szDeviceId == NULL || szDeviceId[0] == 0)
-    {
-        DeviceIndex = 0;
-    }
-    else
-    {
-        DeviceIndex = szDeviceId[0] - L'0';
-        if (DeviceIndex > FAudio_PlatformGetDeviceCount())
-        {
-            DeviceIndex = 0;
-        }
-    }
-
-    /* Note that StreamCategory is ignored! */
-    uint32_t retval = forge_audio_create_master_voice(
-        audio,
-        ppMasteringVoice,
-        InputChannels,
-        InputSampleRate,
-        Flags,
-        DeviceIndex,
-        pEffectChain
-    );
-
-    LOG_API_EXIT(audio)
-    return retval;
 }
 
 void forge_audio_set_engine_procedure(
@@ -1377,8 +1332,8 @@ uint32_t forge_voice_set_outputs(
             /* Allocate the whole send filter array if needed... */
             if (voice->sendFilter == NULL)
             {
-                voice->sendFilter = (ForgeFilterParametersEx*) voice->audio->pMalloc(
-                    sizeof(ForgeFilterParametersEx) * pSendList->SendCount
+                voice->sendFilter = (ForgeFilterParameters*) voice->audio->pMalloc(
+                    sizeof(ForgeFilterParameters) * pSendList->SendCount
                 );
             }
             if (voice->sendFilterState == NULL)
@@ -1396,7 +1351,7 @@ uint32_t forge_voice_set_outputs(
             voice->sendFilter[i].Type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
             voice->sendFilter[i].Frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
             voice->sendFilter[i].OneOverQ = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
-            voice->sendFilter[i].WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT;
+            voice->sendFilter[i].WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
             voice->sendFilterState[i] = (FAudioFilterState*) voice->audio->pMalloc(
                 sizeof(FAudioFilterState) * outChannels
             );
@@ -1731,9 +1686,9 @@ uint32_t forge_voice_get_effect_parameters(
     return 0;
 }
 
-uint32_t forge_voice_set_filter_parameters_ex(
+uint32_t forge_voice_set_filter_parameters(
     ForgeVoice *voice,
-    const ForgeFilterParametersEx *pParameters,
+    const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 ) {
     LOG_API_ENTER(voice->audio)
@@ -1769,7 +1724,7 @@ uint32_t forge_voice_set_filter_parameters_ex(
     FAudio_memcpy(
         &voice->filter,
         pParameters,
-        sizeof(ForgeFilterParametersEx)
+        sizeof(ForgeFilterParameters)
     );
     FAudio_PlatformUnlockMutex(voice->filterLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
@@ -1778,23 +1733,9 @@ uint32_t forge_voice_set_filter_parameters_ex(
     return 0;
 }
 
-uint32_t forge_voice_set_filter_parameters(
-    ForgeVoice* voice,
-    const ForgeFilterParameters* pParameters,
-    uint32_t OperationSet
-) {
-    ForgeFilterParametersEx ext_parameters;
-    ext_parameters.Type = pParameters->Type;
-    ext_parameters.OneOverQ = pParameters->OneOverQ;
-    ext_parameters.Frequency = pParameters->Frequency;
-    ext_parameters.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT;
-
-    return forge_voice_set_filter_parameters_ex(voice, &ext_parameters, OperationSet);
-}
-
-void forge_voice_get_filter_parameters_ex(
+void forge_voice_get_filter_parameters(
     ForgeVoice *voice,
-    ForgeFilterParametersEx *pParameters
+    ForgeFilterParameters *pParameters
 ) {
     LOG_API_ENTER(voice->audio)
 
@@ -1818,34 +1759,17 @@ void forge_voice_get_filter_parameters_ex(
     FAudio_memcpy(
         pParameters,
         &voice->filter,
-        sizeof(ForgeFilterParametersEx)
+        sizeof(ForgeFilterParameters)
     );
     FAudio_PlatformUnlockMutex(voice->filterLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
     LOG_API_EXIT(voice->audio)
 }
 
-void forge_voice_get_filter_parameters(
-    ForgeVoice* voice,
-    ForgeFilterParameters* pParameters
-) {
-    ForgeFilterParametersEx ext_parameters;
-    ext_parameters.Type = pParameters->Type;
-    ext_parameters.OneOverQ = pParameters->OneOverQ;
-    ext_parameters.Frequency = pParameters->Frequency;
-    ext_parameters.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT;
-
-    forge_voice_get_filter_parameters_ex(voice, &ext_parameters);
-
-    pParameters->Type = ext_parameters.Type;
-    pParameters->Frequency = ext_parameters.Frequency;
-    pParameters->OneOverQ = ext_parameters.OneOverQ;
-}
-
-uint32_t forge_voice_set_output_filter_parameters_ex(
+uint32_t forge_voice_set_output_filter_parameters(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
-    const ForgeFilterParametersEx *pParameters,
+    const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 ) {
     uint32_t i;
@@ -1913,7 +1837,7 @@ uint32_t forge_voice_set_output_filter_parameters_ex(
     FAudio_memcpy(
         &voice->sendFilter[i],
         pParameters,
-        sizeof(ForgeFilterParametersEx)
+        sizeof(ForgeFilterParameters)
     );
 
     FAudio_PlatformUnlockMutex(voice->sendLock);
@@ -1922,25 +1846,10 @@ uint32_t forge_voice_set_output_filter_parameters_ex(
     return 0;
 }
 
-uint32_t forge_voice_set_output_filter_parameters(
-    ForgeVoice* voice,
-    ForgeVoice* pDestinationVoice,
-    const ForgeFilterParameters* pParameters,
-    uint32_t OperationSet
-) {
-    ForgeFilterParametersEx ext_parameters;
-    ext_parameters.Type = pParameters->Type;
-    ext_parameters.OneOverQ = pParameters->OneOverQ;
-    ext_parameters.Frequency = pParameters->Frequency;
-    ext_parameters.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT;
-
-    return forge_voice_set_output_filter_parameters_ex(voice, pDestinationVoice, &ext_parameters, OperationSet);
-}
-
-void forge_voice_get_output_filter_parameters_ex(
+void forge_voice_get_output_filter_parameters(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
-    ForgeFilterParametersEx *pParameters
+    ForgeFilterParameters *pParameters
 ) {
     uint32_t i;
 
@@ -1996,7 +1905,7 @@ void forge_voice_get_output_filter_parameters_ex(
     FAudio_memcpy(
         pParameters,
         &voice->sendFilter[i],
-        sizeof(ForgeFilterParametersEx)
+        sizeof(ForgeFilterParameters)
     );
 
     FAudio_PlatformUnlockMutex(voice->sendLock);
@@ -2047,24 +1956,6 @@ uint32_t forge_voice_set_volume(
 
     LOG_API_EXIT(voice->audio)
     return 0;
-}
-
-void forge_voice_get_output_filter_parameters(
-    ForgeVoice* voice,
-    ForgeVoice* pDestinationVoice,
-    ForgeFilterParameters* pParameters
-) {
-    ForgeFilterParametersEx ext_parameters;
-    ext_parameters.Type = pParameters->Type;
-    ext_parameters.OneOverQ = pParameters->OneOverQ;
-    ext_parameters.Frequency = pParameters->Frequency;
-    ext_parameters.WetDryMix = FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT;
-
-    forge_voice_get_output_filter_parameters_ex(voice, pDestinationVoice, &ext_parameters);
-
-    pParameters->Type = ext_parameters.Type;
-    pParameters->Frequency = ext_parameters.Frequency;
-    pParameters->OneOverQ = ext_parameters.OneOverQ;
 }
 
 void forge_voice_get_volume(
@@ -2554,7 +2445,7 @@ static void destroy_voice(ForgeVoice *voice)
 	voice->audio->pFree(voice);
 }
 
-uint32_t forge_voice_destroy_safe(ForgeVoice *voice)
+uint32_t forge_voice_try_destroy(ForgeVoice *voice)
 {
 	uint32_t ret;
 
@@ -2579,7 +2470,7 @@ uint32_t forge_voice_destroy_safe(ForgeVoice *voice)
 
 void forge_voice_destroy(ForgeVoice *voice)
 {
-    forge_voice_destroy_safe(voice);
+    forge_voice_try_destroy(voice);
 }
 
 /* ForgeSourceVoice Interface */

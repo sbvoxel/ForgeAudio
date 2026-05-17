@@ -321,13 +321,13 @@ void FAudio_OPERATIONSET_QueueSetEffectParameters(
 );
 void FAudio_OPERATIONSET_QueueSetFilterParameters(
     ForgeVoice *voice,
-    const ForgeFilterParametersEx *pParameters,
+    const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 );
 void FAudio_OPERATIONSET_QueueSetOutputFilterParameters(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
-    const ForgeFilterParametersEx *pParameters,
+    const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 );
 void FAudio_OPERATIONSET_QueueSetVolume(
@@ -431,7 +431,7 @@ struct ForgeVoice
     float **sendCoefficients;
     float **mixCoefficients;
     FAudioMixCallback *sendMix;
-    ForgeFilterParametersEx *sendFilter;
+    ForgeFilterParameters *sendFilter;
     FAudioFilterState **sendFilterState;
     struct
     {
@@ -443,7 +443,7 @@ struct ForgeVoice
         uint8_t *parameterUpdates;
         uint8_t *inPlaceProcessing;
     } effects;
-    ForgeFilterParametersEx filter;
+    ForgeFilterParameters filter;
     FAudioFilterState *filterState;
     FAudioMutex sendLock;
     FAudioMutex effectLock;

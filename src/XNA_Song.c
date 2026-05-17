@@ -182,7 +182,7 @@ static void XNA_SongKill()
 
 FORGE_AUDIO_API void XNA_SongInit()
 {
-    forge_audio_create(&songAudio, 0, FORGE_AUDIO_DEFAULT_PROCESSOR);
+    forge_audio_create(&songAudio, 0);
     forge_audio_create_master_voice(
         songAudio,
         &songMaster,

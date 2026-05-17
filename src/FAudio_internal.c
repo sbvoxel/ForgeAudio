@@ -609,7 +609,7 @@ static void FAudio_INTERNAL_DecodeBuffers(
 
 static inline void FAudio_INTERNAL_FilterVoice(
     ForgeAudioEngine *audio,
-    const ForgeFilterParametersEx *filter,
+    const ForgeFilterParameters *filter,
     FAudioFilterState *filterState,
     float *samples,
     uint32_t numSamples,

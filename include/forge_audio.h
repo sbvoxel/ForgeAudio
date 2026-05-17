@@ -82,26 +82,6 @@ typedef enum ForgeFilterType
     ForgeFilterNotch
 } ForgeFilterType;
 
-typedef enum ForgeStreamCategory
-{
-    ForgeStreamCategory_Other,
-    ForgeStreamCategory_ForegroundOnlyMedia,
-    ForgeStreamCategory_BackgroundCapableMedia,
-    ForgeStreamCategory_Communications,
-    ForgeStreamCategory_Alerts,
-    ForgeStreamCategory_SoundEffects,
-    ForgeStreamCategory_GameEffects,
-    ForgeStreamCategory_GameMedia,
-    ForgeStreamCategory_GameChat,
-    ForgeStreamCategory_Speech,
-    ForgeStreamCategory_Movie,
-    ForgeStreamCategory_Media
-} ForgeStreamCategory;
-
-/* FIXME: The original enum violates ISO C and is platform specific anyway... */
-typedef uint32_t ForgeProcessor;
-#define FORGE_AUDIO_DEFAULT_PROCESSOR 0xFFFFFFFF
-
 /* Structures */
 
 #pragma pack(push, 1)
@@ -195,23 +175,16 @@ typedef struct ForgeFilterParameters
     ForgeFilterType Type;
     float Frequency;    /* [0, FORGE_AUDIO_MAX_FILTER_FREQUENCY] */
     float OneOverQ;        /* [0, FORGE_AUDIO_MAX_FILTER_ONEOVERQ] */
-} ForgeFilterParameters;
-
-typedef struct ForgeFilterParametersEx
-{
-    ForgeFilterType Type;
-    float Frequency;    /* [0, FORGE_AUDIO_MAX_FILTER_FREQUENCY] */
-    float OneOverQ;        /* [0, FORGE_AUDIO_MAX_FILTER_ONEOVERQ] */
     float WetDryMix;    /* [0, 1] */
-} ForgeFilterParametersEx;
+} ForgeFilterParameters;
 
 typedef struct ForgeBuffer
 {
     /* Either 0 or FORGE_AUDIO_END_OF_STREAM */
     uint32_t Flags;
     /* Pointer to wave data, memory block size.
-     * Note that pAudioData is not copied; ForgeAudioEngine reads directly from your
-     * pointer! This pointer must be valid until ForgeAudioEngine has finished using
+     * Note that pAudioData is not copied; ForgeAudio reads directly from your
+     * pointer! This pointer must be valid until ForgeAudio has finished using
      * it, at which point an OnBufferEnd callback will be generated.
      */
     uint32_t AudioBytes;
@@ -341,7 +314,7 @@ typedef struct ForgeXMA2FormatEx
 #define FORGE_AUDIO_DEFAULT_FILTER_TYPE    ForgeFilterLowPass
 #define FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY    FORGE_AUDIO_MAX_FILTER_FREQUENCY
 #define FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ    1.0f
-#define FORGE_AUDIO_DEFAULT_FILTER_WETDRYMIX_EXT    1.0f
+#define FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX    1.0f
 
 #define FORGE_AUDIO_LOG_ERRORS        0x0001
 #define FORGE_AUDIO_LOG_WARNINGS        0x0002
@@ -471,18 +444,13 @@ FORGE_AUDIO_API uint32_t forge_audio_linked_version(void);
  *
  * ppFAudio:        Filled with the audio engine context.
  * Flags:        Can be 0 or a combination of FORGE_AUDIO_DEBUG_ENGINE and FORGE_AUDIO_1024_QUANTUM.
- * XAudio2Processor:    Set this to FORGE_AUDIO_DEFAULT_PROCESSOR.
  *
  * Returns 0 on success.
  */
 FORGE_AUDIO_API uint32_t forge_audio_create(
     ForgeAudioEngine **ppFAudio,
-    uint32_t Flags,
-    ForgeProcessor XAudio2Processor
+    uint32_t Flags
 );
-
-/* See "extensions/COMConstructEXT.txt" for more details */
-FORGE_AUDIO_API uint32_t forge_audio_construct(ForgeAudioEngine **ppFAudio);
 
 /* Increments a reference counter. When counter is 0, audio is freed.
  * Returns the reference count after incrementing.
@@ -504,7 +472,7 @@ FORGE_AUDIO_API uint32_t forge_audio_get_device_count(ForgeAudioEngine *audio, u
 
 /* Gets basic information about a sound device.
  *
- * Index:        Can be between 0 and the result of GetDeviceCount.
+ * Index:        Can be between 0 and the result of forge_audio_get_device_count.
  * pDeviceDetails:    Filled with the device information.
  *
  * Returns 0 on success.
@@ -513,15 +481,6 @@ FORGE_AUDIO_API uint32_t forge_audio_get_device_details(
     ForgeAudioEngine *audio,
     uint32_t Index,
     ForgeDeviceDetails *pDeviceDetails
-);
-
-/* You don't actually have to call this, unless you're using the COM APIs.
- * See the forge_audio_create API for parameter information.
- */
-FORGE_AUDIO_API uint32_t forge_audio_initialize(
-    ForgeAudioEngine *audio,
-    uint32_t Flags,
-    ForgeProcessor XAudio2Processor
 );
 
 /* Register a new set of engine callbacks.
@@ -558,8 +517,8 @@ FORGE_AUDIO_API void forge_audio_unregister_callback(
  *            NOPITCH/NOSRC:    Resampling is disabled. If you set this,
  *                    the source format sample rate MUST match
  *                    the output voices' input sample rates.
- *                    Also, SetFrequencyRatio will fail.
- *            USEFILTER:    Enables the use of SetFilterParameters.
+ *                    Also, forge_source_voice_set_rate will fail.
+ *            USEFILTER:    Enables the use of forge_voice_set_filter_parameters.
  *            MUSIC:        Unsupported.
  * MaxFrequencyRatio:    AKA your max pitch. This allows us to optimize the size
  *            of the decode/resample cache sizes. For example, if you
@@ -613,14 +572,14 @@ FORGE_AUDIO_API uint32_t forge_audio_create_submix_voice(
     const ForgeEffectChain *pEffectChain
 );
 
-/* This should be your second ForgeAudioEngine call, unless you care about which device
- * you want to use. In that case, see GetDeviceDetails.
+/* This should be your second ForgeAudio call, unless you care about which device
+ * you want to use. In that case, see forge_audio_get_device_details.
  *
  * ppMasteringVoice:    Filled with the mastering voice pointer.
  * InputChannels:    Device channel count. Can be FORGE_AUDIO_DEFAULT_CHANNELS.
  * InputSampleRate:    Device sample rate. Can be FORGE_AUDIO_DEFAULT_SAMPLERATE.
  * Flags:        This value must be 0.
- * DeviceIndex:        0 for the default device. See GetDeviceCount.
+ * DeviceIndex:        0 for the default device. See forge_audio_get_device_count.
  * pEffectChain:    List of FAPO effects. This value can be NULL.
  *
  * Returns 0 on success.
@@ -635,20 +594,6 @@ FORGE_AUDIO_API uint32_t forge_audio_create_master_voice(
     const ForgeEffectChain *pEffectChain
 );
 
-/* This is the XAudio 2.8+ version of CreateMasteringVoice.
- * Right now this doesn't do anything. Don't use this function.
- */
-FORGE_AUDIO_API uint32_t forge_audio_create_master_voice_with_category(
-    ForgeAudioEngine *audio,
-    ForgeMasterVoice **ppMasteringVoice,
-    uint32_t InputChannels,
-    uint32_t InputSampleRate,
-    uint32_t Flags,
-    uint16_t *szDeviceId,
-    const ForgeEffectChain *pEffectChain,
-    ForgeStreamCategory StreamCategory
-);
-
 /* Starts the engine, begins processing the audio graph.
  * Returns 0 on success.
  */
@@ -656,17 +601,16 @@ FORGE_AUDIO_API uint32_t forge_audio_start_engine(ForgeAudioEngine *audio);
 
 /* Stops the engine and halts all processing.
  * The audio device will continue to run, but will produce silence.
- * The graph will be frozen until you call StartEngine, where it will then
+ * The graph will be frozen until you call forge_audio_start_engine, where it will then
  * resume all processing exactly as it would have had this never been called.
  */
 FORGE_AUDIO_API void forge_audio_stop_engine(ForgeAudioEngine *audio);
 
-/* Flushes a batch of ForgeAudioEngine calls compiled with a given "OperationSet" tag.
- * This function is based on IXAudio2::CommitChanges from the XAudio2 spec.
+/* Flushes a batch of ForgeAudio calls compiled with a given "OperationSet" tag.
  * This is useful for pushing calls that need to be done perfectly in sync. For
  * example, if you want to play two separate sources at the exact same time, you
  * can call forge_source_voice_start with an OperationSet value of your choice,
- * then call CommitChanges with that same value to start the sources together.
+ * then commit that same operation set to start the sources together.
  *
  * OperationSet: Either a value known by you or FORGE_AUDIO_COMMIT_ALL
  *
@@ -753,7 +697,7 @@ FORGE_AUDIO_API uint32_t forge_voice_set_effect_chain(
 /* Enables an effect in the effect chain.
  *
  * EffectIndex:        The index of the effect (based on the chain order).
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -766,7 +710,7 @@ FORGE_AUDIO_API uint32_t forge_voice_enable_effect(
 /* Disables an effect in the effect chain.
  *
  * EffectIndex:        The index of the effect (based on the chain order).
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -794,7 +738,7 @@ FORGE_AUDIO_API void forge_voice_get_effect_state(
  * EffectIndex:        The index of the effect (based on the chain order).
  * pParameters:        The values to be copied and submitted to the FAPO.
  * ParametersByteSize:    This should match what the FAPO expects!
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -825,7 +769,7 @@ FORGE_AUDIO_API uint32_t forge_voice_get_effect_parameters(
  * This is only valid on voices with the USEFILTER flag.
  *
  * pParameters:        See ForgeFilterParameters for details.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -850,7 +794,7 @@ FORGE_AUDIO_API void forge_voice_get_filter_parameters(
  *
  * pDestinationVoice:    An output voice from the voice's send list.
  * pParameters:        See ForgeFilterParameters for details.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -873,64 +817,12 @@ FORGE_AUDIO_API void forge_voice_get_output_filter_parameters(
     ForgeFilterParameters *pParameters
 );
 
-/* Sets the filter variables for a voice.
- * This is only valid on voices with the USEFILTER flag.
- *
- * pParameters:        See ForgeFilterParametersEx for details.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
- *
- * Returns 0 on success.
- */
-FORGE_AUDIO_API uint32_t forge_voice_set_filter_parameters_ex(
-    ForgeVoice* voice,
-    const ForgeFilterParametersEx* pParameters,
-    uint32_t OperationSet
-);
-
-/* Requests the filter variables for a voice.
- * This is only valid on voices with the USEFILTER flag.
- *
- * pParameters: See ForgeFilterParametersEx for details.
- */
-FORGE_AUDIO_API void forge_voice_get_filter_parameters_ex(
-    ForgeVoice* voice,
-    ForgeFilterParametersEx* pParameters
-);
-
-/* Sets the filter variables for a voice's output voice.
- * This is only valid on sends with the USEFILTER flag.
- *
- * pDestinationVoice:    An output voice from the voice's send list.
- * pParameters:        See ForgeFilterParametersEx for details.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
- *
- * Returns 0 on success.
- */
-FORGE_AUDIO_API uint32_t forge_voice_set_output_filter_parameters_ex(
-    ForgeVoice* voice,
-    ForgeVoice* pDestinationVoice,
-    const ForgeFilterParametersEx* pParameters,
-    uint32_t OperationSet
-);
-
-/* Requests the filter variables for a voice's output voice.
- * This is only valid on sends with the USEFILTER flag.
- *
- * pDestinationVoice:    An output voice from the voice's send list.
- * pParameters:        See ForgeFilterParametersEx for details.
- */
-FORGE_AUDIO_API void forge_voice_get_output_filter_parameters_ex(
-    ForgeVoice* voice,
-    ForgeVoice* pDestinationVoice,
-    ForgeFilterParametersEx* pParameters
-);
-
 /* Sets the global volume of a voice.
  *
  * Volume:        Amplitude ratio. 1.0f is default, 0.0f is silence.
  *            Note that you can actually set volume < 0.0f!
  *            Bounds: [-FORGE_AUDIO_MAX_VOLUME_LEVEL, FORGE_AUDIO_MAX_VOLUME_LEVEL]
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -952,8 +844,8 @@ FORGE_AUDIO_API void forge_voice_get_volume(
 /* Sets the per-channel volumes of a voice.
  *
  * Channels:        Must match the channel count of this voice!
- * pVolumes:        Amplitude ratios for each channel. Same as SetVolume.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * pVolumes:        Amplitude ratios for each channel. Same as forge_voice_set_volume.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -988,7 +880,7 @@ FORGE_AUDIO_API void forge_voice_get_channel_volumes(
  * SourceChannels:    Must match the voice's input channel count!
  * DestinationChannels:    Must match the destination's input channel count!
  * pLevelMatrix:    A float[SourceChannels * DestinationChannels].
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -1001,7 +893,7 @@ FORGE_AUDIO_API uint32_t forge_voice_set_output_matrix(
     uint32_t OperationSet
 );
 
-/* Gets the volumes of a send's output channels. See SetOutputMatrix.
+/* Gets the volumes of a send's output channels. See forge_voice_set_output_matrix.
  *
  * pDestinationVoice:    An output voice from the voice's send list.
  * SourceChannels:    Must match the voice's input channel count!
@@ -1019,18 +911,15 @@ FORGE_AUDIO_API void forge_voice_get_output_matrix(
 /* Removes this voice from the audio graph and frees memory. */
 FORGE_AUDIO_API void forge_voice_destroy(ForgeVoice *voice);
 
-/*
- * Returns S_OK on success and E_FAIL if voice could not be destroyed (e. g., because it is in use).
-*/
-
-FORGE_AUDIO_API uint32_t forge_voice_destroy_safe(ForgeVoice *voice);
+/* Returns 0 on success or an error if the voice is still in use. */
+FORGE_AUDIO_API uint32_t forge_voice_try_destroy(ForgeVoice *voice);
 
 /* ForgeSourceVoice Interface */
 
 /* Starts processing for a source voice.
  *
  * Flags:        Must be 0.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -1041,11 +930,11 @@ FORGE_AUDIO_API uint32_t forge_source_voice_start(
 );
 
 /* Pauses processing for a source voice. Yes, I said pausing.
- * If you want to _actually_ stop, call FlushSourceBuffers next.
+ * If you want to _actually_ stop, call forge_source_voice_flush_buffers next.
  *
  * Flags:        Can be 0 or FORGE_AUDIO_PLAY_TAILS, which allows effects to
  *            keep emitting output even after processing has stopped.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -1088,7 +977,7 @@ FORGE_AUDIO_API uint32_t forge_source_voice_end_stream(
 
 /* Sets the loop count of the active buffer to 0.
  *
- * OperationSet: See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet: See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -1111,7 +1000,7 @@ FORGE_AUDIO_API void forge_source_voice_get_state(
 /* Sets the frequency ratio (fancy phrase for pitch) of this source.
  *
  * Ratio:        The frequency ratio, must be <= MaxFrequencyRatio.
- * OperationSet:    See CommitChanges. Default is FORGE_AUDIO_COMMIT_NOW.
+ * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
  */
@@ -1131,7 +1020,7 @@ FORGE_AUDIO_API void forge_source_voice_get_rate(
 );
 
 /* Resets the core sample rate of this source.
- * You probably don't want this, it's more likely you want SetFrequencyRatio.
+ * You probably don't want this, it's more likely you want forge_source_voice_set_rate.
  * This is used to recycle voices without having to constantly reallocate them.
  * For example, if you have wavedata that's all float32 mono, but the sample
  * rates are different, you can take a source that was being used for a 48KHz
@@ -1149,7 +1038,7 @@ FORGE_AUDIO_API uint32_t forge_source_voice_set_sample_rate(
 /* ForgeMasterVoice Interface */
 
 /* Requests the channel mask for the mastering voice.
- * This is typically used with F3DAudioInitialize, but you may find it
+ * This is typically used with F3DAudio initialize, but you may find it
  * interesting if you want to see the user's basic speaker layout.
  *
  * pChannelMask: Filled with the channel mask.
@@ -1262,9 +1151,7 @@ struct ForgeVoiceCallback
     OnVoiceProcessingPassStartFunc OnVoiceProcessingPassStart;
 };
 
-/* Custom Allocator API
- * See "extensions/CustomAllocatorEXT.txt" for more information.
- */
+/* Custom Allocator API */
 
 typedef void* (FORGE_AUDIO_CALL * ForgeMallocFunc)(size_t size);
 typedef void (FORGE_AUDIO_CALL * ForgeFreeFunc)(void* ptr);
@@ -1273,21 +1160,12 @@ typedef void* (FORGE_AUDIO_CALL * ForgeReallocFunc)(void* ptr, size_t size);
 FORGE_AUDIO_API uint32_t forge_audio_create_with_allocator(
     ForgeAudioEngine **ppFAudio,
     uint32_t Flags,
-    ForgeProcessor XAudio2Processor,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
-);
-FORGE_AUDIO_API uint32_t forge_audio_construct_with_allocator(
-    ForgeAudioEngine **ppFAudio,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 
-/* Engine Procedure API
- * See "extensions/EngineProcedureEXT.txt" for more information.
- */
+/* Engine Procedure API */
 typedef void (FORGE_AUDIO_CALL *ForgeEngineCall)(ForgeAudioEngine *audio, float *output);
 typedef void (FORGE_AUDIO_CALL *ForgeEngineProcedure)(ForgeEngineCall defaultEngineProc, ForgeAudioEngine *audio, float *output, void *user);
 

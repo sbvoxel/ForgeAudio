@@ -70,12 +70,12 @@ struct FAudio_OPERATIONSET_Operation
         } SetEffectParameters;
         struct
         {
-            ForgeFilterParametersEx Parameters;
+            ForgeFilterParameters Parameters;
         } SetFilterParameters;
         struct
         {
             ForgeVoice *pDestinationVoice;
-            ForgeFilterParametersEx Parameters;
+            ForgeFilterParameters Parameters;
         } SetOutputFilterParameters;
         struct
         {
@@ -169,7 +169,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
     break;
 
     case FAUDIOOP_SETFILTERPARAMETERS:
-        forge_voice_set_filter_parameters_ex(
+        forge_voice_set_filter_parameters(
             op->Voice,
             &op->Data.SetFilterParameters.Parameters,
             FORGE_AUDIO_COMMIT_NOW
@@ -177,7 +177,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
     break;
 
     case FAUDIOOP_SETOUTPUTFILTERPARAMETERS:
-        forge_voice_set_output_filter_parameters_ex(
+        forge_voice_set_output_filter_parameters(
             op->Voice,
             op->Data.SetOutputFilterParameters.pDestinationVoice,
             &op->Data.SetOutputFilterParameters.Parameters,
@@ -472,7 +472,7 @@ void FAudio_OPERATIONSET_QueueSetEffectParameters(
 
 void FAudio_OPERATIONSET_QueueSetFilterParameters(
     ForgeVoice *voice,
-    const ForgeFilterParametersEx *pParameters,
+    const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 ) {
     FAudio_OPERATIONSET_Operation *op;
@@ -489,7 +489,7 @@ void FAudio_OPERATIONSET_QueueSetFilterParameters(
     FAudio_memcpy(
         &op->Data.SetFilterParameters.Parameters,
         pParameters,
-        sizeof(ForgeFilterParametersEx)
+        sizeof(ForgeFilterParameters)
     );
 
     FAudio_PlatformUnlockMutex(voice->audio->operationLock);
@@ -499,7 +499,7 @@ void FAudio_OPERATIONSET_QueueSetFilterParameters(
 void FAudio_OPERATIONSET_QueueSetOutputFilterParameters(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
-    const ForgeFilterParametersEx *pParameters,
+    const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 ) {
     FAudio_OPERATIONSET_Operation *op;
@@ -517,7 +517,7 @@ void FAudio_OPERATIONSET_QueueSetOutputFilterParameters(
     FAudio_memcpy(
         &op->Data.SetOutputFilterParameters.Parameters,
         pParameters,
-        sizeof(ForgeFilterParametersEx)
+        sizeof(ForgeFilterParameters)
     );
 
     FAudio_PlatformUnlockMutex(voice->audio->operationLock);
