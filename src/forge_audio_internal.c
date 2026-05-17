@@ -311,30 +311,35 @@ static uint32_t forge_audio_decode_padding(ForgeSourceVoice *voice, float *dst, 
     return decoded;
 }
 
+/* Source callbacks must run without the mixer/source lock stack held. */
+#define FORGE_AUDIO_UNLOCK_SOURCE_CALLBACK_LOCKS(voice)                                                                \
+    do {                                                                                                               \
+        forge_platform_unlock_mutex((voice)->src.bufferLock);                                                          \
+        LOG_MUTEX_UNLOCK((voice)->audio, (voice)->src.bufferLock);                                                     \
+        forge_platform_unlock_mutex((voice)->sendLock);                                                                \
+        LOG_MUTEX_UNLOCK((voice)->audio, (voice)->sendLock);                                                           \
+        forge_platform_unlock_mutex((voice)->audio->sourceLock);                                                       \
+        LOG_MUTEX_UNLOCK((voice)->audio, (voice)->audio->sourceLock);                                                  \
+    } while (0)
+
+#define FORGE_AUDIO_LOCK_SOURCE_CALLBACK_LOCKS(voice)                                                                  \
+    do {                                                                                                               \
+        forge_platform_lock_mutex((voice)->audio->sourceLock);                                                         \
+        LOG_MUTEX_LOCK((voice)->audio, (voice)->audio->sourceLock);                                                    \
+        forge_platform_lock_mutex((voice)->sendLock);                                                                  \
+        LOG_MUTEX_LOCK((voice)->audio, (voice)->sendLock);                                                             \
+        forge_platform_lock_mutex((voice)->src.bufferLock);                                                            \
+        LOG_MUTEX_LOCK((voice)->audio, (voice)->src.bufferLock);                                                       \
+    } while (0)
+
 static void start_buffer(ForgeSourceVoice *voice, struct queued_buffer *buffer) {
     if (!buffer->sent_OnStartBuffer) {
         buffer->sent_OnStartBuffer = true;
 
         if (voice->src.callback != NULL && voice->src.callback->on_buffer_start != NULL) {
-            forge_platform_unlock_mutex(voice->src.bufferLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
-
-            forge_platform_unlock_mutex(voice->sendLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-
-            forge_platform_unlock_mutex(voice->audio->sourceLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
-
+            FORGE_AUDIO_UNLOCK_SOURCE_CALLBACK_LOCKS(voice);
             voice->src.callback->on_buffer_start(voice->src.callback, buffer->buffer.context);
-
-            forge_platform_lock_mutex(voice->audio->sourceLock);
-            LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
-
-            forge_platform_lock_mutex(voice->sendLock);
-            LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-
-            forge_platform_lock_mutex(voice->src.bufferLock);
-            LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
+            FORGE_AUDIO_LOCK_SOURCE_CALLBACK_LOCKS(voice);
         }
     }
 }
@@ -352,25 +357,9 @@ static void end_buffer(ForgeSourceVoice *voice) {
         }
 
         if (callback != NULL && callback->on_loop_end != NULL) {
-            forge_platform_unlock_mutex(voice->src.bufferLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
-
-            forge_platform_unlock_mutex(voice->sendLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-
-            forge_platform_unlock_mutex(voice->audio->sourceLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
-
+            FORGE_AUDIO_UNLOCK_SOURCE_CALLBACK_LOCKS(voice);
             callback->on_loop_end(callback, context);
-
-            forge_platform_lock_mutex(voice->audio->sourceLock);
-            LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
-
-            forge_platform_lock_mutex(voice->sendLock);
-            LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-
-            forge_platform_lock_mutex(voice->src.bufferLock);
-            LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
+            FORGE_AUDIO_LOCK_SOURCE_CALLBACK_LOCKS(voice);
         }
         return;
     }
@@ -391,15 +380,7 @@ static void end_buffer(ForgeSourceVoice *voice) {
     }
 
     if (callback != NULL) {
-        forge_platform_unlock_mutex(voice->src.bufferLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
-
-        forge_platform_unlock_mutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-
-        forge_platform_unlock_mutex(voice->audio->sourceLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
-
+        FORGE_AUDIO_UNLOCK_SOURCE_CALLBACK_LOCKS(voice);
         if (callback->on_buffer_end != NULL) {
             callback->on_buffer_end(callback, context);
         }
@@ -408,14 +389,7 @@ static void end_buffer(ForgeSourceVoice *voice) {
             callback->on_stream_end(callback);
         }
 
-        forge_platform_lock_mutex(voice->audio->sourceLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
-
-        forge_platform_lock_mutex(voice->sendLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-
-        forge_platform_lock_mutex(voice->src.bufferLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
+        FORGE_AUDIO_LOCK_SOURCE_CALLBACK_LOCKS(voice);
     }
 }
 
@@ -730,25 +704,9 @@ static void forge_audio_mix_source(ForgeSourceVoice *voice) {
 
     /* Okay, we're done messing with client data */
     if (voice->src.callback != NULL && voice->src.callback->on_voice_processing_pass_end != NULL) {
-        forge_platform_unlock_mutex(voice->src.bufferLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
-
-        forge_platform_unlock_mutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-
-        forge_platform_unlock_mutex(voice->audio->sourceLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
-
+        FORGE_AUDIO_UNLOCK_SOURCE_CALLBACK_LOCKS(voice);
         voice->src.callback->on_voice_processing_pass_end(voice->src.callback);
-
-        forge_platform_lock_mutex(voice->audio->sourceLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
-
-        forge_platform_lock_mutex(voice->sendLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-
-        forge_platform_lock_mutex(voice->src.bufferLock);
-        LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
+        FORGE_AUDIO_LOCK_SOURCE_CALLBACK_LOCKS(voice);
     }
 
     /* Nothing to resample? */
