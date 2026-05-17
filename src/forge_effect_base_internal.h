@@ -36,7 +36,7 @@
 #ifndef FORGE_EFFECT_BASE_INTERNAL_H
 #define FORGE_EFFECT_BASE_INTERNAL_H
 
-#include "forge_effect.h"
+#include "forge_effect_internal.h"
 
 #if defined(__GNUC__) || defined(__clang__)
 #define FORGE_INTERNAL_API __attribute__((visibility("hidden")))

@@ -54,6 +54,7 @@ add_library(ForgeAudio
     include/forge_effects.h
     include/forge_audio.h
     # Internal Headers
+    src/forge_effect_internal.h
     src/forge_effect_base_internal.h
     src/forge_audio_internal.h
     src/stb_modified.h
