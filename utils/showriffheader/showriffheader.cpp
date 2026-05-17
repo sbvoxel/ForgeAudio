@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <SDL.h>
 
 #include <ForgeAudio.h>
 

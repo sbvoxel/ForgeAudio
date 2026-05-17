@@ -138,67 +138,8 @@ endif()
 if(BUILD_UTILS)
     enable_language(CXX)
 
-    # Shared ImGui Framework
-    add_library(uicommon STATIC
-        utils/uicommon/FAudioUI_main.cpp
-        utils/uicommon/imconfig.h
-        utils/uicommon/imgui.cpp
-        utils/uicommon/imgui_demo.cpp
-        utils/uicommon/imgui_draw.cpp
-        utils/uicommon/imgui_widgets.cpp
-        utils/uicommon/imgui.h
-        utils/uicommon/imgui_internal.h
-        utils/uicommon/imstb_rectpack.h
-        utils/uicommon/imstb_textedit.h
-        utils/uicommon/imstb_truetype.h
-    )
-    target_link_libraries(uicommon PUBLIC ForgeAudio)
-
-    # Shared WAV Resources
-    add_library(wavs STATIC utils/wavcommon/wavs.cpp)
-    target_compile_definitions(wavs PUBLIC
-        RESOURCE_PATH="${CMAKE_SOURCE_DIR}/utils/wavcommon/resources"
-    )
-
-    # These tools do NOT use uicommon
-    add_executable(testxwma utils/testxwma/testxwma.cpp)
-    target_link_libraries(testxwma PRIVATE ForgeAudio)
     add_executable(showriffheader utils/showriffheader/showriffheader.cpp)
     target_link_libraries(showriffheader PRIVATE ForgeAudio)
-
-    # These tools use uicommon, but NOT wavs
-    add_executable(testfilter
-        utils/testfilter/audio.cpp
-        utils/testfilter/audio_faudio.cpp
-        utils/testfilter/audio.h
-        utils/testfilter/audio_player.h
-        utils/testfilter/audio_xaudio.cpp
-        utils/testfilter/oscillator.cpp
-        utils/testfilter/oscillator.h
-        utils/testfilter/testfilter.cpp
-    )
-    target_link_libraries(testfilter PRIVATE uicommon)
-
-    # These tools use both uicommon and wavs
-    add_executable(testreverb
-        utils/testreverb/audio.cpp
-        utils/testreverb/audio_faudio.cpp
-        utils/testreverb/audio.h
-        utils/testreverb/audio_xaudio.cpp
-        utils/testreverb/testreverb.cpp
-    )
-    target_link_libraries(testreverb PRIVATE uicommon wavs)
-    add_executable(testvolumemeter
-        utils/testvolumemeter/audio.cpp
-        utils/testvolumemeter/audio_faudio.cpp
-        utils/testvolumemeter/audio.h
-        utils/testvolumemeter/testvolumemeter.cpp
-    )
-    target_link_libraries(testvolumemeter PRIVATE uicommon wavs)
-    add_executable(voicepool
-        utils/voicepool/voicepool.cpp
-    )
-    target_link_libraries(voicepool PRIVATE uicommon wavs)
 endif()
 
 # define install directories
