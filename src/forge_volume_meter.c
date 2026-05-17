@@ -117,10 +117,10 @@ static void forge_volume_meter_unlock_for_process(ForgeVolumeMeter *effect)
 
 static void forge_volume_meter_process(
     ForgeVolumeMeter *effect,
-    uint32_t input_process_parameter_count,
-    const ForgeEffectProcessBuffer* input_process_parameters,
-    uint32_t output_process_parameter_count,
-    ForgeEffectProcessBuffer* output_process_parameters,
+    uint32_t input_buffer_count,
+    const ForgeEffectProcessBuffer* input_buffers,
+    uint32_t output_buffer_count,
+    ForgeEffectProcessBuffer* output_buffers,
     int32_t is_enabled
 ) {
     float peak;
@@ -134,8 +134,8 @@ static void forge_volume_meter_process(
     {
         peak = 0.0f;
         total = 0.0f;
-        buffer = ((float*) input_process_parameters->buffer) + i;
-        for (j = 0; j < input_process_parameters->valid_frame_count; j += 1, buffer += effect->channels)
+        buffer = ((float*) input_buffers->buffer) + i;
+        for (j = 0; j < input_buffers->valid_frame_count; j += 1, buffer += effect->channels)
         {
             const float sampleAbs = ForgeAudio_fabsf(*buffer);
             if (sampleAbs > peak)
@@ -146,7 +146,7 @@ static void forge_volume_meter_process(
         }
         levels->peak_levels[i] = peak;
         levels->rms_levels[i] = ForgeAudio_sqrtf(
-            total / input_process_parameters->valid_frame_count
+            total / input_buffers->valid_frame_count
         );
     }
 

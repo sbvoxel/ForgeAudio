@@ -1470,10 +1470,10 @@ static inline void forge_reverb_copy_buffer(
 
 static void forge_reverb_process(
     ForgeReverb *effect,
-    uint32_t input_process_parameter_count,
-    const ForgeEffectProcessBuffer* input_process_parameters,
-    uint32_t output_process_parameter_count,
-    ForgeEffectProcessBuffer* output_process_parameters,
+    uint32_t input_buffer_count,
+    const ForgeEffectProcessBuffer* input_buffers,
+    uint32_t output_buffer_count,
+    ForgeEffectProcessBuffer* output_buffers,
     int32_t is_enabled
 ) {
     ForgeReverbParameters *params;
@@ -1501,15 +1501,15 @@ static void forge_reverb_process(
     /* Handle disabled filter */
     if (is_enabled == 0)
     {
-        output_process_parameters->buffer_flags = input_process_parameters->buffer_flags;
+        output_buffers->buffer_flags = input_buffers->buffer_flags;
 
-        if (output_process_parameters->buffer_flags != FORGE_EFFECT_BUFFER_SILENT)
+        if (output_buffers->buffer_flags != FORGE_EFFECT_BUFFER_SILENT)
         {
             forge_reverb_copy_buffer(
                 effect,
-                (float*) input_process_parameters->buffer,
-                (float*) output_process_parameters->buffer,
-                input_process_parameters->valid_frame_count
+                (float*) input_buffers->buffer,
+                (float*) output_buffers->buffer,
+                input_buffers->valid_frame_count
             );
         }
 
@@ -1518,12 +1518,12 @@ static void forge_reverb_process(
     }
 
     /* Use a silent buffer when no input buffer is available to play the effect tail. */
-    if (input_process_parameters->buffer_flags == FORGE_EFFECT_BUFFER_SILENT)
+    if (input_buffers->buffer_flags == FORGE_EFFECT_BUFFER_SILENT)
     {
         /* Make sure input data is usable. FIXME: Is this required? */
         ForgeAudio_zero(
-            input_process_parameters->buffer,
-            input_process_parameters->valid_frame_count * effect->inBlockAlign
+            input_buffers->buffer,
+            input_buffers->valid_frame_count * effect->inBlockAlign
         );
     }
 
@@ -1531,9 +1531,9 @@ static void forge_reverb_process(
     #define PROCESS(pin, pout) \
         DspReverb_INTERNAL_Process_##pin##_to_##pout( \
             &effect->reverb, \
-            (float*) input_process_parameters->buffer, \
-            (float*) output_process_parameters->buffer, \
-            input_process_parameters->valid_frame_count * effect->inChannels \
+            (float*) input_buffers->buffer, \
+            (float*) output_buffers->buffer, \
+            input_buffers->valid_frame_count * effect->inChannels \
         )
     switch (effect->reverb.out_channels)
     {
@@ -1561,7 +1561,7 @@ static void forge_reverb_process(
     #undef PROCESS
 
     /* Set buffer_flags to silent so PLAY_TAILS knows when to stop */
-    output_process_parameters->buffer_flags = (total < 0.0000001f) ?
+    output_buffers->buffer_flags = (total < 0.0000001f) ?
         FORGE_EFFECT_BUFFER_SILENT :
         FORGE_EFFECT_BUFFER_VALID;
 

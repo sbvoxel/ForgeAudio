@@ -142,10 +142,10 @@ typedef void (FORGE_EFFECT_CALL * ForgeEffectUnlockForProcessFunc)(
 );
 typedef void (FORGE_EFFECT_CALL * ForgeEffectProcessFunc)(
     void* effect,
-    uint32_t input_process_parameter_count,
-    const ForgeEffectProcessBuffer* input_process_parameters,
-    uint32_t output_process_parameter_count,
-    ForgeEffectProcessBuffer* output_process_parameters,
+    uint32_t input_buffer_count,
+    const ForgeEffectProcessBuffer* input_buffers,
+    uint32_t output_buffer_count,
+    ForgeEffectProcessBuffer* output_buffers,
     int32_t is_enabled
 );
 typedef uint32_t (FORGE_EFFECT_CALL * ForgeEffectCalcInputFramesFunc)(
