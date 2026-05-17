@@ -97,6 +97,14 @@ FMOD and Wwise are commercial middleware and authoring ecosystems. ForgeAudio is
 
 Steam Audio focuses on spatial acoustics such as HRTF rendering, occlusion, reflection, and propagation. ForgeAudio may be used alongside systems like that, but it is primarily an audio runtime rather than a dedicated acoustic simulation package.
 
+## Custom Effects
+
+ForgeAudio currently treats effects as opaque handles created by ForgeAudio itself. Built-in effects can be attached to voices and submixes, configured through the voice effect APIs, and destroyed or transferred into an effect chain.
+
+Earlier versions inherited a public custom-effect vtable from FAudio/XAudio-style APIs. That exposed an advanced extension point where application code could build its own effect object by filling out a struct of callbacks. ForgeAudio removed that public vtable for now. The old shape was powerful, but it also exposed internal engine protocol before ForgeAudio had a clear independent design for custom DSP.
+
+This does not mean custom effects are off the table. It means ForgeAudio is not committing to that inherited ABI as the long-term answer. If custom third-party effects become a real goal, they should return as a ForgeAudio-designed API: probably a versioned descriptor or registration function that produces an opaque `ForgeEffect *`, with clear rules for formats, buffers, real-time processing, parameters, ownership, and thread safety.
+
 ## License
 
 ForgeAudio inherits FAudio's permissive zlib-style license. See [LICENSE](LICENSE) for details.
