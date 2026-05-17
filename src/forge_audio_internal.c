@@ -247,14 +247,68 @@ static uint32_t forge_audio_get_bytes_requested(ForgeSourceVoice *voice, uint32_
     return result;
 }
 
-static uint32_t buffer_get_end(ForgeSourceVoice *voice, const struct queued_buffer *buffer) {
+static uint32_t buffer_get_end_with_loop_count(ForgeSourceVoice *voice, const struct queued_buffer *buffer,
+                                               uint32_t loop_count) {
     const uint32_t block_size = voice->src.format->block_align;
 
-    if (buffer->buffer.loop_count != 0) {
+    if (loop_count != 0) {
         return buffer->buffer.loop_begin + (buffer->loop_bytes / block_size);
     }
 
     return buffer->buffer.play_begin + (buffer->play_bytes / block_size);
+}
+
+static uint32_t buffer_get_end(ForgeSourceVoice *voice, const struct queued_buffer *buffer) {
+    return buffer_get_end_with_loop_count(voice, buffer, buffer->buffer.loop_count);
+}
+
+static uint32_t forge_audio_decode_padding(ForgeSourceVoice *voice, float *dst, uint32_t padding_frames) {
+    const uint32_t block_size = voice->src.format->block_align;
+    uint32_t decoded = 0;
+    uint32_t offset;
+    uint32_t loop_count;
+    size_t buffer_index = 0;
+
+    if (voice->src.queued_buffer_count == 0 || padding_frames == 0) {
+        return 0;
+    }
+
+    offset = voice->src.curBufferOffset;
+    loop_count = voice->src.queued_buffers[0].buffer.loop_count;
+
+    while (decoded < padding_frames && buffer_index < voice->src.queued_buffer_count) {
+        struct queued_buffer *buffer = &voice->src.queued_buffers[buffer_index];
+        uint32_t end = buffer_get_end_with_loop_count(voice, buffer, loop_count);
+
+        if (offset < end) {
+            uint32_t decode_count = forge_min(padding_frames - decoded, end - offset);
+
+            voice->src.decode(voice, buffer->buffer.audio_data + (offset * block_size),
+                              dst + (decoded * voice->src.format->channels), decode_count);
+
+            decoded += decode_count;
+            offset += decode_count;
+            if (decoded == padding_frames) {
+                break;
+            }
+        }
+
+        if (loop_count != 0) {
+            offset = buffer->buffer.loop_begin;
+            if (loop_count < FORGE_AUDIO_LOOP_INFINITE) {
+                loop_count -= 1;
+            }
+        } else {
+            buffer_index += 1;
+            if (buffer_index < voice->src.queued_buffer_count) {
+                buffer = &voice->src.queued_buffers[buffer_index];
+                offset = buffer->buffer.play_begin;
+                loop_count = buffer->buffer.loop_count;
+            }
+        }
+    }
+
+    return decoded;
 }
 
 static void start_buffer(ForgeSourceVoice *voice, struct queued_buffer *buffer) {
@@ -407,16 +461,25 @@ static void forge_audio_decode_buffers(ForgeSourceVoice *voice, uint64_t *toDeco
 
     if (voice->src.queued_buffer_count != 0) {
         float *dst = voice->audio->decodeCache + (decoded * voice->src.format->channels);
-        struct queued_buffer *buffer = &voice->src.queued_buffers[0];
         uint32_t decode_count;
+#ifdef FORGE_AUDIO_TESTING
+        size_t queued_buffer_count = voice->src.queued_buffer_count;
+        uint32_t cur_buffer_offset = voice->src.curBufferOffset;
+        struct queued_buffer first_buffer = voice->src.queued_buffers[0];
+#endif
 
-        decode_count = forge_min(EXTRA_DECODE_PADDING, buffer_get_end(voice, buffer) - voice->src.curBufferOffset);
+        decode_count = forge_audio_decode_padding(voice, dst, EXTRA_DECODE_PADDING);
 
-        voice->src.decode(voice, buffer->buffer.audio_data + (voice->src.curBufferOffset * block_size), dst,
-                          decode_count);
+#ifdef FORGE_AUDIO_TESTING
+        forge_assert(queued_buffer_count == voice->src.queued_buffer_count);
+        forge_assert(cur_buffer_offset == voice->src.curBufferOffset);
+        if (voice->src.queued_buffer_count != 0) {
+            forge_assert(forge_memcmp(&first_buffer, &voice->src.queued_buffers[0], sizeof(first_buffer)) == 0);
+        }
+#endif
 
         if (decode_count < EXTRA_DECODE_PADDING) {
-            forge_zero(voice->audio->decodeCache + (decoded * voice->src.format->channels),
+            forge_zero(voice->audio->decodeCache + ((decoded + decode_count) * voice->src.format->channels),
                        sizeof(float) * ((EXTRA_DECODE_PADDING - decode_count) * voice->src.format->channels));
         }
     } else {

@@ -126,6 +126,11 @@ static int test_split_ramp_matches_contiguous(void) {
         fprintf(stderr, "split resampled_frames: expected 4, got %u\n", split_result.resampled_frames);
         failed = 1;
     }
+    if (split_result.cur_buffer_offset != 3 || split_result.queued_buffer_count != 2) {
+        fprintf(stderr, "split padding peek mutated playback state: offset=%u queued=%zu\n",
+                split_result.cur_buffer_offset, split_result.queued_buffer_count);
+        failed = 1;
+    }
 
     failed |= check_values("contiguous_out", contiguous_out, expected, 4);
     failed |= check_values("split_out", split_out, expected, 4);
@@ -146,8 +151,47 @@ static int test_one_padding_frame_is_preserved(void) {
         fprintf(stderr, "one-padding resampled_frames: expected 4, got %u\n", result.resampled_frames);
         failed = 1;
     }
+    if (result.cur_buffer_offset != 3 || result.queued_buffer_count != 1) {
+        fprintf(stderr, "one-padding peek mutated playback state: offset=%u queued=%zu\n", result.cur_buffer_offset,
+                result.queued_buffer_count);
+        failed = 1;
+    }
 
     failed |= check_values("one_padding_out", output, expected, 4);
+    return failed;
+}
+
+static int test_padding_peeks_across_loop_boundary(void) {
+    static const float samples[] = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f};
+    static const float expected[] = {0.0f, 0.75f, 1.5f, 1.75f};
+    SourceHarness harness;
+    ForgeAudioTestSourceResampleResult result;
+    float output[4] = {0};
+    int failed = 0;
+
+    init_harness(&harness, 8, 4);
+    set_buffer(&harness, 0, samples, 5);
+    harness.buffers[0].buffer.loop_begin = 1;
+    harness.buffers[0].buffer.loop_length = 2;
+    harness.buffers[0].buffer.loop_count = 1;
+    harness.buffers[0].loop_bytes = 2 * harness.format.block_align;
+    harness.voice.src.queued_buffer_count = 1;
+    harness.voice.src.queued_buffers_capacity = 1;
+
+    result = forge_audio_test_decode_resample_source(&harness.voice, output);
+    if (result.resampled_frames != 4) {
+        fprintf(stderr, "loop-boundary resampled_frames: expected 4, got %u\n", result.resampled_frames);
+        failed = 1;
+    }
+    if (result.cur_buffer_offset != 3 || result.queued_buffer_count != 1) {
+        fprintf(stderr, "loop-boundary peek mutated playback state: offset=%u queued=%zu\n",
+                result.cur_buffer_offset, result.queued_buffer_count);
+        failed = 1;
+    }
+
+    failed |= check_values("loop_boundary_out", output, expected, 4);
+
+    destroy_harness(&harness);
     return failed;
 }
 
@@ -164,9 +208,8 @@ static int test_decode_sizing_covers_output_rate(void) {
     uint64_t required_decode_samples;
 
     resample_samples = ceil_to_u32((double)update_size * (double)output_rate / (double)master_rate);
-    current_decode_samples = ceil_to_u32((double)update_size * (double)max_ratio * (double)source_rate /
-                                         (double)master_rate) +
-                             EXTRA_DECODE_PADDING * channels;
+    current_decode_samples =
+        forge_audio_test_source_decode_frame_count(resample_samples, max_ratio, source_rate, output_rate);
     max_step = DOUBLE_TO_FIXED((double)max_ratio * (double)source_rate / (double)output_rate);
     required_decode_samples =
         (((uint64_t)resample_samples * max_step) + FIXED_FRACTION_MASK + FIXED_FRACTION_MASK) >> FIXED_PRECISION;
@@ -176,6 +219,10 @@ static int test_decode_sizing_covers_output_rate(void) {
                 "decode sizing: current formula provides %u frames, but %llu frames are required "
                 "for resampleSamples=%u\n",
                 current_decode_samples, (unsigned long long)required_decode_samples, resample_samples);
+        return 1;
+    }
+    if ((uint64_t)(current_decode_samples + EXTRA_DECODE_PADDING) * channels <= required_decode_samples * channels) {
+        fprintf(stderr, "decode sizing allocation leaves no interpolation padding\n");
         return 1;
     }
 
@@ -199,6 +246,7 @@ int main(void) {
 
     failures += run_test("split_ramp_matches_contiguous", test_split_ramp_matches_contiguous);
     failures += run_test("one_padding_frame_is_preserved", test_one_padding_frame_is_preserved);
+    failures += run_test("padding_peeks_across_loop_boundary", test_padding_peeks_across_loop_boundary);
     failures += run_test("decode_sizing_covers_output_rate", test_decode_sizing_covers_output_rate);
 
     return failures == 0 ? 0 : 1;

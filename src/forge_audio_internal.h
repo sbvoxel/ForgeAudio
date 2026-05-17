@@ -452,6 +452,10 @@ typedef struct ForgeAudioTestSourceResampleResult {
 FORGE_AUDIO_API float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples);
 FORGE_AUDIO_API ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(ForgeSourceVoice *voice,
                                                                                            float *output);
+FORGE_AUDIO_API uint32_t forge_audio_test_source_decode_frame_count(uint32_t resample_samples,
+                                                                    float max_frequency_ratio,
+                                                                    uint32_t source_sample_rate,
+                                                                    uint32_t output_sample_rate);
 #endif
 FORGE_INTERNAL_API extern const float forge_audio_internal_matrix_defaults[8][8][64];
 

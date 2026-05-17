@@ -93,6 +93,51 @@ static uint8_t forge_audio_validate_uncompressed_format(ForgeAudioEngine *audio,
     return 1;
 }
 
+static uint32_t forge_audio_send_list_output_rate(ForgeAudioEngine *audio, const ForgeSendList *send_list) {
+    ForgeVoice *out;
+
+    if (send_list == NULL || send_list->send_count == 0) {
+        return audio->master->master.inputSampleRate;
+    }
+
+    out = send_list->sends[0].output_voice;
+    return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
+}
+
+static uint32_t forge_audio_source_voice_output_rate(const ForgeSourceVoice *voice) {
+    ForgeVoice *out;
+
+    if (voice->sends.send_count == 0) {
+        return voice->audio->master->master.inputSampleRate;
+    }
+
+    out = voice->sends.sends[0].output_voice;
+    return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
+}
+
+static uint32_t forge_audio_source_decode_frame_count(uint32_t resample_samples, float max_frequency_ratio,
+                                                      uint32_t source_sample_rate, uint32_t output_sample_rate) {
+    uint64_t max_step;
+    uint64_t decode_samples;
+
+    forge_assert(output_sample_rate != 0);
+
+    max_step = DOUBLE_TO_FIXED((double)max_frequency_ratio * (double)source_sample_rate / (double)output_sample_rate);
+    decode_samples =
+        (((uint64_t)resample_samples * max_step) + FIXED_FRACTION_MASK + FIXED_FRACTION_MASK) >> FIXED_PRECISION;
+    forge_assert(decode_samples <= UINT32_MAX);
+
+    return (uint32_t)decode_samples;
+}
+
+#ifdef FORGE_AUDIO_TESTING
+uint32_t forge_audio_test_source_decode_frame_count(uint32_t resample_samples, float max_frequency_ratio,
+                                                    uint32_t source_sample_rate, uint32_t output_sample_rate) {
+    return forge_audio_source_decode_frame_count(resample_samples, max_frequency_ratio, source_sample_rate,
+                                                 output_sample_rate);
+}
+#endif
+
 /* ForgeAudio Version */
 
 uint32_t forge_audio_linked_version(void) {
@@ -229,6 +274,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
                                             float max_frequency_ratio, ForgeVoiceCallback *callback,
                                             const ForgeSendList *send_list, const ForgeEffectChain *effect_chain) {
     ForgeResult result;
+    uint32_t outputRate;
 
     LOG_API_ENTER(audio)
     LOG_FORMAT(audio, source_format)
@@ -401,10 +447,10 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     }
 
     /* Sample Storage */
-    (*source_voice)->src.decodeSamples = (uint32_t)(forge_ceil((double)audio->updateSize * (double)max_frequency_ratio *
-                                                               (double)(*source_voice)->src.format->sample_rate /
-                                                               (double)audio->master->master.inputSampleRate)) +
-                                         EXTRA_DECODE_PADDING * (*source_voice)->src.format->channels;
+    outputRate = forge_audio_send_list_output_rate(audio, send_list);
+    (*source_voice)->src.decodeSamples =
+        forge_audio_source_decode_frame_count((*source_voice)->src.resampleSamples, max_frequency_ratio,
+                                              (*source_voice)->src.format->sample_rate, outputRate);
     forge_audio_resize_decode_cache(audio, ((*source_voice)->src.decodeSamples + EXTRA_DECODE_PADDING) *
                                                (*source_voice)->src.format->channels);
 
@@ -802,6 +848,7 @@ void forge_voice_get_details(ForgeVoice *voice, ForgeVoiceDetails *voice_details
 
 ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send_list) {
     uint32_t sendRate, nextRate, outChannels;
+    uint32_t sourceDecodeSamples = 0;
     ForgeSendList defaultSends;
     ForgeSend defaultSend;
 
@@ -831,6 +878,18 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
         }
     }
 
+    if (voice->type == FORGE_AUDIO_VOICE_SOURCE && voice->src.decodeSamples != 0) {
+        uint32_t outputRate = forge_audio_send_list_output_rate(voice->audio, send_list);
+        uint32_t sourceResampleSamples =
+            (uint32_t)forge_ceil((double)voice->audio->updateSize * (double)outputRate /
+                                 (double)voice->audio->master->master.inputSampleRate);
+
+        sourceDecodeSamples = forge_audio_source_decode_frame_count(
+            sourceResampleSamples, voice->src.maxFreqRatio, voice->src.format->sample_rate, outputRate);
+        forge_audio_resize_decode_cache(voice->audio,
+                                        (sourceDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels);
+    }
+
     forge_platform_lock_mutex(voice->sendLock);
     LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
 
@@ -840,6 +899,9 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
+    }
+    if (voice->type == FORGE_AUDIO_VOICE_SOURCE && sourceDecodeSamples != 0) {
+        voice->src.decodeSamples = sourceDecodeSamples;
     }
 
     forge_platform_lock_mutex(voice->volumeLock);
@@ -2173,27 +2235,10 @@ ForgeResult forge_source_voice_set_sample_rate(ForgeSourceVoice *voice, uint32_t
 
     voice->src.format->sample_rate = new_source_sample_rate;
 
-    /* Resize decode cache */
-    newDecodeSamples =
-        (uint32_t)forge_ceil(voice->audio->updateSize * (double)voice->src.maxFreqRatio *
-                             (double)new_source_sample_rate / (double)voice->audio->master->master.inputSampleRate) +
-        EXTRA_DECODE_PADDING * voice->src.format->channels;
-    forge_audio_resize_decode_cache(voice->audio,
-                                    (newDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels);
-    voice->src.decodeSamples = newDecodeSamples;
-
     forge_platform_lock_mutex(voice->sendLock);
     LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
 
-    if (voice->sends.send_count == 0) {
-        forge_platform_unlock_mutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-        LOG_API_EXIT(voice->audio)
-        return 0;
-    }
-    outSampleRate = voice->sends.sends[0].output_voice->type == FORGE_AUDIO_VOICE_MASTER
-                        ? voice->sends.sends[0].output_voice->master.inputSampleRate
-                        : voice->sends.sends[0].output_voice->mix.inputSampleRate;
+    outSampleRate = forge_audio_source_voice_output_rate(voice);
 
     newResampleSamples = (uint32_t)(forge_ceil((double)voice->audio->updateSize * (double)outSampleRate /
                                                (double)voice->audio->master->master.inputSampleRate));
@@ -2201,6 +2246,12 @@ ForgeResult forge_source_voice_set_sample_rate(ForgeSourceVoice *voice, uint32_t
 
     forge_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+
+    newDecodeSamples = forge_audio_source_decode_frame_count(newResampleSamples, voice->src.maxFreqRatio,
+                                                             new_source_sample_rate, outSampleRate);
+    forge_audio_resize_decode_cache(voice->audio,
+                                    (newDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels);
+    voice->src.decodeSamples = newDecodeSamples;
 
     LOG_API_EXIT(voice->audio)
     return 0;
