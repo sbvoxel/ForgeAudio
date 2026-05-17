@@ -14,7 +14,6 @@
 #include "forge_effect_base_internal.h"
 #include <stdalign.h>
 #include <stdarg.h>
-#include <stdbool.h>
 
 #ifdef FORGE_AUDIO_WIN32_PLATFORM
     #include <stdio.h>
