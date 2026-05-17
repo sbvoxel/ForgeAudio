@@ -1211,7 +1211,7 @@ static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
     return 0;
 }
 
-ForgeResult ForgeReverb_IsInputFormatSupported(
+static ForgeResult forge_reverb_is_input_format_supported(
     ForgeEffectBase *effect,
     const ForgeAudioFormat *output_format,
     const ForgeAudioFormat *requested_input_format,
@@ -1266,7 +1266,7 @@ ForgeResult ForgeReverb_IsInputFormatSupported(
 }
 
 
-ForgeResult ForgeReverb_IsOutputFormatSupported(
+static ForgeResult forge_reverb_is_output_format_supported(
     ForgeEffectBase *effect,
     const ForgeAudioFormat *input_format,
     const ForgeAudioFormat *requested_output_format,
@@ -1319,7 +1319,7 @@ ForgeResult ForgeReverb_IsOutputFormatSupported(
     return result;
 }
 
-ForgeResult ForgeReverb_Initialize(
+static ForgeResult forge_reverb_initialize(
     ForgeReverb *effect,
     const void* data,
     uint32_t data_byte_size
@@ -1335,7 +1335,7 @@ ForgeResult ForgeReverb_Initialize(
     return 0;
 }
 
-ForgeResult ForgeReverb_LockForProcess(
+static ForgeResult forge_reverb_lock_for_process(
     ForgeReverb *effect,
     uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
@@ -1415,14 +1415,14 @@ ForgeResult ForgeReverb_LockForProcess(
     return 0;
 }
 
-void ForgeReverb_UnlockForProcess(ForgeReverb *effect)
+static void forge_reverb_unlock_for_process(ForgeReverb *effect)
 {
     DspReverb_Destroy(&effect->reverb, effect->base.free_func);
     ForgeAudio_zero(&effect->reverb, sizeof(DspReverb));
     forge_effect_base_unlock_for_process(&effect->base);
 }
 
-static inline void ForgeReverb_CopyBuffer(
+static inline void forge_reverb_copy_buffer(
     ForgeReverb *effect,
     float *restrict buffer_in,
     float *restrict buffer_out,
@@ -1481,7 +1481,7 @@ static inline void ForgeReverb_CopyBuffer(
     ForgeAudio_zero(buffer_out, effect->outBlockAlign * frames_in);
 }
 
-void ForgeReverb_Process(
+static void forge_reverb_process(
     ForgeReverb *effect,
     uint32_t input_process_parameter_count,
     const ForgeEffectProcessBuffer* input_process_parameters,
@@ -1518,7 +1518,7 @@ void ForgeReverb_Process(
 
         if (output_process_parameters->buffer_flags != FORGE_EFFECT_BUFFER_SILENT)
         {
-            ForgeReverb_CopyBuffer(
+            forge_reverb_copy_buffer(
                 effect,
                 (float*) input_process_parameters->buffer,
                 (float*) output_process_parameters->buffer,
@@ -1581,7 +1581,7 @@ void ForgeReverb_Process(
     forge_effect_base_end_process(&effect->base);
 }
 
-void ForgeReverb_Reset(ForgeReverb *effect)
+static void forge_reverb_reset(ForgeReverb *effect)
 {
     int32_t i, c;
     forge_effect_base_reset(&effect->base);
@@ -1612,7 +1612,7 @@ void ForgeReverb_Reset(ForgeReverb *effect)
     }
 }
 
-void ForgeReverb_Free(void* effect)
+static void forge_reverb_free(void* effect)
 {
     ForgeReverb *reverb = (ForgeReverb*) effect;
     DspReverb_Destroy(&reverb->reverb, reverb->base.free_func);
@@ -1688,18 +1688,18 @@ ForgeResult forge_create_reverb_with_allocator(
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
-        ForgeReverb_LockForProcess;
+        forge_reverb_lock_for_process;
     result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
-        ForgeReverb_UnlockForProcess;
+        forge_reverb_unlock_for_process;
     result->base.base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
-        ForgeReverb_IsInputFormatSupported;
+        forge_reverb_is_input_format_supported;
     result->base.base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
-        ForgeReverb_IsOutputFormatSupported;
+        forge_reverb_is_output_format_supported;
     result->base.base.initialize = (ForgeEffectInitializeFunc)
-        ForgeReverb_Initialize;
-    result->base.base.reset = (ForgeEffectResetFunc) ForgeReverb_Reset;
-    result->base.base.process = (ForgeEffectProcessFunc) ForgeReverb_Process;
-    result->base.destructor = ForgeReverb_Free;
+        forge_reverb_initialize;
+    result->base.base.reset = (ForgeEffectResetFunc) forge_reverb_reset;
+    result->base.base.process = (ForgeEffectProcessFunc) forge_reverb_process;
+    result->base.destructor = forge_reverb_free;
 
     /* Prepare the default parameters */
     result->base.base.initialize(
@@ -1852,18 +1852,18 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
-        ForgeReverb_LockForProcess;
+        forge_reverb_lock_for_process;
     result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
-        ForgeReverb_UnlockForProcess;
+        forge_reverb_unlock_for_process;
     result->base.base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
-        ForgeReverb_IsInputFormatSupported;
+        forge_reverb_is_input_format_supported;
     result->base.base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
-        ForgeReverb_IsOutputFormatSupported;
+        forge_reverb_is_output_format_supported;
     result->base.base.initialize = (ForgeEffectInitializeFunc)
-        ForgeReverb_Initialize;
-    result->base.base.reset = (ForgeEffectResetFunc) ForgeReverb_Reset;
-    result->base.base.process = (ForgeEffectProcessFunc) ForgeReverb_Process;
-    result->base.destructor = ForgeReverb_Free;
+        forge_reverb_initialize;
+    result->base.base.reset = (ForgeEffectResetFunc) forge_reverb_reset;
+    result->base.base.process = (ForgeEffectProcessFunc) forge_reverb_process;
+    result->base.destructor = forge_reverb_free;
 
     /* Prepare the default parameters */
     result->base.base.initialize(

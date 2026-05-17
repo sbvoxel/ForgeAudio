@@ -61,7 +61,7 @@ typedef struct ForgeVolumeMeter
     uint16_t channels;
 } ForgeVolumeMeter;
 
-ForgeResult ForgeVolumeMeter_LockForProcess(
+static ForgeResult forge_volume_meter_lock_for_process(
     ForgeVolumeMeter *effect,
     uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
@@ -108,14 +108,14 @@ ForgeResult ForgeVolumeMeter_LockForProcess(
     return 0;
 }
 
-void ForgeVolumeMeter_UnlockForProcess(ForgeVolumeMeter *effect)
+static void forge_volume_meter_unlock_for_process(ForgeVolumeMeter *effect)
 {
     effect->base.free_func(effect->levels.peak_levels);
     ForgeAudio_zero(&effect->levels, sizeof(effect->levels));
     effect->base.is_locked = 0;
 }
 
-void ForgeVolumeMeter_Process(
+static void forge_volume_meter_process(
     ForgeVolumeMeter *effect,
     uint32_t input_process_parameter_count,
     const ForgeEffectProcessBuffer* input_process_parameters,
@@ -152,7 +152,7 @@ void ForgeVolumeMeter_Process(
 
 }
 
-void ForgeVolumeMeter_GetParameters(
+static void forge_volume_meter_get_parameters(
     ForgeVolumeMeter *effect,
     ForgeVolumeMeterLevels *parameters,
     uint32_t parameter_byte_size
@@ -180,10 +180,10 @@ void ForgeVolumeMeter_GetParameters(
     }
 }
 
-void ForgeVolumeMeter_Free(void* effect)
+static void forge_volume_meter_free(void* effect)
 {
-    ForgeVolumeMeter *volumemeter = (ForgeVolumeMeter*) effect;
-    volumemeter->base.free_func(effect);
+    ForgeVolumeMeter *volume_meter = (ForgeVolumeMeter*) effect;
+    volume_meter->base.free_func(effect);
 }
 
 /* Public API */
@@ -224,14 +224,14 @@ ForgeResult forge_create_volume_meter_with_allocator(
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
-        ForgeVolumeMeter_LockForProcess;
+        forge_volume_meter_lock_for_process;
     result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
-        ForgeVolumeMeter_UnlockForProcess;
+        forge_volume_meter_unlock_for_process;
     result->base.base.process = (ForgeEffectProcessFunc)
-        ForgeVolumeMeter_Process;
+        forge_volume_meter_process;
     result->base.base.get_parameters = (ForgeEffectGetParametersFunc)
-        ForgeVolumeMeter_GetParameters;
-    result->base.destructor = ForgeVolumeMeter_Free;
+        forge_volume_meter_get_parameters;
+    result->base.destructor = forge_volume_meter_free;
 
     /* Finally. */
     *effect = &result->base.base;

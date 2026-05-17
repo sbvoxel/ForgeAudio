@@ -92,11 +92,7 @@ void forge_effect_base_init_with_allocator(
         forge_effect_base_on_set_parameters;
 
     /* Private Variables */
-    effect->effect_info = effect_info; /* FIXME */
-    effect->matrix_mix_function = NULL; /* FIXME */
-    effect->matrix_coefficients = NULL; /* FIXME */
-    effect->src_format_type = 0; /* FIXME */
-    effect->is_scalar_matrix = 0; /* FIXME: */
+    effect->effect_info = effect_info;
     effect->is_locked = 0;
     effect->parameters = parameters;
     effect->parameter_block_byte_size = parameter_block_byte_size;
