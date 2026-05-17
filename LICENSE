@@ -1,10 +1,11 @@
-ForgeAudio is an altered source version of FAudio.
-
-The original FAudio license notice is preserved below.
-
-==============
-FAudio License
-==============
+/*
+ * ForgeAudio
+ * Forked from FAudio
+ *
+ * Copyright (c) 2026 ForgeAudio
+ *
+ * Licensed under the same terms as FAudio:
+ */
 
 /* FAudio - XAudio Reimplementation for FNA
  *

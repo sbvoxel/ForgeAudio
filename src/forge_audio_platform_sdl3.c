@@ -1,6 +1,10 @@
-/* ForgeAudio
+/*
+ * ForgeAudio
+ * Forked from FAudio
  *
- * This file is part of ForgeAudio, an altered source version of FAudio.
+ * Copyright (c) 2026 ForgeAudio
+ *
+ * Licensed under the same terms as FAudio:
  */
 
 /* FAudio - XAudio Reimplementation for FNA
