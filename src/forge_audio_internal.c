@@ -301,9 +301,9 @@ static uint32_t forge_audio_decode_padding(ForgeSourceVoice *voice, float *dst, 
         } else {
             buffer_index += 1;
             if (buffer_index < voice->src.queued_buffer_count) {
-                buffer = &voice->src.queued_buffers[buffer_index];
-                offset = buffer->buffer.play_begin;
-                loop_count = buffer->buffer.loop_count;
+                const struct queued_buffer *next_buffer = &voice->src.queued_buffers[buffer_index];
+                offset = next_buffer->buffer.play_begin;
+                loop_count = next_buffer->buffer.loop_count;
             }
         }
     }
