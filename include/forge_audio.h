@@ -874,7 +874,7 @@ FORGE_AUDIO_API void forge_voice_get_channel_volumes(
  * [1] = 0.0f; <- Right input, left output
  * [2] = 0.0f; <- Left input, right output
  * [3] = 1.0f; <- Right input, right output
- * This is typically only used for panning or 3D sound (via F3DAudio).
+ * This is typically only used for panning or 3D sound (via forge_spatializer_calculate).
  *
  * pDestinationVoice:    An output voice from the voice's send list.
  * SourceChannels:    Must match the voice's input channel count!
@@ -1038,7 +1038,7 @@ FORGE_AUDIO_API uint32_t forge_source_voice_set_sample_rate(
 /* ForgeMasterVoice Interface */
 
 /* Requests the channel mask for the mastering voice.
- * This is typically used with F3DAudio initialize, but you may find it
+ * This is typically used with forge_spatializer_init, but you may find it
  * interesting if you want to see the user's basic speaker layout.
  *
  * pChannelMask: Filled with the channel mask.

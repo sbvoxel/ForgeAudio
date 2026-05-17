@@ -72,22 +72,20 @@
         "Vector u and v have non-negligible dot product" \
     )
 
-/*************************************
- * F3DAudioInitialize Implementation *
- *************************************/
+/******************************************
+ * forge_spatializer_init Implementation *
+ ******************************************/
 
-/* F3DAUDIO_HANDLE Structure */
-#define SPEAKERMASK(Instance)        *((uint32_t*)    &Instance[0])
-#define SPEAKERCOUNT(Instance)        *((uint32_t*)    &Instance[4])
-#define SPEAKER_LF_INDEX(Instance)    *((uint32_t*)    &Instance[8])
-#define SPEEDOFSOUND(Instance)        *((float*)    &Instance[12])
-#define SPEEDOFSOUNDEPSILON(Instance)    *((float*)    &Instance[16])
+#define SPEAKERMASK(spatializer) ((spatializer)->SpeakerChannelMask)
+#define SPEAKERCOUNT(spatializer) ((spatializer)->SpeakerCount)
+#define SPEAKER_LF_INDEX(spatializer) ((spatializer)->LowFrequencyChannelIndex)
+#define SPEEDOFSOUND(spatializer) ((spatializer)->SpeedOfSound)
+#define SPEEDOFSOUNDEPSILON(spatializer) ((spatializer)->SpeedOfSoundEpsilon)
 
-/* Export for unit tests */
-F3DAUDIOAPI uint32_t F3DAudioCheckInitParams(
+static bool forge_spatializer_check_init_params(
     uint32_t SpeakerChannelMask,
     float SpeedOfSound,
-    F3DAUDIO_HANDLE instance
+    ForgeSpatializer *spatializer
 ) {
     const uint32_t kAllowedSpeakerMasks[] =
     {
@@ -105,7 +103,11 @@ F3DAUDIOAPI uint32_t F3DAudioCheckInitParams(
     uint8_t speakerMaskIsValid = 0;
     uint32_t i;
 
-    POINTER_CHECK(instance);
+    if (spatializer == NULL)
+    {
+        PARAM_CHECK(spatializer != NULL, "spatializer must be != NULL");
+        return false;
+    }
 
     for (i = 0; i < ARRAY_COUNT(kAllowedSpeakerMasks); i += 1)
     {
@@ -120,30 +122,30 @@ F3DAUDIOAPI uint32_t F3DAudioCheckInitParams(
      * we're exactly in one of the allowed speaker configurations.
      * -Adrien
      */
-    PARAM_CHECK(
-        speakerMaskIsValid == 1,
-        "SpeakerChannelMask is invalid. Needs to be one of"
-        " MONO, STEREO, QUAD, 2POINT1, 4POINT1, 5POINT1, 7POINT1,"
-        " SURROUND, 5POINT1_SURROUND, or 7POINT1_SURROUND."
-    );
+    if (!speakerMaskIsValid)
+    {
+        PARAM_CHECK(
+            speakerMaskIsValid == 1,
+            "SpeakerChannelMask is invalid. Needs to be one of"
+            " MONO, STEREO, QUAD, 2POINT1, 4POINT1, 5POINT1, 7POINT1,"
+            " SURROUND, 5POINT1_SURROUND, or 7POINT1_SURROUND."
+        );
+        return false;
+    }
 
-    PARAM_CHECK(SpeedOfSound >= FLT_MIN, "SpeedOfSound needs to be >= FLT_MIN");
+    if (SpeedOfSound < FLT_MIN)
+    {
+        PARAM_CHECK(SpeedOfSound >= FLT_MIN, "SpeedOfSound needs to be >= FLT_MIN");
+        return false;
+    }
 
-    return PARAM_CHECK_OK;
+    return true;
 }
 
-void F3DAudioInitialize(
+bool forge_spatializer_init(
     uint32_t SpeakerChannelMask,
     float SpeedOfSound,
-    F3DAUDIO_HANDLE Instance
-) {
-    F3DAudioInitialize8(SpeakerChannelMask, SpeedOfSound, Instance);
-}
-
-uint32_t F3DAudioInitialize8(
-    uint32_t SpeakerChannelMask,
-    float SpeedOfSound,
-    F3DAUDIO_HANDLE Instance
+    ForgeSpatializer *spatializer
 ) {
     union
     {
@@ -152,31 +154,31 @@ uint32_t F3DAudioInitialize8(
     } epsilonHack;
     uint32_t speakerCount = 0;
 
-    if (!F3DAudioCheckInitParams(SpeakerChannelMask, SpeedOfSound, Instance))
+    if (!forge_spatializer_check_init_params(SpeakerChannelMask, SpeedOfSound, spatializer))
     {
-        return FORGE_AUDIO_E_INVALID_CALL;
+        return false;
     }
 
-    SPEAKERMASK(Instance) = SpeakerChannelMask;
-    SPEEDOFSOUND(Instance) = SpeedOfSound;
+    SPEAKERMASK(spatializer) = SpeakerChannelMask;
+    SPEEDOFSOUND(spatializer) = SpeedOfSound;
 
     /* "Convert" raw float to int... */
     epsilonHack.f = SpeedOfSound;
     /* ... Subtract epsilon value... */
     epsilonHack.i -= 1;
     /* ... Convert back to float. */
-    SPEEDOFSOUNDEPSILON(Instance) = epsilonHack.f;
+    SPEEDOFSOUNDEPSILON(spatializer) = epsilonHack.f;
 
-    SPEAKER_LF_INDEX(Instance) = 0xFFFFFFFF;
+    SPEAKER_LF_INDEX(spatializer) = 0xFFFFFFFF;
     if (SpeakerChannelMask & SPEAKER_LOW_FREQUENCY)
     {
         if (SpeakerChannelMask & SPEAKER_FRONT_CENTER)
         {
-            SPEAKER_LF_INDEX(Instance) = 3;
+            SPEAKER_LF_INDEX(spatializer) = 3;
         }
         else
         {
-            SPEAKER_LF_INDEX(Instance) = 2;
+            SPEAKER_LF_INDEX(spatializer) = 2;
         }
     }
 
@@ -185,21 +187,21 @@ uint32_t F3DAudioInitialize8(
         speakerCount += 1;
         SpeakerChannelMask &= SpeakerChannelMask - 1;
     }
-    SPEAKERCOUNT(Instance) = speakerCount;
+    SPEAKERCOUNT(spatializer) = speakerCount;
 
-    return 0;
+    return true;
 }
 
 
-/************************************
- * F3DAudioCalculate Implementation *
- ************************************/
+/*********************************************
+ * forge_spatializer_calculate Implementation *
+ *********************************************/
 
 /* VECTOR UTILITIES */
 
-static inline F3DAUDIO_VECTOR Vec(float x, float y, float z)
+static inline ForgeVector3 Vec(float x, float y, float z)
 {
-    F3DAUDIO_VECTOR res;
+    ForgeVector3 res;
     res.x = x;
     res.y = y;
     res.z = z;
@@ -229,24 +231,24 @@ static inline F3DAUDIO_VECTOR Vec(float x, float y, float z)
  * order front, right, top they follow the left-hand rule.
  * (https://en.wikipedia.org/wiki/Right-hand_rule)
  */
-typedef struct F3DAUDIO_BASIS
+typedef struct ForgeSpatialBasis
 {
-    F3DAUDIO_VECTOR front;
-    F3DAUDIO_VECTOR right;
-    F3DAUDIO_VECTOR top;
-} F3DAUDIO_BASIS;
+    ForgeVector3 front;
+    ForgeVector3 right;
+    ForgeVector3 top;
+} ForgeSpatialBasis;
 
 /* CHECK UTILITY FUNCTIONS */
 
-static inline uint8_t CheckCone(F3DAUDIO_CONE *pCone)
+static inline uint8_t CheckCone(ForgeSpatialCone *pCone)
 {
     if (!pCone)
     {
         return PARAM_CHECK_OK;
     }
 
-    FLOAT_BETWEEN_CHECK(pCone->InnerAngle, 0.0f, F3DAUDIO_2PI);
-    FLOAT_BETWEEN_CHECK(pCone->OuterAngle, pCone->InnerAngle, F3DAUDIO_2PI);
+    FLOAT_BETWEEN_CHECK(pCone->InnerAngle, 0.0f, FORGE_SPATIAL_2PI);
+    FLOAT_BETWEEN_CHECK(pCone->OuterAngle, pCone->InnerAngle, FORGE_SPATIAL_2PI);
 
     FLOAT_BETWEEN_CHECK(pCone->InnerVolume, 0.0f, 2.0f);
     FLOAT_BETWEEN_CHECK(pCone->OuterVolume, 0.0f, 2.0f);
@@ -260,9 +262,9 @@ static inline uint8_t CheckCone(F3DAUDIO_CONE *pCone)
     return PARAM_CHECK_OK;
 }
 
-static inline uint8_t CheckCurve(F3DAUDIO_DISTANCE_CURVE *pCurve)
+static inline uint8_t CheckCurve(ForgeSpatialDistanceCurve *pCurve)
 {
-    F3DAUDIO_DISTANCE_CURVE_POINT *points;
+    ForgeSpatialDistanceCurvePoint *points;
     uint32_t i;
     if (!pCurve)
     {
@@ -298,49 +300,48 @@ static inline uint8_t CheckCurve(F3DAUDIO_DISTANCE_CURVE *pCurve)
     return PARAM_CHECK_OK;
 }
 
-/* Export for unit tests */
-F3DAUDIOAPI uint8_t F3DAudioCheckCalculateParams(
-    const F3DAUDIO_HANDLE Instance,
-    const F3DAUDIO_LISTENER *pListener,
-    const F3DAUDIO_EMITTER *pEmitter,
+static uint8_t forge_spatializer_check_calculate_params(
+    const ForgeSpatializer *spatializer,
+    const ForgeSpatialListener *pListener,
+    const ForgeSpatialEmitter *pEmitter,
     uint32_t Flags,
-    F3DAUDIO_DSP_SETTINGS *pDSPSettings
+    ForgeSpatialDspSettings *pDSPSettings
 ) {
     uint32_t i, ChannelCount;
 
-    POINTER_CHECK(Instance);
+    POINTER_CHECK(spatializer);
     POINTER_CHECK(pListener);
     POINTER_CHECK(pEmitter);
     POINTER_CHECK(pDSPSettings);
 
-    if (Flags & F3DAUDIO_CALCULATE_MATRIX)
+    if (Flags & FORGE_SPATIAL_CALCULATE_MATRIX)
     {
         POINTER_CHECK(pDSPSettings->pMatrixCoefficients);
     }
-    if (Flags & F3DAUDIO_CALCULATE_ZEROCENTER)
+    if (Flags & FORGE_SPATIAL_CALCULATE_ZERO_CENTER)
     {
-        const uint32_t isCalculateMatrix = (Flags & F3DAUDIO_CALCULATE_MATRIX);
-        const uint32_t hasCenter = SPEAKERMASK(Instance) & SPEAKER_FRONT_CENTER;
+        const uint32_t isCalculateMatrix = (Flags & FORGE_SPATIAL_CALCULATE_MATRIX);
+        const uint32_t hasCenter = SPEAKERMASK(spatializer) & SPEAKER_FRONT_CENTER;
         PARAM_CHECK(
             isCalculateMatrix && hasCenter,
-            "F3DAUDIO_CALCULATE_ZEROCENTER is only valid for matrix"
+            "FORGE_SPATIAL_CALCULATE_ZERO_CENTER is only valid for matrix"
             " calculations with an output format that has a center channel"
         );
     }
 
-    if (Flags & F3DAUDIO_CALCULATE_REDIRECT_TO_LFE)
+    if (Flags & FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE)
     {
-        const uint32_t isCalculateMatrix = (Flags & F3DAUDIO_CALCULATE_MATRIX);
-        const uint32_t hasLF = SPEAKERMASK(Instance) & SPEAKER_LOW_FREQUENCY;
+        const uint32_t isCalculateMatrix = (Flags & FORGE_SPATIAL_CALCULATE_MATRIX);
+        const uint32_t hasLF = SPEAKERMASK(spatializer) & SPEAKER_LOW_FREQUENCY;
         PARAM_CHECK(
             isCalculateMatrix && hasLF,
-            "F3DAUDIO_CALCULATE_REDIRECT_TO_LFE is only valid for matrix"
+            "FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE is only valid for matrix"
             " calculations with an output format that has a low-frequency"
             " channel"
         );
     }
 
-    ChannelCount = SPEAKERCOUNT(Instance);
+    ChannelCount = SPEAKERCOUNT(spatializer);
     PARAM_CHECK(
         pDSPSettings->DstChannelCount == ChannelCount,
         "Invalid channel count, DSP settings and speaker configuration must agree"
@@ -369,7 +370,7 @@ F3DAUDIOAPI uint8_t F3DAudioCheckCalculateParams(
             "Invalid emitter cone"
         );
     }
-    else if (Flags & F3DAUDIO_CALCULATE_EMITTER_ANGLE)
+    else if (Flags & FORGE_SPATIAL_CALCULATE_EMITTER_ANGLE)
     {
         VECTOR_NORMAL_CHECK(pEmitter->OrientFront);
     }
@@ -381,7 +382,7 @@ F3DAUDIOAPI uint8_t F3DAudioCheckCalculateParams(
         VECTOR_BASE_CHECK(pEmitter->OrientFront, pEmitter->OrientTop);
     }
     FLOAT_BETWEEN_CHECK(pEmitter->InnerRadius, 0.0f, FLT_MAX);
-    FLOAT_BETWEEN_CHECK(pEmitter->InnerRadiusAngle, 0.0f, F3DAUDIO_2PI / 4.0f);
+    FLOAT_BETWEEN_CHECK(pEmitter->InnerRadiusAngle, 0.0f, FORGE_SPATIAL_2PI / 4.0f);
     PARAM_CHECK(
         pEmitter->ChannelCount > 0,
         "Invalid channel count for emitter"
@@ -401,12 +402,12 @@ F3DAUDIOAPI uint8_t F3DAudioCheckCalculateParams(
             for (i = 0; i < pEmitter->ChannelCount; i += 1)
             {
                 float currentAzimuth = pEmitter->pChannelAzimuths[i];
-                FLOAT_BETWEEN_CHECK(currentAzimuth, 0.0f, F3DAUDIO_2PI);
-                if (currentAzimuth == F3DAUDIO_2PI)
+                FLOAT_BETWEEN_CHECK(currentAzimuth, 0.0f, FORGE_SPATIAL_2PI);
+                if (currentAzimuth == FORGE_SPATIAL_2PI)
                 {
                     PARAM_CHECK(
-                        !(Flags & F3DAUDIO_CALCULATE_REDIRECT_TO_LFE),
-                        "F3DAUDIO_CALCULATE_REDIRECT_TO_LFE valid only for"
+                        !(Flags & FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE),
+                        "FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE valid only for"
                         " matrix calculations with emitters that have no LFE"
                         " channel"
                     );
@@ -450,7 +451,7 @@ F3DAUDIOAPI uint8_t F3DAudioCheckCalculateParams(
  */
 static inline float ComputeDistanceAttenuation(
     float normalizedDistance,
-    F3DAUDIO_DISTANCE_CURVE *pCurve
+    ForgeSpatialDistanceCurve *pCurve
 ) {
     float res;
     float alpha;
@@ -458,7 +459,7 @@ static inline float ComputeDistanceAttenuation(
     size_t i;
     if (pCurve)
     {
-        F3DAUDIO_DISTANCE_CURVE_POINT* points = pCurve->pPoints;
+        ForgeSpatialDistanceCurvePoint* points = pCurve->pPoints;
         n_points = pCurve->PointCount;
 
         /* By definition, the first point in the curve must be 0.0f
@@ -524,7 +525,7 @@ static inline float ComputeConeParameter(
     {
         return outerParam;
     }
-    if (innerAngle == F3DAUDIO_2PI && outerAngle == F3DAUDIO_2PI)
+    if (innerAngle == FORGE_SPATIAL_2PI && outerAngle == FORGE_SPATIAL_2PI)
     {
         return innerParam;
     }
@@ -571,12 +572,12 @@ static inline float ComputeConeParameter(
  * -Adrien
  */
 #if 0
-static F3DAUDIO_DISTANCE_CURVE_POINT DefaultVolumeCurvePoints[] =
+static ForgeSpatialDistanceCurvePoint DefaultVolumeCurvePoints[] =
 {
     { 0.0f, 1.0f },
     { 1.0f, 0.0f }
 };
-static F3DAUDIO_DISTANCE_CURVE DefaultVolumeCurve =
+static ForgeSpatialDistanceCurve DefaultVolumeCurve =
 {
     DefaultVolumeCurvePoints,
     ARRAY_COUNT(DefaultVolumeCurvePoints)
@@ -588,7 +589,7 @@ static F3DAUDIO_DISTANCE_CURVE DefaultVolumeCurve =
  * they map in the final matrix for their respective configuration. It had to be
  * reverse engineered by looking at the data from various X3DAudioCalculate()
  * matrix results for the various speaker configurations; *in particular*, the
- * azimuths are different from the ones in F3DAudio.h (and X3DAudio.h) for
+ * azimuths are different from the ones in X3DAudio.h for
  * SPEAKER_STEREO (which is declared has having front L and R speakers in the
  * bit mask, but in fact has L and R *side* speakers). LF speakers are
  * deliberately not included in the SpeakerInfo list, rather, we store the index
@@ -607,7 +608,7 @@ typedef struct
     const SpeakerInfo *speakers;
 
     /* Not strictly necessary because it can be inferred from the
-     * SpeakerCount field of the F3DAUDIO_HANDLE, but makes code much
+     * SpeakerCount field of the spatializer, but makes code much
      * cleaner and less error prone
      */
     uint32_t numNonLFSpeakers;
@@ -622,15 +623,15 @@ typedef struct
  */
 
 #define SPEAKER_AZIMUTH_CENTER            0.0f
-#define SPEAKER_AZIMUTH_FRONT_RIGHT_OF_CENTER    (F3DAUDIO_PI *  1.0f / 8.0f)
-#define SPEAKER_AZIMUTH_FRONT_RIGHT        (F3DAUDIO_PI *  1.0f / 4.0f)
-#define SPEAKER_AZIMUTH_SIDE_RIGHT        (F3DAUDIO_PI *  1.0f / 2.0f)
-#define SPEAKER_AZIMUTH_BACK_RIGHT        (F3DAUDIO_PI *  3.0f / 4.0f)
-#define SPEAKER_AZIMUTH_BACK_CENTER        F3DAUDIO_PI
-#define SPEAKER_AZIMUTH_BACK_LEFT        (F3DAUDIO_PI *  5.0f / 4.0f)
-#define SPEAKER_AZIMUTH_SIDE_LEFT        (F3DAUDIO_PI *  3.0f / 2.0f)
-#define SPEAKER_AZIMUTH_FRONT_LEFT        (F3DAUDIO_PI *  7.0f / 4.0f)
-#define SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER    (F3DAUDIO_PI * 15.0f / 8.0f)
+#define SPEAKER_AZIMUTH_FRONT_RIGHT_OF_CENTER    (FORGE_SPATIAL_PI *  1.0f / 8.0f)
+#define SPEAKER_AZIMUTH_FRONT_RIGHT        (FORGE_SPATIAL_PI *  1.0f / 4.0f)
+#define SPEAKER_AZIMUTH_SIDE_RIGHT        (FORGE_SPATIAL_PI *  1.0f / 2.0f)
+#define SPEAKER_AZIMUTH_BACK_RIGHT        (FORGE_SPATIAL_PI *  3.0f / 4.0f)
+#define SPEAKER_AZIMUTH_BACK_CENTER        FORGE_SPATIAL_PI
+#define SPEAKER_AZIMUTH_BACK_LEFT        (FORGE_SPATIAL_PI *  5.0f / 4.0f)
+#define SPEAKER_AZIMUTH_SIDE_LEFT        (FORGE_SPATIAL_PI *  3.0f / 2.0f)
+#define SPEAKER_AZIMUTH_FRONT_LEFT        (FORGE_SPATIAL_PI *  7.0f / 4.0f)
+#define SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER    (FORGE_SPATIAL_PI * 15.0f / 8.0f)
 
 const SpeakerInfo kMonoConfigSpeakers[] =
 {
@@ -705,7 +706,7 @@ const SpeakerInfo k7Point1SurroundConfigSpeakers[] =
 };
 
 /* With that organization, the index of the LF speaker into the matrix array
- * strangely looks *exactly* like the mystery field in the F3DAUDIO_HANDLE!!
+ * strangely looks exactly like the old X3DAudio handle mystery field.
  * We're keeping a separate field within ConfigInfo because it makes the code
  * much cleaner, though.
  * -Adrien
@@ -948,9 +949,9 @@ static inline void ComputeInnerRadiusDiffusionFactors(
  */
 static inline void ComputeEmitterChannelCoefficients(
     const ConfigInfo *curConfig,
-    const F3DAUDIO_BASIS *listenerBasis,
+    const ForgeSpatialBasis *listenerBasis,
     float innerRadius,
-    F3DAUDIO_VECTOR channelPosition,
+    ForgeVector3 channelPosition,
     float attenuation,
     float LFEattenuation,
     uint32_t flags,
@@ -959,8 +960,8 @@ static inline void ComputeEmitterChannelCoefficients(
     float *pMatrixCoefficients
 ) {
     float elevation, radialDistance;
-    F3DAUDIO_VECTOR projTopVec, projPlane;
-    uint8_t skipCenter = (flags & F3DAUDIO_CALCULATE_ZEROCENTER) ? 1 : 0;
+    ForgeVector3 projTopVec, projPlane;
+    uint8_t skipCenter = (flags & FORGE_SPATIAL_CALCULATE_ZERO_CENTER) ? 1 : 0;
     DiffusionSpeakerFactors diffusionFactors = { 0.0f };
 
     float x, y;
@@ -1044,7 +1045,7 @@ static inline void ComputeEmitterChannelCoefficients(
         emitterAzimuth = FAudio_atan2f(y, x);
         if (emitterAzimuth < 0.0f)
         {
-            emitterAzimuth += F3DAUDIO_2PI;
+            emitterAzimuth += FORGE_SPATIAL_2PI;
         }
 
         FindSpeakerAzimuths(curConfig, emitterAzimuth, skipCenter, infos);
@@ -1058,9 +1059,9 @@ static inline void ComputeEmitterChannelCoefficients(
         {
             if (emitterAzimuth >= a0)
             {
-                emitterAzimuth -= F3DAUDIO_2PI;
+                emitterAzimuth -= FORGE_SPATIAL_2PI;
             }
-            a0 -= F3DAUDIO_2PI;
+            a0 -= FORGE_SPATIAL_2PI;
         }
         FAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
 
@@ -1089,16 +1090,16 @@ static inline void ComputeEmitterChannelCoefficients(
         emitterAzimuth = FAudio_atan2f(y, x);
 
         /* Opposite speakers lie at azimuth + PI */
-        emitterAzimuth += F3DAUDIO_PI;
+        emitterAzimuth += FORGE_SPATIAL_PI;
 
         /* Normalize to [0; 2PI) range. */
         if (emitterAzimuth < 0.0f)
         {
-            emitterAzimuth += F3DAUDIO_2PI;
+            emitterAzimuth += FORGE_SPATIAL_2PI;
         }
-        else if (emitterAzimuth > F3DAUDIO_2PI)
+        else if (emitterAzimuth > FORGE_SPATIAL_2PI)
         {
-            emitterAzimuth -= F3DAUDIO_2PI;
+            emitterAzimuth -= FORGE_SPATIAL_2PI;
         }
 
         FindSpeakerAzimuths(curConfig, emitterAzimuth, skipCenter, infos);
@@ -1112,9 +1113,9 @@ static inline void ComputeEmitterChannelCoefficients(
         {
             if (emitterAzimuth >= a0)
             {
-                emitterAzimuth -= F3DAUDIO_2PI;
+                emitterAzimuth -= FORGE_SPATIAL_2PI;
             }
-            a0 -= F3DAUDIO_2PI;
+            a0 -= FORGE_SPATIAL_2PI;
         }
         FAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
 
@@ -1127,7 +1128,7 @@ static inline void ComputeEmitterChannelCoefficients(
         pMatrixCoefficients[i1 * numSrcChannels + currentChannel] += (       val) * totalEnergy;
     }
 
-    if (flags & F3DAUDIO_CALCULATE_REDIRECT_TO_LFE)
+    if (flags & FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE)
     {
         FAudio_assert(curConfig->LFSpeakerIdx != -1);
         pMatrixCoefficients[curConfig->LFSpeakerIdx * numSrcChannels + currentChannel] += LFEattenuation / numSrcChannels;
@@ -1174,11 +1175,11 @@ static inline void ComputeEmitterChannelCoefficients(
 static inline void CalculateMatrix(
     uint32_t ChannelMask,
     uint32_t Flags,
-    const F3DAUDIO_LISTENER *pListener,
-    const F3DAUDIO_EMITTER *pEmitter,
+    const ForgeSpatialListener *pListener,
+    const ForgeSpatialEmitter *pEmitter,
     uint32_t SrcChannelCount,
     uint32_t DstChannelCount,
-    F3DAUDIO_VECTOR emitterToListener,
+    ForgeVector3 emitterToListener,
     float eToLDistance,
     float normalizedDistance,
     float* MatrixCoefficients
@@ -1196,9 +1197,9 @@ static inline void CalculateMatrix(
         pEmitter->pLFECurve
     );
 
-    F3DAUDIO_VECTOR listenerToEmitter;
-    F3DAUDIO_VECTOR listenerToEmChannel;
-    F3DAUDIO_BASIS listenerBasis;
+    ForgeVector3 listenerToEmitter;
+    ForgeVector3 listenerToEmChannel;
+    ForgeSpatialBasis listenerBasis;
 
     /* Note: For both cone calculations, the angle might be NaN or infinite
      * if distance == 0... ComputeConeParameter *does* check for this
@@ -1263,7 +1264,7 @@ static inline void CalculateMatrix(
             }
 
             /* The MONO setup doesn't have an LFE speaker. */
-            if (curEmAzimuth != F3DAUDIO_2PI)
+            if (curEmAzimuth != FORGE_SPATIAL_2PI)
             {
                 MatrixCoefficients[iEC] = attenuation;
             }
@@ -1303,7 +1304,7 @@ static inline void CalculateMatrix(
         }
         else /* Multi-channel emitter case. */
         {
-            const F3DAUDIO_VECTOR emitterRight = VectorCross(pEmitter->OrientTop, pEmitter->OrientFront);
+            const ForgeVector3 emitterRight = VectorCross(pEmitter->OrientTop, pEmitter->OrientFront);
 
             for (iEC = 0; iEC < pEmitter->ChannelCount; iEC += 1)
             {
@@ -1312,7 +1313,7 @@ static inline void CalculateMatrix(
                 /* LFEs are easy enough to deal with; we can
                  * just do them separately.
                  */
-                if (emChAzimuth == F3DAUDIO_2PI)
+                if (emChAzimuth == FORGE_SPATIAL_2PI)
                 {
                     MatrixCoefficients[curConfig->LFSpeakerIdx * pEmitter->ChannelCount + iEC] = LFEattenuation;
                 }
@@ -1321,7 +1322,7 @@ static inline void CalculateMatrix(
                     /* First compute the emitter channel
                      * vector relative to the emitter base...
                      */
-                    const F3DAUDIO_VECTOR emitterBaseToChannel = VectorAdd(
+                    const ForgeVector3 emitterBaseToChannel = VectorAdd(
                         VectorScale(pEmitter->OrientFront, pEmitter->ChannelRadius * FAudio_cosf(emChAzimuth)),
                         VectorScale(emitterRight, pEmitter->ChannelRadius * FAudio_sinf(emChAzimuth))
                     );
@@ -1370,9 +1371,9 @@ static inline void CalculateMatrix(
  */
 static inline void CalculateDoppler(
     float SpeedOfSound,
-    const F3DAUDIO_LISTENER* pListener,
-    const F3DAUDIO_EMITTER* pEmitter,
-    F3DAUDIO_VECTOR emitterToListener,
+    const ForgeSpatialListener* pListener,
+    const ForgeSpatialEmitter* pEmitter,
+    ForgeVector3 emitterToListener,
     float eToLDistance,
     float* listenerVelocityComponent,
     float* emitterVelocityComponent,
@@ -1429,26 +1430,26 @@ static inline void CalculateDoppler(
     }
 }
 
-void F3DAudioCalculate(
-    const F3DAUDIO_HANDLE Instance,
-    const F3DAUDIO_LISTENER *pListener,
-    const F3DAUDIO_EMITTER *pEmitter,
+void forge_spatializer_calculate(
+    const ForgeSpatializer *spatializer,
+    const ForgeSpatialListener *pListener,
+    const ForgeSpatialEmitter *pEmitter,
     uint32_t Flags,
-    F3DAUDIO_DSP_SETTINGS *pDSPSettings
+    ForgeSpatialDspSettings *pDSPSettings
 ) {
     uint32_t i;
-    F3DAUDIO_VECTOR emitterToListener;
+    ForgeVector3 emitterToListener;
     float eToLDistance, normalizedDistance, dp;
 
     #define DEFAULT_POINTS(name, x1, y1, x2, y2) \
-        static F3DAUDIO_DISTANCE_CURVE_POINT name##Points[2] = \
+        static ForgeSpatialDistanceCurvePoint name##Points[2] = \
         { \
             { x1, y1 }, \
             { x2, y2 } \
         }; \
-        static F3DAUDIO_DISTANCE_CURVE name##Default = \
+        static ForgeSpatialDistanceCurve name##Default = \
         { \
-            (F3DAUDIO_DISTANCE_CURVE_POINT*) &name##Points[0], 2 \
+            (ForgeSpatialDistanceCurvePoint*) &name##Points[0], 2 \
         };
     DEFAULT_POINTS(lpfDirect, 0.0f, 1.0f, 1.0f, 0.75f)
     DEFAULT_POINTS(lpfReverb, 0.0f, 0.75f, 1.0f, 0.75f)
@@ -1460,15 +1461,15 @@ void F3DAudioCalculate(
     eToLDistance = VectorLength(emitterToListener);
     pDSPSettings->EmitterToListenerDistance = eToLDistance;
 
-    F3DAudioCheckCalculateParams(Instance, pListener, pEmitter, Flags, pDSPSettings);
+    forge_spatializer_check_calculate_params(spatializer, pListener, pEmitter, Flags, pDSPSettings);
 
     /* This is used by MATRIX, LPF, and REVERB */
     normalizedDistance = eToLDistance / pEmitter->CurveDistanceScaler;
 
-    if (Flags & F3DAUDIO_CALCULATE_MATRIX)
+    if (Flags & FORGE_SPATIAL_CALCULATE_MATRIX)
     {
         CalculateMatrix(
-            SPEAKERMASK(Instance),
+            SPEAKERMASK(spatializer),
             Flags,
             pListener,
             pEmitter,
@@ -1481,7 +1482,7 @@ void F3DAudioCalculate(
         );
     }
 
-    if (Flags & F3DAUDIO_CALCULATE_LPF_DIRECT)
+    if (Flags & FORGE_SPATIAL_CALCULATE_LPF_DIRECT)
     {
         pDSPSettings->LPFDirectCoefficient = ComputeDistanceAttenuation(
             normalizedDistance,
@@ -1491,7 +1492,7 @@ void F3DAudioCalculate(
         );
     }
 
-    if (Flags & F3DAUDIO_CALCULATE_LPF_REVERB)
+    if (Flags & FORGE_SPATIAL_CALCULATE_LPF_REVERB)
     {
         pDSPSettings->LPFReverbCoefficient = ComputeDistanceAttenuation(
             normalizedDistance,
@@ -1501,7 +1502,7 @@ void F3DAudioCalculate(
         );
     }
 
-    if (Flags & F3DAUDIO_CALCULATE_REVERB)
+    if (Flags & FORGE_SPATIAL_CALCULATE_REVERB)
     {
         pDSPSettings->ReverbLevel = ComputeDistanceAttenuation(
             normalizedDistance,
@@ -1512,10 +1513,10 @@ void F3DAudioCalculate(
     }
 
     /* For XACT, this calculates "DopplerPitchScalar" */
-    if (Flags & F3DAUDIO_CALCULATE_DOPPLER)
+    if (Flags & FORGE_SPATIAL_CALCULATE_DOPPLER)
     {
         CalculateDoppler(
-            SPEEDOFSOUND(Instance),
+            SPEEDOFSOUND(spatializer),
             pListener,
             pEmitter,
             emitterToListener,
@@ -1527,7 +1528,7 @@ void F3DAudioCalculate(
     }
 
     /* For XACT, this calculates "OrientationAngle" */
-    if (Flags & F3DAUDIO_CALCULATE_EMITTER_ANGLE)
+    if (Flags & FORGE_SPATIAL_CALCULATE_EMITTER_ANGLE)
     {
         /* Determined roughly.
          * Below that distance, the emitter angle is considered to be PI/2.
@@ -1535,7 +1536,7 @@ void F3DAudioCalculate(
         #define EMITTER_ANGLE_NULL_DISTANCE 1.2e-7
         if (eToLDistance < EMITTER_ANGLE_NULL_DISTANCE)
         {
-            pDSPSettings->EmitterToListenerAngle = F3DAUDIO_PI / 2.0f;
+            pDSPSettings->EmitterToListenerAngle = FORGE_SPATIAL_PI / 2.0f;
         }
         else
         {
@@ -1546,8 +1547,8 @@ void F3DAudioCalculate(
     }
 
     /* Unimplemented Flags */
-    if (    (Flags & F3DAUDIO_CALCULATE_DELAY) &&
-        SPEAKERMASK(Instance) == SPEAKER_STEREO    )
+    if (    (Flags & FORGE_SPATIAL_CALCULATE_DELAY) &&
+        SPEAKERMASK(spatializer) == SPEAKER_STEREO    )
     {
         for (i = 0; i < pDSPSettings->DstChannelCount; i += 1)
         {

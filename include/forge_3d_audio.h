@@ -24,20 +24,17 @@
  *
  */
 
-/* This file has no documentation since the MSDN docs are still perfectly fine:
- * https://docs.microsoft.com/en-us/windows/desktop/api/x3daudio/
- */
-
 #ifndef FORGE_3D_AUDIO_H
 #define FORGE_3D_AUDIO_H
 
 #ifdef _WIN32
-#define F3DAUDIOAPI __declspec(dllexport)
+#define FORGE_SPATIAL_API __declspec(dllexport)
 #else
-#define F3DAUDIOAPI
+#define FORGE_SPATIAL_API
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -125,48 +122,52 @@ extern "C" {
 #define SPEAKER_XBOX SPEAKER_5POINT1
 #endif
 
-#define F3DAUDIO_PI		3.141592654f
-#define F3DAUDIO_2PI		6.283185307f
+#define FORGE_SPATIAL_PI		3.141592654f
+#define FORGE_SPATIAL_2PI		6.283185307f
 
-#define F3DAUDIO_CALCULATE_MATRIX	    0x00000001
-#define F3DAUDIO_CALCULATE_DELAY	    0x00000002
-#define F3DAUDIO_CALCULATE_LPF_DIRECT	    0x00000004
-#define F3DAUDIO_CALCULATE_LPF_REVERB	    0x00000008
-#define F3DAUDIO_CALCULATE_REVERB	    0x00000010
-#define F3DAUDIO_CALCULATE_DOPPLER	    0x00000020
-#define F3DAUDIO_CALCULATE_EMITTER_ANGLE    0x00000040
-#define F3DAUDIO_CALCULATE_ZEROCENTER	    0x00010000
-#define F3DAUDIO_CALCULATE_REDIRECT_TO_LFE  0x00020000
-
-/* Type Declarations */
-
-#define F3DAUDIO_HANDLE_BYTESIZE 20
-typedef uint8_t F3DAUDIO_HANDLE[F3DAUDIO_HANDLE_BYTESIZE];
+#define FORGE_SPATIAL_CALCULATE_MATRIX	    0x00000001
+#define FORGE_SPATIAL_CALCULATE_DELAY	    0x00000002
+#define FORGE_SPATIAL_CALCULATE_LPF_DIRECT	    0x00000004
+#define FORGE_SPATIAL_CALCULATE_LPF_REVERB	    0x00000008
+#define FORGE_SPATIAL_CALCULATE_REVERB	    0x00000010
+#define FORGE_SPATIAL_CALCULATE_DOPPLER	    0x00000020
+#define FORGE_SPATIAL_CALCULATE_EMITTER_ANGLE    0x00000040
+#define FORGE_SPATIAL_CALCULATE_ZERO_CENTER	    0x00010000
+#define FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE  0x00020000
 
 /* Structures */
 
 #pragma pack(push, 1)
 
-typedef struct F3DAUDIO_VECTOR
+typedef struct ForgeSpatializer
+{
+    uint32_t SpeakerChannelMask;
+    uint32_t SpeakerCount;
+    uint32_t LowFrequencyChannelIndex;
+    float SpeedOfSound;
+    float SpeedOfSoundEpsilon;
+} ForgeSpatializer;
+
+typedef struct ForgeVector3
 {
     float x;
     float y;
     float z;
-} F3DAUDIO_VECTOR;
+} ForgeVector3;
 
-typedef struct F3DAUDIO_DISTANCE_CURVE_POINT
+typedef struct ForgeSpatialDistanceCurvePoint
 {
     float Distance;
     float DSPSetting;
-} F3DAUDIO_DISTANCE_CURVE_POINT;
+} ForgeSpatialDistanceCurvePoint;
 
-typedef struct F3DAUDIO_DISTANCE_CURVE
+typedef struct ForgeSpatialDistanceCurve
 {
-    F3DAUDIO_DISTANCE_CURVE_POINT *pPoints;
+    ForgeSpatialDistanceCurvePoint *pPoints;
     uint32_t PointCount;
-} F3DAUDIO_DISTANCE_CURVE;
+} ForgeSpatialDistanceCurve;
 
-typedef struct F3DAUDIO_CONE
+typedef struct ForgeSpatialCone
 {
     float InnerAngle;
     float OuterAngle;
@@ -176,44 +177,39 @@ typedef struct F3DAUDIO_CONE
     float OuterLPF;
     float InnerReverb;
     float OuterReverb;
-} F3DAUDIO_CONE;
+} ForgeSpatialCone;
 
-typedef struct F3DAUDIO_LISTENER
+typedef struct ForgeSpatialListener
 {
-    F3DAUDIO_VECTOR OrientFront;
-    F3DAUDIO_VECTOR OrientTop;
-    F3DAUDIO_VECTOR Position;
-    F3DAUDIO_VECTOR Velocity;
-    F3DAUDIO_CONE *pCone;
-} F3DAUDIO_LISTENER;
+    ForgeVector3 OrientFront;
+    ForgeVector3 OrientTop;
+    ForgeVector3 Position;
+    ForgeVector3 Velocity;
+    ForgeSpatialCone *pCone;
+} ForgeSpatialListener;
 
-typedef struct F3DAUDIO_EMITTER
+typedef struct ForgeSpatialEmitter
 {
-    F3DAUDIO_CONE *pCone;
-    F3DAUDIO_VECTOR OrientFront;
-    F3DAUDIO_VECTOR OrientTop;
-    F3DAUDIO_VECTOR Position;
-    F3DAUDIO_VECTOR Velocity;
+    ForgeSpatialCone *pCone;
+    ForgeVector3 OrientFront;
+    ForgeVector3 OrientTop;
+    ForgeVector3 Position;
+    ForgeVector3 Velocity;
     float InnerRadius;
     float InnerRadiusAngle;
     uint32_t ChannelCount;
     float ChannelRadius;
     float *pChannelAzimuths;
-    F3DAUDIO_DISTANCE_CURVE *pVolumeCurve;
-    F3DAUDIO_DISTANCE_CURVE *pLFECurve;
-    F3DAUDIO_DISTANCE_CURVE *pLPFDirectCurve;
-    F3DAUDIO_DISTANCE_CURVE *pLPFReverbCurve;
-    F3DAUDIO_DISTANCE_CURVE *pReverbCurve;
+    ForgeSpatialDistanceCurve *pVolumeCurve;
+    ForgeSpatialDistanceCurve *pLFECurve;
+    ForgeSpatialDistanceCurve *pLPFDirectCurve;
+    ForgeSpatialDistanceCurve *pLPFReverbCurve;
+    ForgeSpatialDistanceCurve *pReverbCurve;
     float CurveDistanceScaler;
     float DopplerScaler;
-} F3DAUDIO_EMITTER;
+} ForgeSpatialEmitter;
 
-#ifndef F3DAUDIO_DSP_SETTINGS_DECL
-#define F3DAUDIO_DSP_SETTINGS_DECL
-typedef struct F3DAUDIO_DSP_SETTINGS F3DAUDIO_DSP_SETTINGS;
-#endif /* F3DAUDIO_DSP_SETTINGS_DECL */
-
-struct F3DAUDIO_DSP_SETTINGS
+typedef struct ForgeSpatialDspSettings
 {
     float *pMatrixCoefficients;
     float *pDelayTimes;
@@ -227,30 +223,24 @@ struct F3DAUDIO_DSP_SETTINGS
     float EmitterToListenerDistance;
     float EmitterVelocityComponent;
     float ListenerVelocityComponent;
-};
+} ForgeSpatialDspSettings;
 
 #pragma pack(pop)
 
 /* Functions */
 
-F3DAUDIOAPI void F3DAudioInitialize(
+FORGE_SPATIAL_API bool forge_spatializer_init(
     uint32_t SpeakerChannelMask,
     float SpeedOfSound,
-    F3DAUDIO_HANDLE Instance
+    ForgeSpatializer *spatializer
 );
 
-F3DAUDIOAPI uint32_t F3DAudioInitialize8(
-    uint32_t SpeakerChannelMask,
-    float SpeedOfSound,
-    F3DAUDIO_HANDLE Instance
-);
-
-F3DAUDIOAPI void F3DAudioCalculate(
-    const F3DAUDIO_HANDLE Instance,
-    const F3DAUDIO_LISTENER *pListener,
-    const F3DAUDIO_EMITTER *pEmitter,
+FORGE_SPATIAL_API void forge_spatializer_calculate(
+    const ForgeSpatializer *spatializer,
+    const ForgeSpatialListener *pListener,
+    const ForgeSpatialEmitter *pEmitter,
     uint32_t Flags,
-    F3DAUDIO_DSP_SETTINGS *pDSPSettings
+    ForgeSpatialDspSettings *pDSPSettings
 );
 
 #ifdef __cplusplus
