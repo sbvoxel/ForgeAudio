@@ -23,8 +23,24 @@ endif()
 option(LOG_ASSERTIONS "Bind ForgeAudio_assert to log, instead of platform's assert" OFF)
 option(FORCE_ENABLE_DEBUGCONFIGURATION "Enable DebugConfiguration in all build types" OFF)
 option(DUMP_VOICES "Dump voices to RIFF WAVE files" OFF)
+option(ENABLE_ASAN "Build with AddressSanitizer" OFF)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_TESTS "Build tests" OFF)
+
+function(forge_audio_enable_asan target)
+    if(NOT ENABLE_ASAN)
+        return()
+    endif()
+
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+        target_compile_options(${target} PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+        target_link_options(${target} PRIVATE -fsanitize=address)
+    elseif(MSVC)
+        target_compile_options(${target} PRIVATE /fsanitize=address)
+    else()
+        message(FATAL_ERROR "ENABLE_ASAN is not supported for ${CMAKE_C_COMPILER_ID}")
+    endif()
+endfunction()
 
 # Build type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -70,6 +86,7 @@ add_library(ForgeAudio
     src/forge_audio_platform_sdl3.c
     src/forge_audio_platform_win32.c
 )
+forge_audio_enable_asan(ForgeAudio)
 
 if(PLATFORM_WIN32)
     target_link_libraries(ForgeAudio PRIVATE dxguid uuid winmm ole32 advapi32 user32 mfplat mfreadwrite mfuuid propsys)
@@ -116,11 +133,13 @@ if(BUILD_TESTS)
     add_executable(effect_chain_scratch_test tests/effect_chain_scratch.c)
     target_compile_definitions(effect_chain_scratch_test PRIVATE FORGE_AUDIO_TESTING)
     target_link_libraries(effect_chain_scratch_test PRIVATE ForgeAudio)
+    forge_audio_enable_asan(effect_chain_scratch_test)
     add_test(NAME effect_chain_scratch COMMAND effect_chain_scratch_test)
 
     add_executable(source_resampler_test tests/source_resampler.c)
     target_compile_definitions(source_resampler_test PRIVATE FORGE_AUDIO_TESTING)
     target_link_libraries(source_resampler_test PRIVATE ForgeAudio)
+    forge_audio_enable_asan(source_resampler_test)
     add_test(NAME source_resampler COMMAND source_resampler_test)
 endif()
 
