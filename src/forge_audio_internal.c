@@ -934,8 +934,8 @@ static void FORGE_AUDIO_CALL forge_audio_generate_output(ForgeAudioEngine *audio
         return;
     }
 
-    /* Apply any committed changes */
-    forge_operation_set_execute(audio);
+    /* Apply deferred batch commands that are ready */
+    forge_audio_batch_execute(audio);
 
     /* ProcessingPassStart callbacks */
     forge_platform_lock_mutex(audio->callbackLock);

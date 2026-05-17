@@ -257,45 +257,47 @@ typedef void(FORGE_AUDIO_CALL *ForgeAudioMixCallback)(uint32_t toMix, uint32_t s
 
 typedef float ForgeAudioFilterState[4];
 
-/* Operation Sets, original implementation by Tyler Glaiel */
+/* Batches, original implementation by Tyler Glaiel */
 
-typedef struct ForgeOperationSetOperation ForgeOperationSetOperation;
+typedef struct ForgeAudioCommand ForgeAudioCommand;
 
-FORGE_INTERNAL_API void forge_operation_set_commit(ForgeAudioEngine *audio, uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_commit_all(ForgeAudioEngine *audio);
-FORGE_INTERNAL_API void forge_operation_set_execute(ForgeAudioEngine *audio);
+FORGE_INTERNAL_API void forge_audio_batch_apply(ForgeAudioEngine *audio, ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_apply_all(ForgeAudioEngine *audio);
+FORGE_INTERNAL_API void forge_audio_batch_execute(ForgeAudioEngine *audio);
 
-FORGE_INTERNAL_API void forge_operation_set_clear_all(ForgeAudioEngine *audio);
-FORGE_INTERNAL_API void forge_operation_set_clear_all_for_voice(ForgeVoice *voice);
+FORGE_INTERNAL_API void forge_audio_batch_clear_all(ForgeAudioEngine *audio);
+FORGE_INTERNAL_API void forge_audio_batch_clear_all_for_voice(ForgeVoice *voice);
 
-FORGE_INTERNAL_API void forge_operation_set_queue_enable_effect(ForgeVoice *voice, uint32_t effect_index,
-                                                                uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_disable_effect(ForgeVoice *voice, uint32_t effect_index,
-                                                                 uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index,
-                                                                        const void *parameters,
-                                                                        uint32_t parameters_byte_size,
-                                                                        uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_set_filter_parameters(ForgeVoice *voice,
-                                                                        const ForgeFilterParameters *parameters,
-                                                                        uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_set_output_filter_parameters(ForgeVoice *voice,
-                                                                               ForgeVoice *destination_voice,
-                                                                               const ForgeFilterParameters *parameters,
-                                                                               uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_set_volume(ForgeVoice *voice, float volume, uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_set_channel_volumes(ForgeVoice *voice, uint32_t channels,
-                                                                      const float *volumes, uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
-                                                                    uint32_t source_channels,
-                                                                    uint32_t destination_channels,
-                                                                    const float *level_matrix, uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_start(ForgeSourceVoice *voice, uint32_t flags,
-                                                        uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_stop(ForgeSourceVoice *voice, uint32_t flags, uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_exit_loop(ForgeSourceVoice *voice, uint32_t operation_set);
-FORGE_INTERNAL_API void forge_operation_set_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio,
-                                                                      uint32_t operation_set);
+FORGE_INTERNAL_API void forge_audio_batch_queue_enable_effect(ForgeVoice *voice, uint32_t effect_index,
+                                                              ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_disable_effect(ForgeVoice *voice, uint32_t effect_index,
+                                                               ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                                      const void *parameters,
+                                                                      uint32_t parameters_byte_size,
+                                                                      ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_set_filter_parameters(ForgeVoice *voice,
+                                                                      const ForgeFilterParameters *parameters,
+                                                                      ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_set_output_filter_parameters(ForgeVoice *voice,
+                                                                             ForgeVoice *destination_voice,
+                                                                             const ForgeFilterParameters *parameters,
+                                                                             ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_set_channel_volumes(ForgeVoice *voice, uint32_t channels,
+                                                                    const float *volumes, ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                                  uint32_t source_channels,
+                                                                  uint32_t destination_channels,
+                                                                  const float *level_matrix,
+                                                                  ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_start(ForgeSourceVoice *voice, uint32_t flags,
+                                                      ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_stop(ForgeSourceVoice *voice, uint32_t flags,
+                                                     ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_exit_loop(ForgeSourceVoice *voice, ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void forge_audio_batch_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio,
+                                                                    ForgeAudioBatchId batch_id);
 
 /* Public ForgeAudio Types */
 
@@ -310,11 +312,11 @@ struct ForgeAudioEngine {
     ForgeAudioMutex sourceLock;
     ForgeAudioMutex submixLock;
     ForgeAudioMutex callbackLock;
-    ForgeAudioMutex operationLock;
+    ForgeAudioMutex batchLock;
     ForgeAudioFormatExtensible mixFormat;
 
-    ForgeOperationSetOperation *queuedOperations;
-    ForgeOperationSetOperation *committedOperations;
+    ForgeAudioCommand *pending_commands;
+    ForgeAudioCommand *ready_commands;
 
     /* Used to prevent destroying an active voice */
     ForgeSourceVoice *processingSource;

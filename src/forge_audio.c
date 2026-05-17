@@ -135,8 +135,8 @@ static ForgeResult engine_construct_with_allocator(ForgeAudioEngine **engine, Fo
     LOG_MUTEX_CREATE((*engine), (*engine)->submixLock)
     (*engine)->callbackLock = forge_platform_create_mutex();
     LOG_MUTEX_CREATE((*engine), (*engine)->callbackLock)
-    (*engine)->operationLock = forge_platform_create_mutex();
-    LOG_MUTEX_CREATE((*engine), (*engine)->operationLock)
+    (*engine)->batchLock = forge_platform_create_mutex();
+    LOG_MUTEX_CREATE((*engine), (*engine)->batchLock)
     (*engine)->malloc_func = custom_malloc;
     (*engine)->free_func = custom_free;
     (*engine)->realloc_func = custom_realloc;
@@ -160,7 +160,7 @@ void forge_audio_destroy(ForgeAudioEngine *audio) {
     }
     if (audio->master)
         destroy_voice(audio->master);
-    forge_operation_set_clear_all(audio);
+    forge_audio_batch_clear_all(audio);
     forge_audio_stop_engine(audio);
     audio->free_func(audio->decodeCache);
     audio->free_func(audio->resampleCache);
@@ -171,8 +171,8 @@ void forge_audio_destroy(ForgeAudioEngine *audio) {
     forge_platform_destroy_mutex(audio->submixLock);
     LOG_MUTEX_DESTROY(audio, audio->callbackLock)
     forge_platform_destroy_mutex(audio->callbackLock);
-    LOG_MUTEX_DESTROY(audio, audio->operationLock)
-    forge_platform_destroy_mutex(audio->operationLock);
+    LOG_MUTEX_DESTROY(audio, audio->batchLock)
+    forge_platform_destroy_mutex(audio->batchLock);
     audio->free_func(audio);
     forge_platform_release();
 }
@@ -628,17 +628,22 @@ ForgeResult forge_audio_start_engine(ForgeAudioEngine *audio) {
 void forge_audio_stop_engine(ForgeAudioEngine *audio) {
     LOG_API_ENTER(audio)
     audio->active = 0;
-    forge_operation_set_commit_all(audio);
-    forge_operation_set_execute(audio);
+    forge_audio_batch_apply_all(audio);
+    forge_audio_batch_execute(audio);
     LOG_API_EXIT(audio)
 }
 
-ForgeResult forge_audio_commit_operation_set(ForgeAudioEngine *audio, uint32_t operation_set) {
+ForgeResult forge_audio_apply_batch(ForgeAudioEngine *audio, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(audio)
-    if (operation_set == FORGE_AUDIO_COMMIT_ALL) {
-        forge_operation_set_commit_all(audio);
+    if (batch_id == FORGE_AUDIO_BATCH_IMMEDIATE) {
+        LOG_API_EXIT(audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        forge_audio_batch_apply_all(audio);
     } else {
-        forge_operation_set_commit(audio, operation_set);
+        forge_audio_batch_apply(audio, batch_id);
     }
     LOG_API_EXIT(audio)
     return 0;
@@ -1120,11 +1125,16 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
     return 0;
 }
 
-ForgeResult forge_voice_enable_effect(ForgeVoice *voice, uint32_t effect_index, uint32_t operation_set) {
+ForgeResult forge_voice_enable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_enable_effect(voice, effect_index, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_enable_effect(voice, effect_index, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1138,11 +1148,16 @@ ForgeResult forge_voice_enable_effect(ForgeVoice *voice, uint32_t effect_index, 
     return 0;
 }
 
-ForgeResult forge_voice_disable_effect(ForgeVoice *voice, uint32_t effect_index, uint32_t operation_set) {
+ForgeResult forge_voice_disable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_disable_effect(voice, effect_index, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_disable_effect(voice, effect_index, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1167,12 +1182,16 @@ void forge_voice_get_effect_state(ForgeVoice *voice, uint32_t effect_index, int3
 }
 
 ForgeResult forge_voice_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index, const void *parameters,
-                                              uint32_t parameters_byte_size, uint32_t operation_set) {
+                                              uint32_t parameters_byte_size, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_set_effect_parameters(voice, effect_index, parameters, parameters_byte_size,
-                                                        operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_set_effect_parameters(voice, effect_index, parameters, parameters_byte_size, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1216,11 +1235,16 @@ ForgeResult forge_voice_get_effect_parameters(ForgeVoice *voice, uint32_t effect
 }
 
 ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice, const ForgeFilterParameters *parameters,
-                                              uint32_t operation_set) {
+                                              ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_set_filter_parameters(voice, parameters, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_set_filter_parameters(voice, parameters, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1273,12 +1297,18 @@ void forge_voice_get_filter_parameters(ForgeVoice *voice, ForgeFilterParameters 
 }
 
 ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
-                                                     const ForgeFilterParameters *parameters, uint32_t operation_set) {
+                                                     const ForgeFilterParameters *parameters,
+                                                     ForgeAudioBatchId batch_id) {
     uint32_t i;
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_set_output_filter_parameters(voice, destination_voice, parameters, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_set_output_filter_parameters(voice, destination_voice, parameters, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1376,11 +1406,16 @@ void forge_voice_get_output_filter_parameters(ForgeVoice *voice, ForgeVoice *des
     LOG_API_EXIT(voice->audio)
 }
 
-ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, uint32_t operation_set) {
+ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_set_volume(voice, volume, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_set_volume(voice, volume, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1414,11 +1449,16 @@ void forge_voice_get_volume(ForgeVoice *voice, float *volume) {
 }
 
 ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
-                                            uint32_t operation_set) {
+                                            ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_set_channel_volumes(voice, channels, volumes, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_set_channel_volumes(voice, channels, volumes, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1472,14 +1512,19 @@ void forge_voice_get_channel_volumes(ForgeVoice *voice, uint32_t channels, float
 
 ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t source_channels,
                                           uint32_t destination_channels, const float *level_matrix,
-                                          uint32_t operation_set) {
+                                          ForgeAudioBatchId batch_id) {
     uint32_t i;
     ForgeResult result = ForgeResultSuccess;
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_set_output_matrix(voice, destination_voice, source_channels, destination_channels,
-                                                    level_matrix, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_set_output_matrix(voice, destination_voice, source_channels, destination_channels,
+                                                  level_matrix, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1635,7 +1680,7 @@ static void destroy_voice(ForgeVoice *voice) {
     uint32_t i;
 
     /* TODO: Check for dependencies and remove from audio graph first! */
-    forge_operation_set_clear_all_for_voice(voice);
+    forge_audio_batch_clear_all_for_voice(voice);
 
     if (voice->type == FORGE_AUDIO_VOICE_SOURCE) {
 #ifdef FORGE_AUDIO_DUMP_VOICES
@@ -1781,11 +1826,16 @@ void forge_voice_destroy(ForgeVoice *voice) {
 
 /* ForgeSourceVoice Interface */
 
-ForgeResult forge_source_voice_start(ForgeSourceVoice *voice, uint32_t flags, uint32_t operation_set) {
+ForgeResult forge_source_voice_start(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_start(voice, flags, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_start(voice, flags, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -1798,11 +1848,16 @@ ForgeResult forge_source_voice_start(ForgeSourceVoice *voice, uint32_t flags, ui
     return 0;
 }
 
-ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uint32_t flags, uint32_t operation_set) {
+ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_stop(voice, flags, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_stop(voice, flags, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -2007,11 +2062,16 @@ ForgeResult forge_source_voice_end_stream(ForgeSourceVoice *voice) {
     return 0;
 }
 
-ForgeResult forge_source_voice_break_loop(ForgeSourceVoice *voice, uint32_t operation_set) {
+ForgeResult forge_source_voice_break_loop(ForgeSourceVoice *voice, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_exit_loop(voice, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_exit_loop(voice, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
@@ -2061,11 +2121,16 @@ void forge_source_voice_get_state(ForgeSourceVoice *voice, ForgeVoiceState *voic
     LOG_API_EXIT(voice->audio)
 }
 
-ForgeResult forge_source_voice_set_rate(ForgeSourceVoice *voice, float ratio, uint32_t operation_set) {
+ForgeResult forge_source_voice_set_rate(ForgeSourceVoice *voice, float ratio, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (operation_set != FORGE_AUDIO_COMMIT_NOW && voice->audio->active) {
-        forge_operation_set_queue_set_frequency_ratio(voice, ratio, operation_set);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        forge_audio_batch_queue_set_frequency_ratio(voice, ratio, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }

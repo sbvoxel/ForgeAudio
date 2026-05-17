@@ -66,7 +66,7 @@ add_library(ForgeAudio
     src/forge_volume_meter.c
     src/forge_audio_internal.c
     src/forge_audio_internal_simd.c
-    src/forge_audio_operation_set.c
+    src/forge_audio_batch.c
     src/forge_audio_platform_sdl3.c
     src/forge_audio_platform_win32.c
 )

@@ -46,6 +46,7 @@ typedef ForgeVoice ForgeSubmixVoice;
 typedef ForgeVoice ForgeMasterVoice;
 typedef struct ForgeEngineCallback ForgeEngineCallback;
 typedef struct ForgeVoiceCallback ForgeVoiceCallback;
+typedef uint32_t ForgeAudioBatchId;
 
 /* Enumerations */
 
@@ -253,9 +254,13 @@ typedef enum ForgeResult {
 #define FORGE_AUDIO_MAX_FILTER_FREQUENCY 1.0f
 #define FORGE_AUDIO_MAX_LOOP_COUNT 254
 
-#define FORGE_AUDIO_COMMIT_NOW 0
-#define FORGE_AUDIO_COMMIT_ALL 0
-#define FORGE_AUDIO_INVALID_OPSET (uint32_t)(-1)
+/* Batch ids for calls that can be deferred.
+ * FORGE_AUDIO_BATCH_IMMEDIATE applies a call immediately.
+ * Values from 1 to UINT32_MAX - 1 are caller-chosen deferred batch ids.
+ * FORGE_AUDIO_BATCH_ALL is only valid for forge_audio_apply_batch.
+ */
+#define FORGE_AUDIO_BATCH_IMMEDIATE ((ForgeAudioBatchId)0)
+#define FORGE_AUDIO_BATCH_ALL ((ForgeAudioBatchId)UINT32_MAX)
 #define FORGE_AUDIO_NO_LOOP_REGION 0
 #define FORGE_AUDIO_LOOP_INFINITE 255
 #define FORGE_AUDIO_DEFAULT_CHANNELS 0
@@ -500,17 +505,17 @@ FORGE_AUDIO_API ForgeResult forge_audio_start_engine(ForgeAudioEngine *audio);
  */
 FORGE_AUDIO_API void forge_audio_stop_engine(ForgeAudioEngine *audio);
 
-/* Flushes a batch of ForgeAudio calls compiled with a given "operation_set" tag.
- * This is useful for pushing calls that need to be done perfectly in sync. For
- * example, if you want to play two separate sources at the exact same time, you
- * can call forge_source_voice_start with an operation_set value of your choice,
- * then commit that same operation set to start the sources together.
+/* Makes a deferred batch ready to run at the start of the next processing pass.
+ * For example, if you want to start two sources in the same processing pass, call
+ * forge_source_voice_start with the same deferred batch_id for both voices, then
+ * call forge_audio_apply_batch with that batch_id.
  *
- * operation_set: Either a value known by you or FORGE_AUDIO_COMMIT_ALL
+ * batch_id: A caller-chosen batch id, or FORGE_AUDIO_BATCH_ALL to apply every
+ *        pending batch. FORGE_AUDIO_BATCH_IMMEDIATE is invalid here.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_audio_commit_operation_set(ForgeAudioEngine *audio, uint32_t operation_set);
+FORGE_AUDIO_API ForgeResult forge_audio_apply_batch(ForgeAudioEngine *audio, ForgeAudioBatchId batch_id);
 
 /* Requests various bits of performance information from the engine.
  *
@@ -575,21 +580,22 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, cons
 /* Enables an effect in the effect chain.
  *
  * effect_index:        The index of the effect (based on the chain order).
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_voice_enable_effect(ForgeVoice *voice, uint32_t effect_index, uint32_t operation_set);
+FORGE_AUDIO_API ForgeResult forge_voice_enable_effect(ForgeVoice *voice, uint32_t effect_index,
+                                                      ForgeAudioBatchId batch_id);
 
 /* Disables an effect in the effect chain.
  *
  * effect_index:        The index of the effect (based on the chain order).
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
 FORGE_AUDIO_API ForgeResult forge_voice_disable_effect(ForgeVoice *voice, uint32_t effect_index,
-                                                       uint32_t operation_set);
+                                                       ForgeAudioBatchId batch_id);
 
 /* Queries the enabled/disabled state of an effect in the effect chain.
  *
@@ -603,13 +609,13 @@ FORGE_AUDIO_API void forge_voice_get_effect_state(ForgeVoice *voice, uint32_t ef
  * effect_index:        The index of the effect (based on the chain order).
  * parameters:        The values to be copied and submitted to the ForgeEffect.
  * parameters_byte_size:    This should match what the ForgeEffect expects!
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
 FORGE_AUDIO_API ForgeResult forge_voice_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                               const void *parameters, uint32_t parameters_byte_size,
-                                                              uint32_t operation_set);
+                                                              ForgeAudioBatchId batch_id);
 
 /* Requests the latest parameters from ForgeEffect::get_parameters.
  *
@@ -626,13 +632,13 @@ FORGE_AUDIO_API ForgeResult forge_voice_get_effect_parameters(ForgeVoice *voice,
  * This is only valid on voices with the USEFILTER flag.
  *
  * parameters:        See ForgeFilterParameters for details.
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
 FORGE_AUDIO_API ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice,
                                                               const ForgeFilterParameters *parameters,
-                                                              uint32_t operation_set);
+                                                              ForgeAudioBatchId batch_id);
 
 /* Requests the filter variables for a voice.
  * This is only valid on voices with the USEFILTER flag.
@@ -646,13 +652,13 @@ FORGE_AUDIO_API void forge_voice_get_filter_parameters(ForgeVoice *voice, ForgeF
  *
  * destination_voice:    An output voice from the voice's send list.
  * parameters:        See ForgeFilterParameters for details.
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
 FORGE_AUDIO_API ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                                      const ForgeFilterParameters *parameters,
-                                                                     uint32_t operation_set);
+                                                                     ForgeAudioBatchId batch_id);
 
 /* Requests the filter variables for a voice's output voice.
  * This is only valid on sends with the USEFILTER flag.
@@ -668,11 +674,11 @@ FORGE_AUDIO_API void forge_voice_get_output_filter_parameters(ForgeVoice *voice,
  * volume:        Amplitude ratio. 1.0f is default, 0.0f is silence.
  *            Note that you can actually set volume < 0.0f!
  *            Bounds: [-FORGE_AUDIO_MAX_VOLUME_LEVEL, FORGE_AUDIO_MAX_VOLUME_LEVEL]
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, uint32_t operation_set);
+FORGE_AUDIO_API ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id);
 
 /* Requests the global volume of a voice.
  *
@@ -684,12 +690,12 @@ FORGE_AUDIO_API void forge_voice_get_volume(ForgeVoice *voice, float *volume);
  *
  * channels:        Must match the channel count of this voice!
  * volumes:        Amplitude ratios for each channel. Same as forge_voice_set_volume.
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
 FORGE_AUDIO_API ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
-                                                            uint32_t operation_set);
+                                                            ForgeAudioBatchId batch_id);
 
 /* Requests the per-channel volumes of a voice.
  *
@@ -711,13 +717,13 @@ FORGE_AUDIO_API void forge_voice_get_channel_volumes(ForgeVoice *voice, uint32_t
  * source_channels:    Must match the voice's input channel count!
  * destination_channels:    Must match the destination's input channel count!
  * level_matrix:    A float[source_channels * destination_channels].
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
 FORGE_AUDIO_API ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                           uint32_t source_channels, uint32_t destination_channels,
-                                                          const float *level_matrix, uint32_t operation_set);
+                                                          const float *level_matrix, ForgeAudioBatchId batch_id);
 
 /* Gets the volumes of a send's output channels. See forge_voice_set_output_matrix.
  *
@@ -741,22 +747,24 @@ FORGE_AUDIO_API ForgeResult forge_voice_try_destroy(ForgeVoice *voice);
 /* Starts processing for a source voice.
  *
  * flags:        Must be 0.
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_source_voice_start(ForgeSourceVoice *voice, uint32_t flags, uint32_t operation_set);
+FORGE_AUDIO_API ForgeResult forge_source_voice_start(ForgeSourceVoice *voice, uint32_t flags,
+                                                     ForgeAudioBatchId batch_id);
 
 /* Pauses processing for a source voice. Yes, I said pausing.
  * If you want to _actually_ stop, call forge_source_voice_flush_buffers next.
  *
  * flags:        Can be 0 or FORGE_AUDIO_PLAY_TAILS, which allows effects to
  *            keep emitting output even after processing has stopped.
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uint32_t flags, uint32_t operation_set);
+FORGE_AUDIO_API ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uint32_t flags,
+                                                    ForgeAudioBatchId batch_id);
 
 /* Submits a block of wavedata for the source to process.
  *
@@ -784,11 +792,11 @@ FORGE_AUDIO_API ForgeResult forge_source_voice_end_stream(ForgeSourceVoice *voic
 
 /* Sets the loop count of the active buffer to 0.
  *
- * operation_set: See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id: Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_source_voice_break_loop(ForgeSourceVoice *voice, uint32_t operation_set);
+FORGE_AUDIO_API ForgeResult forge_source_voice_break_loop(ForgeSourceVoice *voice, ForgeAudioBatchId batch_id);
 
 /* Requests the state and some basic statistics for this source.
  *
@@ -801,11 +809,12 @@ FORGE_AUDIO_API void forge_source_voice_get_state(ForgeSourceVoice *voice, Forge
 /* Sets the frequency ratio (fancy phrase for pitch) of this source.
  *
  * ratio:        The frequency ratio, must be <= max_frequency_ratio.
- * operation_set:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_source_voice_set_rate(ForgeSourceVoice *voice, float ratio, uint32_t operation_set);
+FORGE_AUDIO_API ForgeResult forge_source_voice_set_rate(ForgeSourceVoice *voice, float ratio,
+                                                        ForgeAudioBatchId batch_id);
 
 /* Requests the frequency ratio (fancy phrase for pitch) of this source.
  *
