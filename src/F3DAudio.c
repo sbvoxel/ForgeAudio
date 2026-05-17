@@ -24,7 +24,7 @@
  *
  */
 
-#include "sb3DAudio.h"
+#include "Forge3DAudio.h"
 #include "FAudio_internal.h"
 
 #include <math.h> /* ONLY USE THIS FOR isnan! */

@@ -1,6 +1,6 @@
 #include "audio.h"
 
-#include <sbAudio.h>
+#include <ForgeAudio.h>
 #include <SDL.h>
 #include <math.h>
 

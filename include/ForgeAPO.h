@@ -39,7 +39,7 @@
 #ifndef FAPO_H
 #define FAPO_H
 
-#include "sbAudio.h"
+#include "ForgeAudio.h"
 
 #define FAPOAPI FAUDIOAPI
 #define FAPOCALL FAUDIOCALL

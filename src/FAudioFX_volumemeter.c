@@ -24,7 +24,7 @@
  *
  */
 
-#include "sbAudioFX.h"
+#include "ForgeAudioFX.h"
 #include "FAudio_internal.h"
 
 /* Volume Meter FAPO Implementation */

@@ -24,7 +24,7 @@
  *
  */
 
-#include "sbAPOFX.h"
+#include "ForgeAPOFX.h"
 #include "FAudio_internal.h"
 
 /* FXEcho FAPO Implementation */

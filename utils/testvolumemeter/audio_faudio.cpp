@@ -1,8 +1,8 @@
 #include "audio.h"
 
-#include <sbAudio.h>
-#include <sbAudioFX.h>
-#include <sbAPO.h>
+#include <ForgeAudio.h>
+#include <ForgeAudioFX.h>
+#include <ForgeAPO.h>
 
 struct AudioContext
 {

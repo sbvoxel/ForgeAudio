@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <SDL.h>
 
-#include <sbAudio.h>
+#include <ForgeAudio.h>
 
 float argPlayBegin = 0.0f;
 float argPlayLength = 0.0f;

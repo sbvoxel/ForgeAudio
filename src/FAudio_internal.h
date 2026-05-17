@@ -24,8 +24,8 @@
  *
  */
 
-#include "sbAudio.h"
-#include "sbAPOBase.h"
+#include "ForgeAudio.h"
+#include "ForgeAPOBase.h"
 #include <stdarg.h>
 
 #ifdef FAUDIO_WIN32_PLATFORM

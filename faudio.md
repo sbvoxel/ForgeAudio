@@ -1,6 +1,6 @@
-SbAudio is a fork of FAudio, and FAudio is an XAudio2 re-implementation. Unlike FAudio, SbAudio intends to be its own solution, independent of XAudio2.
+ForgeAudio is a fork of FAudio, and FAudio is an XAudio2 re-implementation. Unlike FAudio, ForgeAudio intends to be its own solution, independent of XAudio2.
 
-It's worthwhile to note down how XAudio2 compatibility requirements have constrained or had an effect on FAudio, because it may tell us in what ways SbAudio may want to do things differently, with it being free from XAudio2 compatibility.
+It's worthwhile to note down how XAudio2 compatibility requirements have constrained or had an effect on FAudio, because it may tell us in what ways ForgeAudio may want to do things differently, with it being free from XAudio2 compatibility.
 
 ## Resampler/Mixer
 

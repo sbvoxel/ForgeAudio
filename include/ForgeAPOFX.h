@@ -27,7 +27,7 @@
 #ifndef FAPOFX_H
 #define FAPOFX_H
 
-#include "sbAPO.h"
+#include "ForgeAPO.h"
 
 #define FAPOFXAPI FAUDIOAPI
 

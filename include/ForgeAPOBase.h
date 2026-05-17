@@ -67,7 +67,7 @@
 #ifndef FAPOBASE_H
 #define FAPOBASE_H
 
-#include "sbAPO.h"
+#include "ForgeAPO.h"
 
 #ifdef __cplusplus
 extern "C" {

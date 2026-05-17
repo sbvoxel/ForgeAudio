@@ -68,7 +68,7 @@ static void FAudio_DUMPVOICE_WriteBuffer(
 
 uint32_t FAudioLinkedVersion(void)
 {
-    return SBAUDIO_COMPILED_VERSION;
+    return FORGEAUDIO_COMPILED_VERSION;
 }
 
 /* FAudio Interface */

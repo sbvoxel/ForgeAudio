@@ -1,6 +1,6 @@
-# SbAudio
+# ForgeAudio
 
-SbAudio is a fork of [FAudio](https://github.com/FNA-XNA/FAudio) to explore an audio solution independent of the XAudio framework for games and other applications.
+ForgeAudio is a fork of [FAudio](https://github.com/FNA-XNA/FAudio) to explore an audio solution independent of the XAudio framework for games and other applications.
 
 The development of this experimental library is at the moment slow and periodic.
 

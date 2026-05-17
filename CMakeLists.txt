@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20.0)
-project(SbAudio C)
+project(ForgeAudio C)
 
 # Version
 SET(LIB_MAJOR_VERSION "0")
@@ -46,14 +46,14 @@ if(APPLE)
 endif()
 
 # Source lists
-add_library(SbAudio
+add_library(ForgeAudio
     # Public Headers
-    include/sb3DAudio.h
-    include/sbAPOBase.h
-    include/sbAPOFX.h
-    include/sbAPO.h
-    include/sbAudioFX.h
-    include/sbAudio.h
+    include/Forge3DAudio.h
+    include/ForgeAPOBase.h
+    include/ForgeAPOFX.h
+    include/ForgeAPO.h
+    include/ForgeAudioFX.h
+    include/ForgeAudio.h
     # Internal Headers
     src/FAudio_internal.h
     src/stb_modified.h
@@ -79,37 +79,37 @@ add_library(SbAudio
 )
 
 if(PLATFORM_WIN32)
-    target_link_libraries(SbAudio PRIVATE -ldxguid -luuid -lwinmm -lole32 -ladvapi32 -luser32 -lmfplat -lmfreadwrite -lmfuuid -lpropsys)
-    target_compile_definitions(SbAudio PUBLIC FAUDIO_WIN32_PLATFORM)
+    target_link_libraries(ForgeAudio PRIVATE -ldxguid -luuid -lwinmm -lole32 -ladvapi32 -luser32 -lmfplat -lmfreadwrite -lmfuuid -lpropsys)
+    target_compile_definitions(ForgeAudio PUBLIC FAUDIO_WIN32_PLATFORM)
 endif()
 
 if (FORCE_ENABLE_DEBUGCONFIGURATION)
-    target_compile_definitions(SbAudio PRIVATE FAUDIO_ENABLE_DEBUGCONFIGURATION>)
+    target_compile_definitions(ForgeAudio PRIVATE FAUDIO_ENABLE_DEBUGCONFIGURATION>)
 else()
     # Only enable DebugConfiguration in non-release builds
-    target_compile_definitions(SbAudio PRIVATE $<$<NOT:$<CONFIG:Release>>:FAUDIO_ENABLE_DEBUGCONFIGURATION>)
+    target_compile_definitions(ForgeAudio PRIVATE $<$<NOT:$<CONFIG:Release>>:FAUDIO_ENABLE_DEBUGCONFIGURATION>)
 endif()
 
 # FAudio_assert Customization
 if(LOG_ASSERTIONS)
-    target_compile_definitions(SbAudio PUBLIC FAUDIO_LOG_ASSERTIONS)
+    target_compile_definitions(ForgeAudio PUBLIC FAUDIO_LOG_ASSERTIONS)
 endif()
 
-# SbAudio folders as includes, for other targets to consume
-target_include_directories(SbAudio PUBLIC
+# ForgeAudio folders as includes, for other targets to consume
+target_include_directories(ForgeAudio PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
 # Shared object name (soname)
-set_target_properties(SbAudio PROPERTIES OUTPUT_NAME "SbAudio"
+set_target_properties(ForgeAudio PROPERTIES OUTPUT_NAME "ForgeAudio"
     VERSION ${LIB_VERSION}
     SOVERSION ${LIB_MAJOR_VERSION}
 )
 
 # Dump source voices to RIFF WAVE files
 if(DUMP_VOICES)
-    target_compile_definitions(SbAudio PRIVATE FAUDIO_DUMP_VOICES)
+    target_compile_definitions(ForgeAudio PRIVATE FAUDIO_DUMP_VOICES)
 endif()
 
 # SDL3 Dependency
@@ -117,21 +117,21 @@ if (PLATFORM_WIN32)
     message(STATUS "not using SDL3")
 elseif (DEFINED SDL3_INCLUDE_DIRS AND DEFINED SDL3_LIBRARIES)
     message(STATUS "using pre-defined variables SDL3_INCLUDE_DIRS and SDL3_LIBRARIES")
-    target_include_directories(SbAudio PUBLIC "$<BUILD_INTERFACE:${SDL3_INCLUDE_DIRS}>")
-    target_link_libraries(SbAudio PUBLIC ${SDL3_LIBRARIES})
+    target_include_directories(ForgeAudio PUBLIC "$<BUILD_INTERFACE:${SDL3_INCLUDE_DIRS}>")
+    target_link_libraries(ForgeAudio PUBLIC ${SDL3_LIBRARIES})
 else()
     # Try to autodetect if either of the SDL3 variables isn't explicitly set
     find_package(SDL3 CONFIG)
     if (TARGET SDL3::SDL3)
         message(STATUS "using TARGET SDL3::SDL3")
-        target_link_libraries(SbAudio PUBLIC SDL3::SDL3)
+        target_link_libraries(ForgeAudio PUBLIC SDL3::SDL3)
     elseif (TARGET SDL3)
         message(STATUS "using TARGET SDL3")
-        target_link_libraries(SbAudio PUBLIC SDL3)
+        target_link_libraries(ForgeAudio PUBLIC SDL3)
     else()
         message(STATUS "no TARGET SDL3::SDL3, or SDL3, using variables")
-        target_include_directories(SbAudio PUBLIC "$<BUILD_INTERFACE:${SDL3_INCLUDE_DIRS}>")
-        target_link_libraries(SbAudio PUBLIC ${SDL3_LIBRARIES})
+        target_include_directories(ForgeAudio PUBLIC "$<BUILD_INTERFACE:${SDL3_INCLUDE_DIRS}>")
+        target_link_libraries(ForgeAudio PUBLIC ${SDL3_LIBRARIES})
     endif()
 endif()
 
@@ -152,7 +152,7 @@ if(BUILD_UTILS)
         utils/uicommon/imstb_textedit.h
         utils/uicommon/imstb_truetype.h
     )
-    target_link_libraries(uicommon PUBLIC SbAudio)
+    target_link_libraries(uicommon PUBLIC ForgeAudio)
 
     # Shared WAV Resources
     add_library(wavs STATIC utils/wavcommon/wavs.cpp)
@@ -162,9 +162,9 @@ if(BUILD_UTILS)
 
     # These tools do NOT use uicommon
     add_executable(testxwma utils/testxwma/testxwma.cpp)
-    target_link_libraries(testxwma PRIVATE SbAudio)
+    target_link_libraries(testxwma PRIVATE ForgeAudio)
     add_executable(showriffheader utils/showriffheader/showriffheader.cpp)
-    target_link_libraries(showriffheader PRIVATE SbAudio)
+    target_link_libraries(showriffheader PRIVATE ForgeAudio)
 
     # These tools use uicommon, but NOT wavs
     add_executable(testfilter
@@ -205,14 +205,14 @@ endif()
 # on mingw-w64 cross compilation $CMAKE_INSTALL_LIBDIR is set to an absolute
 # path. Work around that by hard coding the directories on windows
 if(WIN32)
-    set(SbAudio_INSTALL_INCLUDEDIR include)
-    set(SbAudio_INSTALL_BINDIR bin)
-    set(SbAudio_INSTALL_LIBDIR lib)
+    set(ForgeAudio_INSTALL_INCLUDEDIR include)
+    set(ForgeAudio_INSTALL_BINDIR bin)
+    set(ForgeAudio_INSTALL_LIBDIR lib)
 else()
     include(GNUInstallDirs)
-    set(SbAudio_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
-    set(SbAudio_INSTALL_BINDIR ${CMAKE_INSTALL_BINDIR})
-    set(SbAudio_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
+    set(ForgeAudio_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
+    set(ForgeAudio_INSTALL_BINDIR ${CMAKE_INSTALL_BINDIR})
+    set(ForgeAudio_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 # Installation
@@ -220,16 +220,16 @@ endif()
 # Public Headers...
 install(
     DIRECTORY include/
-    DESTINATION ${SbAudio_INSTALL_INCLUDEDIR}
+    DESTINATION ${ForgeAudio_INSTALL_INCLUDEDIR}
 )
 # Libraries...
 install(
     TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}-targets
-    INCLUDES DESTINATION ${SbAudio_INSTALL_INCLUDEDIR}
-    RUNTIME DESTINATION ${SbAudio_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${SbAudio_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${SbAudio_INSTALL_LIBDIR}
+    INCLUDES DESTINATION ${ForgeAudio_INSTALL_INCLUDEDIR}
+    RUNTIME DESTINATION ${ForgeAudio_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${ForgeAudio_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${ForgeAudio_INSTALL_LIBDIR}
 )
 
 # Generate cmake-config file, install CMake files
@@ -237,14 +237,14 @@ include(CMakePackageConfigHelpers)
 configure_package_config_file(
     cmake/config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/generated/${PROJECT_NAME}Config.cmake
-    INSTALL_DESTINATION ${SbAudio_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    INSTALL_DESTINATION ${ForgeAudio_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
 install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/${PROJECT_NAME}Config.cmake
-    DESTINATION ${SbAudio_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    DESTINATION ${ForgeAudio_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
 install(
     EXPORT ${PROJECT_NAME}-targets
     NAMESPACE ${PROJECT_NAME}::
-    DESTINATION ${SbAudio_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+    DESTINATION ${ForgeAudio_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
