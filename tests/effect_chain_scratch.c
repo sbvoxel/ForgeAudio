@@ -101,6 +101,7 @@ int main(void) {
     result = forge_audio_test_process_effect_chain(&voice, original, &samples);
 
     audio.free_func(audio.effectChainCache);
+    audio.free_func(audio.effectChainCache2);
 
     if (samples != frame_count) {
         fprintf(stderr, "expected %u frames, got %u\n", frame_count, samples);

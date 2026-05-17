@@ -107,9 +107,10 @@ endif()
 
 if(BUILD_TESTS)
     enable_testing()
-    target_compile_definitions(ForgeAudio PUBLIC FORGE_AUDIO_TESTING)
+    target_compile_definitions(ForgeAudio PRIVATE FORGE_AUDIO_TESTING)
 
     add_executable(effect_chain_scratch_test tests/effect_chain_scratch.c)
+    target_compile_definitions(effect_chain_scratch_test PRIVATE FORGE_AUDIO_TESTING)
     target_link_libraries(effect_chain_scratch_test PRIVATE ForgeAudio)
     add_test(NAME effect_chain_scratch COMMAND effect_chain_scratch_test)
 endif()
