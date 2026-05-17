@@ -2,7 +2,7 @@
 
 ForgeAudio is a general-purpose audio runtime for games and interactive applications.
 
-It began as a fork of [FAudio](https://github.com/FNA-XNA/FAudio), a mature reimplementation of XAudio2, X3DAudio, XAPO, and XACT3. ForgeAudio keeps the useful low-level foundation from FAudio while moving away from strict DirectX compatibility as the main design constraint.
+It began as a fork of [FAudio](https://github.com/FNA-XNA/FAudio), a mature reimplementation of Microsoft's game-audio runtime APIs. ForgeAudio keeps the useful low-level foundation from FAudio while moving toward a smaller engine-facing design of its own.
 
 The goal is a compact, explicit audio library that can sit underneath a game engine or custom tool: voices, submixes, channel matrices, effects, spatial audio, device output, and enough control to build a higher-level audio system on top.
 
@@ -24,7 +24,7 @@ ForgeAudio is now allowed to diverge when that makes the library smaller, cleare
 ## Goals
 
 - Stay small enough to understand and embed.
-- Preserve the useful parts of the FAudio/XAudio-style voice and submix model.
+- Keep a practical voice, submix, routing, and effect model for engine audio.
 - Make spatial audio, routing, effect processing, and format handling explicit.
 - Prefer predictable runtime behavior over a large built-in authoring model.
 - Add higher-level features when they are justified by real engine use.
@@ -35,7 +35,7 @@ ForgeAudio is now allowed to diverge when that makes the library smaller, cleare
 - ForgeAudio is not an audio authoring suite like FMOD or Wwise.
 - It is not a WebAudio-style graph engine by default.
 - It is not a dedicated acoustic propagation system like Steam Audio.
-- It is not intended to remain perfectly compatible with XAudio2 forever.
+- It is not a compatibility layer for another audio API.
 
 ## Platforms
 
@@ -67,7 +67,7 @@ Useful options:
 
 FAudio is focused on accurately providing DirectX audio runtime behavior for FNA and related projects. That is valuable, and ForgeAudio benefits from that foundation.
 
-ForgeAudio is different in intent. It is free to remove compatibility surface area, rename the public project shape, simplify build and platform assumptions, and add engine-oriented features that would not belong in upstream FAudio.
+ForgeAudio is different in intent. It is free to remove compatibility surface area, reshape the public API, simplify build and platform assumptions, and add engine-oriented features that would not belong in upstream FAudio.
 
 Upstream FAudio fixes are still worth tracking. The fork is mature enough to build on, while upstream is stable enough that carrying useful fixes is manageable.
 
@@ -101,7 +101,7 @@ Steam Audio focuses on spatial acoustics such as HRTF rendering, occlusion, refl
 
 ForgeAudio currently treats effects as opaque handles created by ForgeAudio itself. Built-in effects can be attached to voices and submixes, configured through the voice effect APIs, and destroyed or transferred into an effect chain.
 
-Earlier versions inherited a public custom-effect vtable from FAudio/XAudio-style APIs. That exposed an advanced extension point where application code could build its own effect object by filling out a struct of callbacks. ForgeAudio removed that public vtable for now. The old shape was powerful, but it also exposed internal engine protocol before ForgeAudio had a clear independent design for custom DSP.
+Earlier versions inherited a public custom-effect vtable from the compatibility API surface. That exposed an advanced extension point where application code could build its own effect object by filling out a struct of callbacks. ForgeAudio removed that public vtable for now. The old shape was powerful, but it also exposed internal engine protocol before ForgeAudio had a clear independent design for custom DSP.
 
 This does not mean custom effects are off the table. It means ForgeAudio is not committing to that inherited ABI as the long-term answer. If custom third-party effects become a real goal, they should return as a ForgeAudio-designed API: probably a versioned descriptor or registration function that produces an opaque `ForgeEffect *`, with clear rules for formats, buffers, real-time processing, parameters, ownership, and thread safety.
 

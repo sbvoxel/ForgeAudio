@@ -1,0 +1,39 @@
+Custom allocators
+=================
+
+Status
+------
+ForgeAudio keeps custom allocator entry points for callers that need engine and
+built-in effect allocations to go through application-provided memory functions.
+
+Public API
+----------
+    typedef void *(FORGE_AUDIO_CALL *ForgeMallocFunc)(size_t size);
+    typedef void(FORGE_AUDIO_CALL *ForgeFreeFunc)(void *ptr);
+    typedef void *(FORGE_AUDIO_CALL *ForgeReallocFunc)(void *ptr, size_t size);
+
+    ForgeResult forge_audio_create_with_allocator(
+        ForgeAudioEngine **engine,
+        uint32_t flags,
+        ForgeMallocFunc custom_malloc,
+        ForgeFreeFunc custom_free,
+        ForgeReallocFunc custom_realloc
+    );
+
+Built-in effects also provide allocator-aware constructors:
+
+    forge_create_volume_meter_with_allocator
+    forge_create_reverb_with_allocator
+    forge_create_reverb_7point1_with_allocator
+
+Behavior
+--------
+Allocator callbacks are stored by the object created with them. Memory owned by
+that object is released through the same callback set.
+
+Do not mix allocation ownership manually. A ForgeAudio object created with a
+custom allocator should be destroyed through the matching ForgeAudio destroy
+path, not by freeing its memory directly.
+
+Allocator-aware constructors are intentionally limited to ForgeAudio's active
+engine and built-in effect types.

@@ -1,0 +1,39 @@
+Engine procedure override
+=========================
+
+Status
+------
+This is no longer a separate extension API. ForgeAudio exposes the engine
+procedure hook directly in the public API.
+
+Public API
+----------
+    typedef void(FORGE_AUDIO_CALL *ForgeEngineCall)(
+        ForgeAudioEngine *audio,
+        float *output
+    );
+
+    typedef void(FORGE_AUDIO_CALL *ForgeEngineProcedure)(
+        ForgeEngineCall default_engine_proc,
+        ForgeAudioEngine *audio,
+        float *output,
+        void *user
+    );
+
+    void forge_audio_set_engine_procedure(
+        ForgeAudioEngine *audio,
+        ForgeEngineProcedure client_engine_proc,
+        void *user
+    );
+
+Behavior
+--------
+The engine procedure hook lets a caller wrap ForgeAudio's normal processing
+step. The custom procedure receives ForgeAudio's default procedure, the engine,
+the output buffer, and caller-owned user data.
+
+Call the default procedure to let ForgeAudio mix normally. The wrapper may run
+additional code before or after that call, including inspecting or modifying the
+mixed output before it is sent to the platform backend.
+
+Passing `NULL` restores the default engine procedure.
