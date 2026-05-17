@@ -1217,17 +1217,6 @@ FORGE_AUDIO_API ForgeIOStream* forge_audio_memopen(void *mem, int len);
 FORGE_AUDIO_API uint8_t* forge_audio_memptr(ForgeIOStream *io, size_t offset);
 FORGE_AUDIO_API void forge_audio_close(ForgeIOStream *io);
 
-/* XNA Song */
-
-FORGE_AUDIO_API void XNA_SongInit();
-FORGE_AUDIO_API void XNA_SongQuit();
-FORGE_AUDIO_API float XNA_PlaySong(const char *name);
-FORGE_AUDIO_API void XNA_PauseSong();
-FORGE_AUDIO_API void XNA_ResumeSong();
-FORGE_AUDIO_API void XNA_StopSong();
-FORGE_AUDIO_API void XNA_SetSongVolume(float volume);
-FORGE_AUDIO_API uint32_t XNA_GetSongEnded();
-
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

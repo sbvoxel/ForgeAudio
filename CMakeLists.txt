@@ -58,8 +58,6 @@ add_library(ForgeAudio
     # Internal Headers
     src/forge_audio_internal.h
     src/stb_modified.h
-    src/stb_vorbis_modified.h
-    src/qoa_decoder.h
     # Source Files
     src/forge_spatial_audio.c
     src/forge_effect_base.c
@@ -76,7 +74,6 @@ add_library(ForgeAudio
     src/forge_audio_operation_set.c
     src/forge_audio_platform_sdl3.c
     src/forge_audio_platform_win32.c
-    src/XNA_Song.c
 )
 
 if(PLATFORM_WIN32)
