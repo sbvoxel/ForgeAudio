@@ -254,7 +254,7 @@ static inline void execute_operation(ForgeOperationSetOperation *op)
     break;
 
     default:
-        ForgeAudio_assert(0 && "Unrecognized operation type!");
+        forge_assert(0 && "Unrecognized operation type!");
     break;
     }
 }
@@ -468,7 +468,7 @@ void forge_operation_set_queue_set_effect_parameters(
     op->Data.SetEffectParameters.parameters = voice->audio->malloc_func(
         parameters_byte_size
     );
-    ForgeAudio_memcpy(
+    forge_memcpy(
         op->Data.SetEffectParameters.parameters,
         parameters,
         parameters_byte_size
@@ -495,7 +495,7 @@ void forge_operation_set_queue_set_filter_parameters(
         operation_set
     );
 
-    ForgeAudio_memcpy(
+    forge_memcpy(
         &op->Data.SetFilterParameters.Parameters,
         parameters,
         sizeof(ForgeFilterParameters)
@@ -523,7 +523,7 @@ void forge_operation_set_queue_set_output_filter_parameters(
     );
 
     op->Data.SetOutputFilterParameters.destination_voice = destination_voice;
-    ForgeAudio_memcpy(
+    forge_memcpy(
         &op->Data.SetOutputFilterParameters.Parameters,
         parameters,
         sizeof(ForgeFilterParameters)
@@ -576,7 +576,7 @@ void forge_operation_set_queue_set_channel_volumes(
     op->Data.SetChannelVolumes.volumes = voice->audio->malloc_func(
         sizeof(float) * channels
     );
-    ForgeAudio_memcpy(
+    forge_memcpy(
         op->Data.SetChannelVolumes.volumes,
         volumes,
         sizeof(float) * channels
@@ -611,7 +611,7 @@ void forge_operation_set_queue_set_output_matrix(
     op->Data.SetOutputMatrix.level_matrix = voice->audio->malloc_func(
         sizeof(float) * source_channels * destination_channels
     );
-    ForgeAudio_memcpy(
+    forge_memcpy(
         op->Data.SetOutputMatrix.level_matrix,
         level_matrix,
         sizeof(float) * source_channels * destination_channels

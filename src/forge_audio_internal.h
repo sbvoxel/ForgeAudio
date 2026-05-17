@@ -50,67 +50,67 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#define ForgeAudio_malloc malloc
-#define ForgeAudio_realloc realloc
-#define ForgeAudio_free free
-#define ForgeAudio_alloca(x) alloca(x)
-#define ForgeAudio_dealloca(x) (void)(x)
-#define ForgeAudio_zero(ptr, size) memset(ptr, '\0', size)
-#define ForgeAudio_memset(ptr, val, size) memset(ptr, val, size)
-#define ForgeAudio_memcpy(dst, src, size) memcpy(dst, src, size)
-#define ForgeAudio_memmove(dst, src, size) memmove(dst, src, size)
-#define ForgeAudio_memcmp(ptr1, ptr2, size) memcmp(ptr1, ptr2, size)
+#define forge_malloc malloc
+#define forge_realloc realloc
+#define forge_free free
+#define forge_alloca(x) alloca(x)
+#define forge_dealloca(x) (void)(x)
+#define forge_zero(ptr, size) memset(ptr, '\0', size)
+#define forge_memset(ptr, val, size) memset(ptr, val, size)
+#define forge_memcpy(dst, src, size) memcpy(dst, src, size)
+#define forge_memmove(dst, src, size) memmove(dst, src, size)
+#define forge_memcmp(ptr1, ptr2, size) memcmp(ptr1, ptr2, size)
 
-#define ForgeAudio_strlen(ptr) strlen(ptr)
-#define ForgeAudio_strcmp(str1, str2) strcmp(str1, str2)
-#define ForgeAudio_strncmp(str1, str2, size) strncmp(str1, str2, size)
-#define ForgeAudio_strlcpy(ptr1, ptr2, size) lstrcpynA(ptr1, ptr2, size)
+#define forge_strlen(ptr) strlen(ptr)
+#define forge_strcmp(str1, str2) strcmp(str1, str2)
+#define forge_strncmp(str1, str2, size) strncmp(str1, str2, size)
+#define forge_strlcpy(ptr1, ptr2, size) lstrcpynA(ptr1, ptr2, size)
 
-#define ForgeAudio_pow(x, y) pow(x, y)
-#define ForgeAudio_powf(x, y) powf(x, y)
-#define ForgeAudio_log(x) log(x)
-#define ForgeAudio_log10(x) log10(x)
-#define ForgeAudio_sin(x) sin(x)
-#define ForgeAudio_cos(x) cos(x)
-#define ForgeAudio_tan(x) tan(x)
-#define ForgeAudio_acos(x) acos(x)
-#define ForgeAudio_ceil(x) ceil(x)
-#define ForgeAudio_floor(x) floor(x)
-#define ForgeAudio_abs(x) abs(x)
-#define ForgeAudio_ldexp(v, e) ldexp(v, e)
-#define ForgeAudio_exp(x) exp(x)
+#define forge_pow(x, y) pow(x, y)
+#define forge_powf(x, y) powf(x, y)
+#define forge_log(x) log(x)
+#define forge_log10(x) log10(x)
+#define forge_sin(x) sin(x)
+#define forge_cos(x) cos(x)
+#define forge_tan(x) tan(x)
+#define forge_acos(x) acos(x)
+#define forge_ceil(x) ceil(x)
+#define forge_floor(x) floor(x)
+#define forge_abs(x) abs(x)
+#define forge_ldexp(v, e) ldexp(v, e)
+#define forge_exp(x) exp(x)
 
-#define ForgeAudio_cosf(x) cosf(x)
-#define ForgeAudio_sinf(x) sinf(x)
-#define ForgeAudio_sqrtf(x) sqrtf(x)
-#define ForgeAudio_acosf(x) acosf(x)
-#define ForgeAudio_atan2f(y, x) atan2f(y, x)
-#define ForgeAudio_fabsf(x) fabsf(x)
+#define forge_cosf(x) cosf(x)
+#define forge_sinf(x) sinf(x)
+#define forge_sqrtf(x) sqrtf(x)
+#define forge_acosf(x) acosf(x)
+#define forge_atan2f(y, x) atan2f(y, x)
+#define forge_fabsf(x) fabsf(x)
 
-#define ForgeAudio_qsort qsort
+#define forge_qsort qsort
 
-#define ForgeAudio_assert assert
-#define ForgeAudio_snprintf snprintf
-#define ForgeAudio_vsnprintf vsnprintf
-#define ForgeAudio_getenv getenv
-#define ForgeAudio_PRIu64 PRIu64
-#define ForgeAudio_PRIx64 PRIx64
+#define forge_assert assert
+#define forge_snprintf snprintf
+#define forge_vsnprintf vsnprintf
+#define forge_getenv getenv
+#define FORGE_PRIu64 PRIu64
+#define FORGE_PRIx64 PRIx64
 
-extern void ForgeAudio_Log(char const *msg);
+extern void forge_log_message(char const *msg);
 
 /* FIXME: Assuming little-endian! */
-#define ForgeAudio_swap16LE(x) (x)
-#define ForgeAudio_swap16BE(x) \
+#define forge_swap16le(x) (x)
+#define forge_swap16be(x) \
 	((x >> 8)	& 0x00FF) | \
 	((x << 8)	& 0xFF00)
-#define ForgeAudio_swap32LE(x) (x)
-#define ForgeAudio_swap32BE(x) \
+#define forge_swap32le(x) (x)
+#define forge_swap32be(x) \
 	((x >> 24)	& 0x000000FF) | \
 	((x >> 8)	& 0x0000FF00) | \
 	((x << 8)	& 0x00FF0000) | \
 	((x << 24)	& 0xFF000000)
-#define ForgeAudio_swap64LE(x) (x)
-#define ForgeAudio_swap64BE(x) \
+#define forge_swap64le(x) (x)
+#define forge_swap64be(x) \
 	((x >> 32)	& 0x00000000000000FF) | \
 	((x >> 24)	& 0x000000000000FF00) | \
 	((x >> 16)	& 0x0000000000FF0000) | \
@@ -125,12 +125,12 @@ extern void ForgeAudio_Log(char const *msg);
 #include <SDL3/SDL_endian.h>
 #include <SDL3/SDL_log.h>
 
-#define ForgeAudio_swap16LE(x) SDL_Swap16LE(x)
-#define ForgeAudio_swap16BE(x) SDL_Swap16BE(x)
-#define ForgeAudio_swap32LE(x) SDL_Swap32LE(x)
-#define ForgeAudio_swap32BE(x) SDL_Swap32BE(x)
-#define ForgeAudio_swap64LE(x) SDL_Swap64LE(x)
-#define ForgeAudio_swap64BE(x) SDL_Swap64BE(x)
+#define forge_swap16le(x) SDL_Swap16LE(x)
+#define forge_swap16be(x) SDL_Swap16BE(x)
+#define forge_swap32le(x) SDL_Swap32LE(x)
+#define forge_swap32be(x) SDL_Swap32BE(x)
+#define forge_swap64le(x) SDL_Swap64LE(x)
+#define forge_swap64be(x) SDL_Swap64BE(x)
 
 /* SDL3 allows memcpy/memset for compiler optimization reasons */
 #ifdef SDL_SLOW_MEMCPY
@@ -140,47 +140,47 @@ extern void ForgeAudio_Log(char const *msg);
 #define STB_MEMSET_OVERRIDE
 #endif
 
-#define ForgeAudio_malloc SDL_malloc
-#define ForgeAudio_realloc SDL_realloc
-#define ForgeAudio_free SDL_free
-#define ForgeAudio_alloca(x) SDL_stack_alloc(uint8_t, x)
-#define ForgeAudio_dealloca(x) SDL_stack_free(x)
-#define ForgeAudio_zero(ptr, size) SDL_memset(ptr, '\0', size)
-#define ForgeAudio_memset(ptr, val, size) SDL_memset(ptr, val, size)
-#define ForgeAudio_memcpy(dst, src, size) SDL_memcpy(dst, src, size)
-#define ForgeAudio_memmove(dst, src, size) SDL_memmove(dst, src, size)
-#define ForgeAudio_memcmp(ptr1, ptr2, size) SDL_memcmp(ptr1, ptr2, size)
+#define forge_malloc SDL_malloc
+#define forge_realloc SDL_realloc
+#define forge_free SDL_free
+#define forge_alloca(x) SDL_stack_alloc(uint8_t, x)
+#define forge_dealloca(x) SDL_stack_free(x)
+#define forge_zero(ptr, size) SDL_memset(ptr, '\0', size)
+#define forge_memset(ptr, val, size) SDL_memset(ptr, val, size)
+#define forge_memcpy(dst, src, size) SDL_memcpy(dst, src, size)
+#define forge_memmove(dst, src, size) SDL_memmove(dst, src, size)
+#define forge_memcmp(ptr1, ptr2, size) SDL_memcmp(ptr1, ptr2, size)
 
-#define ForgeAudio_strlen(ptr) SDL_strlen(ptr)
-#define ForgeAudio_strcmp(str1, str2) SDL_strcmp(str1, str2)
-#define ForgeAudio_strncmp(str1, str2, size) SDL_strncmp(str1, str2, size)
-#define ForgeAudio_strlcpy(ptr1, ptr2, size) SDL_strlcpy(ptr1, ptr2, size)
+#define forge_strlen(ptr) SDL_strlen(ptr)
+#define forge_strcmp(str1, str2) SDL_strcmp(str1, str2)
+#define forge_strncmp(str1, str2, size) SDL_strncmp(str1, str2, size)
+#define forge_strlcpy(ptr1, ptr2, size) SDL_strlcpy(ptr1, ptr2, size)
 
-#define ForgeAudio_pow(x, y) SDL_pow(x, y)
-#define ForgeAudio_powf(x, y) SDL_powf(x, y)
-#define ForgeAudio_log(x) SDL_log(x)
-#define ForgeAudio_log10(x) SDL_log10(x)
-#define ForgeAudio_sin(x) SDL_sin(x)
-#define ForgeAudio_cos(x) SDL_cos(x)
-#define ForgeAudio_tan(x) SDL_tan(x)
-#define ForgeAudio_acos(x) SDL_acos(x)
-#define ForgeAudio_ceil(x) SDL_ceil(x)
-#define ForgeAudio_floor(x) SDL_floor(x)
-#define ForgeAudio_abs(x) SDL_abs(x)
-#define ForgeAudio_ldexp(v, e) SDL_scalbn(v, e)
-#define ForgeAudio_exp(x) SDL_exp(x)
+#define forge_pow(x, y) SDL_pow(x, y)
+#define forge_powf(x, y) SDL_powf(x, y)
+#define forge_log(x) SDL_log(x)
+#define forge_log10(x) SDL_log10(x)
+#define forge_sin(x) SDL_sin(x)
+#define forge_cos(x) SDL_cos(x)
+#define forge_tan(x) SDL_tan(x)
+#define forge_acos(x) SDL_acos(x)
+#define forge_ceil(x) SDL_ceil(x)
+#define forge_floor(x) SDL_floor(x)
+#define forge_abs(x) SDL_abs(x)
+#define forge_ldexp(v, e) SDL_scalbn(v, e)
+#define forge_exp(x) SDL_exp(x)
 
-#define ForgeAudio_cosf(x) SDL_cosf(x)
-#define ForgeAudio_sinf(x) SDL_sinf(x)
-#define ForgeAudio_sqrtf(x) SDL_sqrtf(x)
-#define ForgeAudio_acosf(x) SDL_acosf(x)
-#define ForgeAudio_atan2f(y, x) SDL_atan2f(y, x)
-#define ForgeAudio_fabsf(x) SDL_fabsf(x)
+#define forge_cosf(x) SDL_cosf(x)
+#define forge_sinf(x) SDL_sinf(x)
+#define forge_sqrtf(x) SDL_sqrtf(x)
+#define forge_acosf(x) SDL_acosf(x)
+#define forge_atan2f(y, x) SDL_atan2f(y, x)
+#define forge_fabsf(x) SDL_fabsf(x)
 
-#define ForgeAudio_qsort SDL_qsort
+#define forge_qsort SDL_qsort
 
 #ifdef FORGE_AUDIO_LOG_ASSERTIONS
-#define ForgeAudio_assert(condition) \
+#define forge_assert(condition) \
 	{ \
 		static uint8_t logged = 0; \
 		if (!(condition) && !logged) \
@@ -190,22 +190,22 @@ extern void ForgeAudio_Log(char const *msg);
 		} \
 	}
 #else
-#define ForgeAudio_assert SDL_assert
+#define forge_assert SDL_assert
 #endif
-#define ForgeAudio_snprintf SDL_snprintf
-#define ForgeAudio_vsnprintf SDL_vsnprintf
-#define ForgeAudio_Log(msg) SDL_Log("%s", msg)
-#define ForgeAudio_getenv SDL_getenv
-#define ForgeAudio_PRIu64 SDL_PRIu64
-#define ForgeAudio_PRIx64 SDL_PRIx64
+#define forge_snprintf SDL_snprintf
+#define forge_vsnprintf SDL_vsnprintf
+#define forge_log_message(msg) SDL_Log("%s", msg)
+#define forge_getenv SDL_getenv
+#define FORGE_PRIu64 SDL_PRIu64
+#define FORGE_PRIx64 SDL_PRIx64
 #endif
 
 /* Easy Macros */
-#define ForgeAudio_min(val1, val2) \
+#define forge_min(val1, val2) \
     (val1 < val2 ? val1 : val2)
-#define ForgeAudio_max(val1, val2) \
+#define forge_max(val1, val2) \
     (val1 > val2 ? val1 : val2)
-#define ForgeAudio_clamp(val, min, max) \
+#define forge_clamp(val, min, max) \
     (val > max ? max : (val < min ? min : val))
 
 /* Alignment macro for gcc/clang/msvc */
@@ -779,7 +779,7 @@ static inline uint32_t GetMask(uint16_t channels)
     if (channels == 5) return FORGE_SPEAKER_4POINT1;
     if (channels == 6) return FORGE_SPEAKER_5POINT1;
     if (channels == 8) return FORGE_SPEAKER_7POINT1_SURROUND;
-    ForgeAudio_assert(0 && "Unrecognized speaker layout!");
+    forge_assert(0 && "Unrecognized speaker layout!");
     return 0;
 }
 
@@ -789,7 +789,7 @@ static inline void WriteWaveFormatExtensible(
     int samplerate,
     const ForgeGuid *subformat
 ) {
-    ForgeAudio_assert(fmt != NULL);
+    forge_assert(fmt != NULL);
     fmt->format.bits_per_sample = 32;
     fmt->format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
     fmt->format.channels = channels;
@@ -805,7 +805,7 @@ static inline void WriteWaveFormatExtensible(
     fmt->format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
     fmt->samples.valid_bits_per_sample = 32;
     fmt->channel_mask = GetMask(fmt->format.channels);
-    ForgeAudio_memcpy(&fmt->sub_format, subformat, sizeof(ForgeGuid));
+    forge_memcpy(&fmt->sub_format, subformat, sizeof(ForgeGuid));
 }
 
 /* Resampling */

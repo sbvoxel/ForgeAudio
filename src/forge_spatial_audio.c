@@ -50,7 +50,7 @@
 
 /* PARAMETER CHECK MACROS */
 
-#define PARAM_CHECK(cond, msg) ForgeAudio_assert(cond && msg)
+#define PARAM_CHECK(cond, msg) forge_assert(cond && msg)
 
 #define POINTER_CHECK(p) \
     PARAM_CHECK(p != NULL, "Pointer " #p " must be != NULL")
@@ -67,13 +67,13 @@
 /* TODO: Switch to square length (to save CPU) */
 #define VECTOR_NORMAL_CHECK(v) \
     PARAM_CHECK( \
-        ForgeAudio_fabsf(VectorLength(v) - 1.0f) <= 1e-5f, \
+        forge_fabsf(VectorLength(v) - 1.0f) <= 1e-5f, \
         "Vector " #v " isn't normal" \
     )
 
 #define VECTOR_BASE_CHECK(u, v) \
     PARAM_CHECK( \
-        ForgeAudio_fabsf(VectorDot(u, v)) <= 1e-5f, \
+        forge_fabsf(VectorDot(u, v)) <= 1e-5f, \
         "Vector u and v have non-negligible dot product" \
     )
 
@@ -225,7 +225,7 @@ static inline ForgeVector3 Vec(float x, float y, float z)
     (u.x * v.y) - (u.y * v.x) \
 )
 
-#define VectorLength(v) ForgeAudio_sqrtf( \
+#define VectorLength(v) forge_sqrtf( \
     (v.x * v.x) + (v.y * v.y) + (v.z * v.z) \
 )
 
@@ -711,7 +711,7 @@ static const ConfigInfo* GetConfigInfo(uint32_t speakerConfigMask)
         }
     }
 
-    ForgeAudio_assert(0 && "Config info not found!");
+    forge_assert(0 && "Config info not found!");
     return NULL;
 }
 
@@ -728,7 +728,7 @@ static inline void FindSpeakerAzimuths(
     uint32_t i, nexti = 0;
     float a0 = 0.0f, a1 = 0.0f;
 
-    ForgeAudio_assert(config != NULL);
+    forge_assert(config != NULL);
 
     /* We want to find, given an azimuth, which speakers are the closest
      * ones (in terms of angle) to that azimuth.
@@ -767,7 +767,7 @@ static inline void FindSpeakerAzimuths(
             }
         }
     }
-    ForgeAudio_assert(emitterAzimuth >= a0 || emitterAzimuth < a1);
+    forge_assert(emitterAzimuth >= a0 || emitterAzimuth < a1);
 
     /* skipCenter means that we don't want to use the center speaker.
      * The easiest way to deal with this is to check whether either of our candidate
@@ -854,7 +854,7 @@ static inline void ComputeInnerRadiusDiffusionFactors(
     /* This constant was determined by manual binary search. TODO: get a more accurate version
      * via an automated binary search. */
     #define DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS 4e-7f
-    float actualInnerRadius = ForgeAudio_max(inner_radius, DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS);
+    float actualInnerRadius = forge_max(inner_radius, DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS);
     float normalizedRadialDist;
     float a, ms, os;
 
@@ -976,7 +976,7 @@ static inline void ComputeEmitterChannelCoefficients(
         if (skipCenter)
         {
             channels_to_diffuse_to -= 1;
-            ForgeAudio_assert(curConfig->speakers[0].azimuth == FORGE_SPEAKER_AZIMUTH_CENTER);
+            forge_assert(curConfig->speakers[0].azimuth == FORGE_SPEAKER_AZIMUTH_CENTER);
             centerChannelIdx = curConfig->speakers[0].matrixIdx;
         }
 
@@ -1013,7 +1013,7 @@ static inline void ComputeEmitterChannelCoefficients(
          */
 
         /* atan2 returns [-PI, PI], but we want [0, 2PI] */
-        emitterAzimuth = ForgeAudio_atan2f(y, x);
+        emitterAzimuth = forge_atan2f(y, x);
         if (emitterAzimuth < 0.0f)
         {
             emitterAzimuth += FORGE_SPATIAL_2PI;
@@ -1034,7 +1034,7 @@ static inline void ComputeEmitterChannelCoefficients(
             }
             a0 -= FORGE_SPATIAL_2PI;
         }
-        ForgeAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
+        forge_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
 
         val = (emitterAzimuth - a0) / (a1 - a0);
 
@@ -1058,7 +1058,7 @@ static inline void ComputeEmitterChannelCoefficients(
         y = VectorDot(listenerBasis->right, projPlane);
 
         /* Similarly, we expect atan2 to be well behaved here. */
-        emitterAzimuth = ForgeAudio_atan2f(y, x);
+        emitterAzimuth = forge_atan2f(y, x);
 
         /* Opposite speakers lie at azimuth + PI */
         emitterAzimuth += FORGE_SPATIAL_PI;
@@ -1088,7 +1088,7 @@ static inline void ComputeEmitterChannelCoefficients(
             }
             a0 -= FORGE_SPATIAL_2PI;
         }
-        ForgeAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
+        forge_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
 
         val = (emitterAzimuth - a0) / (a1 - a0);
 
@@ -1101,7 +1101,7 @@ static inline void ComputeEmitterChannelCoefficients(
 
     if (flags & FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE)
     {
-        ForgeAudio_assert(curConfig->LFSpeakerIdx != -1);
+        forge_assert(curConfig->LFSpeakerIdx != -1);
         matrix_coefficients[curConfig->LFSpeakerIdx * numSrcChannels + currentChannel] += LFEattenuation / numSrcChannels;
     }
 }
@@ -1184,7 +1184,7 @@ static inline void CalculateMatrix(
          * this case
          * -Adrien
          */
-        const float angle = -ForgeAudio_acosf(
+        const float angle = -forge_acosf(
             VectorDot(listener->orient_front, emitterToListener) /
             eToLDistance
         );
@@ -1204,7 +1204,7 @@ static inline void CalculateMatrix(
     /* See note above. */
     if (emitter->cone && emitter->channel_count == 1)
     {
-        const float angle = ForgeAudio_acosf(
+        const float angle = forge_acosf(
             VectorDot(emitter->orient_front, emitterToListener) /
             eToLDistance
         );
@@ -1220,7 +1220,7 @@ static inline void CalculateMatrix(
         attenuation *= emitterConeParam;
     }
 
-    ForgeAudio_zero(MatrixCoefficients, sizeof(float) * src_channel_count * dst_channel_count);
+    forge_zero(MatrixCoefficients, sizeof(float) * src_channel_count * dst_channel_count);
 
     /* In the FORGE_SPEAKER_MONO case, we can skip all energy diffusion calculation. */
     if (dst_channel_count == 1)
@@ -1293,8 +1293,8 @@ static inline void CalculateMatrix(
                      * vector relative to the emitter base...
                      */
                     const ForgeVector3 emitterBaseToChannel = VectorAdd(
-                        VectorScale(emitter->orient_front, emitter->channel_radius * ForgeAudio_cosf(emChAzimuth)),
-                        VectorScale(emitterRight, emitter->channel_radius * ForgeAudio_sinf(emChAzimuth))
+                        VectorScale(emitter->orient_front, emitter->channel_radius * forge_cosf(emChAzimuth)),
+                        VectorScale(emitterRight, emitter->channel_radius * forge_sinf(emChAzimuth))
                     );
                     /* ... then translate. */
                     listenerToEmChannel = VectorAdd(
@@ -1320,7 +1320,7 @@ static inline void CalculateMatrix(
     }
     else
     {
-        ForgeAudio_assert(0 && "Config info not found!");
+        forge_assert(0 && "Config info not found!");
     }
 
     /* TODO: add post check to validate values
@@ -1371,11 +1371,11 @@ static inline void CalculateDoppler(
         scaledSpeedOfSound = speed_of_sound / emitter->doppler_scaler;
 
         /* Clamp... */
-        *listenerVelocityComponent = ForgeAudio_min(
+        *listenerVelocityComponent = forge_min(
             *listenerVelocityComponent,
             scaledSpeedOfSound
         );
-        *emitterVelocityComponent = ForgeAudio_min(
+        *emitterVelocityComponent = forge_min(
             *emitterVelocityComponent,
             scaledSpeedOfSound
         );
@@ -1392,7 +1392,7 @@ static inline void CalculateDoppler(
         }
 
         /* Limit the pitch shifting to 2 octaves up and 1 octave down */
-        *doppler_factor = ForgeAudio_clamp(
+        *doppler_factor = forge_clamp(
             *doppler_factor,
             0.5f,
             4.0f
@@ -1512,7 +1512,7 @@ void forge_spatializer_calculate(
         {
             /* Note: emitter->orient_front is normalized. */
             dp = VectorDot(emitterToListener, emitter->orient_front) / eToLDistance;
-            dsp_settings->emitter_to_listener_angle = ForgeAudio_acosf(dp);
+            dsp_settings->emitter_to_listener_angle = forge_acosf(dp);
         }
     }
 
@@ -1524,6 +1524,6 @@ void forge_spatializer_calculate(
         {
             dsp_settings->delay_times[i] = 0.0f;
         }
-        ForgeAudio_assert(0 && "DELAY not implemented!");
+        forge_assert(0 && "DELAY not implemented!");
     }
 }

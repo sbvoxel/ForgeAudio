@@ -146,7 +146,7 @@ static void forge_audio_convert_u8_to_f32_sse2(
     }
 
     src -= 15; dst -= 15;  /* adjust to read SSE blocks from the start. */
-    ForgeAudio_assert(!i || ((((size_t) dst) & 15) == 0));
+    forge_assert(!i || ((((size_t) dst) & 15) == 0));
 
     /* Make sure src is aligned too. */
     if ((((size_t) src) & 15) == 0) {
@@ -202,7 +202,7 @@ static void forge_audio_convert_s16_to_f32_sse2(
     }
 
     src -= 7; dst -= 7;  /* adjust to read SSE blocks from the start. */
-    ForgeAudio_assert(!i || ((((size_t) dst) & 15) == 0));
+    forge_assert(!i || ((((size_t) dst) & 15) == 0));
 
     /* Make sure src is aligned too. */
     if ((((size_t) src) & 15) == 0) {
@@ -242,7 +242,7 @@ static void forge_audio_convert_s32_to_f32_sse2(
         *dst = ((float) (*src>>8)) * DIVBY8388607;
     }
 
-    ForgeAudio_assert(!i || ((((size_t) dst) & 15) == 0));
+    forge_assert(!i || ((((size_t) dst) & 15) == 0));
 
     /* Make sure src is aligned too. */
     if ((((size_t) src) & 15) == 0) {
@@ -281,7 +281,7 @@ static void forge_audio_convert_u8_to_f32_neon(
     }
 
     src -= 15; dst -= 15;  /* adjust to read NEON blocks from the start. */
-    ForgeAudio_assert(!i || ((((size_t) dst) & 15) == 0));
+    forge_assert(!i || ((((size_t) dst) & 15) == 0));
 
     /* Make sure src is aligned too. */
     if ((((size_t) src) & 15) == 0) {
@@ -328,7 +328,7 @@ static void forge_audio_convert_s16_to_f32_neon(
     }
 
     src -= 7; dst -= 7;  /* adjust to read NEON blocks from the start. */
-    ForgeAudio_assert(!i || ((((size_t) dst) & 15) == 0));
+    forge_assert(!i || ((((size_t) dst) & 15) == 0));
 
     /* Make sure src is aligned too. */
     if ((((size_t) src) & 15) == 0) {
@@ -364,7 +364,7 @@ static void forge_audio_convert_s32_to_f32_neon(
         *dst = ((float) (*src>>8)) * DIVBY8388607;
     }
 
-    ForgeAudio_assert(!i || ((((size_t) dst) & 15) == 0));
+    forge_assert(!i || ((((size_t) dst) & 15) == 0));
 
     /* Make sure src is aligned too. */
     if ((((size_t) src) & 15) == 0) {
@@ -1618,6 +1618,6 @@ void forge_audio_init_simd_functions(uint8_t hasSSE2, uint8_t hasNEON)
     forge_audio_amplify = forge_audio_amplify_scalar;
     forge_audio_mix_generic = forge_audio_mix_generic_scalar;
 #else
-    ForgeAudio_assert(0 && "Need converter functions!");
+    forge_assert(0 && "Need converter functions!");
 #endif
 }

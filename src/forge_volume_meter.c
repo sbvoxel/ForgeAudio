@@ -100,7 +100,7 @@ static ForgeResult forge_volume_meter_lock_for_process(
     effect->levels.peak_levels = (float*) effect->base.malloc_func(
         effect->channels * sizeof(float) * 2
     );
-    ForgeAudio_zero(effect->levels.peak_levels, effect->channels * sizeof(float) * 2);
+    forge_zero(effect->levels.peak_levels, effect->channels * sizeof(float) * 2);
     effect->levels.rms_levels = effect->levels.peak_levels + effect->channels;
     effect->levels.channel_count = effect->channels;
 
@@ -111,7 +111,7 @@ static ForgeResult forge_volume_meter_lock_for_process(
 static void forge_volume_meter_unlock_for_process(ForgeVolumeMeter *effect)
 {
     effect->base.free_func(effect->levels.peak_levels);
-    ForgeAudio_zero(&effect->levels, sizeof(effect->levels));
+    forge_zero(&effect->levels, sizeof(effect->levels));
     effect->base.is_locked = 0;
 }
 
@@ -137,7 +137,7 @@ static void forge_volume_meter_process(
         buffer = ((float*) input_buffers->buffer) + i;
         for (j = 0; j < input_buffers->valid_frame_count; j += 1, buffer += effect->channels)
         {
-            const float sampleAbs = ForgeAudio_fabsf(*buffer);
+            const float sampleAbs = forge_fabsf(*buffer);
             if (sampleAbs > peak)
             {
                 peak = sampleAbs;
@@ -145,7 +145,7 @@ static void forge_volume_meter_process(
             total += (*buffer) * (*buffer);
         }
         levels->peak_levels[i] = peak;
-        levels->rms_levels[i] = ForgeAudio_sqrtf(
+        levels->rms_levels[i] = forge_sqrtf(
             total / input_buffers->valid_frame_count
         );
     }
@@ -157,7 +157,7 @@ static void forge_volume_meter_get_parameters(
     ForgeVolumeMeterLevels *parameters,
     uint32_t parameter_byte_size
 ) {
-    ForgeAudio_assert(parameter_byte_size == sizeof(ForgeVolumeMeterLevels));
+    forge_assert(parameter_byte_size == sizeof(ForgeVolumeMeterLevels));
     forge_volume_meter_get_levels(&effect->base.base, parameters);
 }
 
@@ -174,9 +174,9 @@ ForgeResult forge_create_volume_meter(ForgeEffect** effect, uint32_t flags)
     return forge_create_volume_meter_with_allocator(
         effect,
         flags,
-        ForgeAudio_malloc,
-        ForgeAudio_free,
-        ForgeAudio_realloc
+        forge_malloc,
+        forge_free,
+        forge_realloc
     );
 }
 
@@ -192,11 +192,11 @@ void forge_volume_meter_get_levels(
         return;
     }
 
-    ForgeAudio_assert(levels->channel_count == volume_meter->channels);
+    forge_assert(levels->channel_count == volume_meter->channels);
 
     if (levels->peak_levels != NULL)
     {
-        ForgeAudio_memcpy(
+        forge_memcpy(
             levels->peak_levels,
             current_levels->peak_levels,
             volume_meter->channels * sizeof(float)
@@ -204,7 +204,7 @@ void forge_volume_meter_get_levels(
     }
     if (levels->rms_levels != NULL)
     {
-        ForgeAudio_memcpy(
+        forge_memcpy(
             levels->rms_levels,
             current_levels->rms_levels,
             volume_meter->channels * sizeof(float)
@@ -233,7 +233,7 @@ ForgeResult forge_create_volume_meter_with_allocator(
         custom_free,
         custom_realloc
     );
-    ForgeAudio_zero(&result->levels, sizeof(result->levels));
+    forge_zero(&result->levels, sizeof(result->levels));
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)

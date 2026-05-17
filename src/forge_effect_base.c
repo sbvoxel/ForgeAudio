@@ -49,9 +49,9 @@ void forge_effect_base_init(
         effect_info,
         parameters,
         parameter_block_byte_size,
-        ForgeAudio_malloc,
-        ForgeAudio_free,
-        ForgeAudio_realloc
+        forge_malloc,
+        forge_free,
+        forge_realloc
     );
 }
 
@@ -118,7 +118,7 @@ void forge_effect_base_get_info(
     ForgeEffectBase *effect,
     ForgeEffectInfo *effect_info
 ) {
-    ForgeAudio_memcpy(
+    forge_memcpy(
         effect_info,
         effect->effect_info,
         sizeof(ForgeEffectInfo)
@@ -142,12 +142,12 @@ ForgeResult forge_effect_base_is_input_format_supported(
         {
             (*supported_input_format)->format_tag =
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG;
-            (*supported_input_format)->channels = ForgeAudio_clamp(
+            (*supported_input_format)->channels = forge_clamp(
                 requested_input_format->channels,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            (*supported_input_format)->sample_rate = ForgeAudio_clamp(
+            (*supported_input_format)->sample_rate = forge_clamp(
                 requested_input_format->sample_rate,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -177,12 +177,12 @@ ForgeResult forge_effect_base_is_output_format_supported(
         {
             (*supported_output_format)->format_tag =
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG;
-            (*supported_output_format)->channels = ForgeAudio_clamp(
+            (*supported_output_format)->channels = forge_clamp(
                 requested_output_format->channels,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            (*supported_output_format)->sample_rate = ForgeAudio_clamp(
+            (*supported_output_format)->sample_rate = forge_clamp(
                 requested_output_format->sample_rate,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -275,12 +275,12 @@ ForgeResult forge_effect_base_validate_default_format(
         {
             format->format_tag =
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG;
-            format->channels = ForgeAudio_clamp(
+            format->channels = forge_clamp(
                 format->channels,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            format->sample_rate = ForgeAudio_clamp(
+            format->sample_rate = forge_clamp(
                 format->sample_rate,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -310,12 +310,12 @@ ForgeResult forge_effect_base_validate_format_pair(
         {
             requested_format->format_tag =
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG;
-            requested_format->channels = ForgeAudio_clamp(
+            requested_format->channels = forge_clamp(
                 requested_format->channels,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            requested_format->sample_rate = ForgeAudio_clamp(
+            requested_format->sample_rate = forge_clamp(
                 requested_format->sample_rate,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -371,7 +371,7 @@ void forge_effect_base_set_parameters(
     const void* parameters,
     uint32_t parameter_byte_size
 ) {
-    ForgeAudio_assert(parameter_byte_size == effect->parameter_block_byte_size);
+    forge_assert(parameter_byte_size == effect->parameter_block_byte_size);
     if (parameter_byte_size != effect->parameter_block_byte_size)
     {
         return;
@@ -384,7 +384,7 @@ void forge_effect_base_set_parameters(
         parameter_byte_size
     );
 
-    ForgeAudio_memcpy(
+    forge_memcpy(
         effect->parameters,
         parameters,
         parameter_byte_size
@@ -397,13 +397,13 @@ void forge_effect_base_get_parameters(
     void* parameters,
     uint32_t parameter_byte_size
 ) {
-    ForgeAudio_assert(parameter_byte_size == effect->parameter_block_byte_size);
+    forge_assert(parameter_byte_size == effect->parameter_block_byte_size);
     if (parameter_byte_size != effect->parameter_block_byte_size)
     {
         return;
     }
 
-    ForgeAudio_memcpy(
+    forge_memcpy(
         parameters,
         effect->parameters,
         parameter_byte_size

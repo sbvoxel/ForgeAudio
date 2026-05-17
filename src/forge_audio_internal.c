@@ -52,16 +52,16 @@ void forge_audio_debug(
     /* Logging extras */
     if (audio->debug.log_thread_id)
     {
-        out += ForgeAudio_snprintf(
+        out += forge_snprintf(
             out,
             sizeof(output) - (out - output),
-            "0x%" ForgeAudio_PRIx64 " ",
+            "0x%" FORGE_PRIx64 " ",
             forge_platform_get_thread_id()
         );
     }
     if (audio->debug.log_fileline)
     {
-        out += ForgeAudio_snprintf(
+        out += forge_snprintf(
             out,
             sizeof(output) - (out - output),
             "%s:%u ",
@@ -71,7 +71,7 @@ void forge_audio_debug(
     }
     if (audio->debug.log_function_name)
     {
-        out += ForgeAudio_snprintf(
+        out += forge_snprintf(
             out,
             sizeof(output) - (out - output),
             "%s ",
@@ -80,7 +80,7 @@ void forge_audio_debug(
     }
     if (audio->debug.log_timing)
     {
-        out += ForgeAudio_snprintf(
+        out += forge_snprintf(
             out,
             sizeof(output) - (out - output),
             "%dms ",
@@ -90,7 +90,7 @@ void forge_audio_debug(
 
     /* The actual message... */
     va_start(va, fmt);
-    ForgeAudio_vsnprintf(
+    forge_vsnprintf(
         out,
         sizeof(output) - (out - output),
         fmt,
@@ -99,7 +99,7 @@ void forge_audio_debug(
     va_end(va);
 
     /* Print, finally. */
-    ForgeAudio_Log(output);
+    forge_log_message(output);
 }
 
 static const char *get_wformattag_string(const ForgeAudioFormat *fmt)
@@ -127,11 +127,11 @@ static const char *get_subformat_string(const ForgeAudioFormat *fmt)
     {
         return "N/A";
     }
-    if (!ForgeAudio_memcmp(&fmtex->sub_format, &forge_audio_subtype_ieee_float, sizeof(ForgeGuid)))
+    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_subtype_ieee_float, sizeof(ForgeGuid)))
     {
         return "IEEE_FLOAT";
     }
-    if (!ForgeAudio_memcmp(&fmtex->sub_format, &forge_audio_subtype_pcm, sizeof(ForgeGuid)))
+    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_subtype_pcm, sizeof(ForgeGuid)))
     {
         return "PCM";
     }
@@ -187,7 +187,7 @@ bool forge_array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capac
         return false;
     }
 
-    new_capacity = ForgeAudio_max(4, *capacity);
+    new_capacity = forge_max(4, *capacity);
     while (new_capacity < count && new_capacity <= max_capacity / 2)
     {
         new_capacity *= 2;
@@ -280,7 +280,7 @@ void forge_linked_list_remove_entry(
         latest = latest->next;
     }
     forge_platform_unlock_mutex(lock);
-    ForgeAudio_assert(0 && "ForgeLinkedList element not found!");
+    forge_assert(0 && "ForgeLinkedList element not found!");
 }
 
 void forge_audio_insert_submix_sorted(
@@ -468,7 +468,7 @@ static void end_buffer(ForgeSourceVoice *voice)
 
     LOG_INFO(voice->audio, "Voice %p, finished with buffer %p", (void*) voice, (void*) buffer)
 
-    ForgeAudio_memmove(
+    forge_memmove(
         &voice->src.queued_buffers[0],
         &voice->src.queued_buffers[1],
         (voice->src.queued_buffer_count - 1) * sizeof(*voice->src.queued_buffers)
@@ -522,7 +522,7 @@ static void forge_audio_decode_buffers(
     LOG_FUNC_ENTER(voice->audio)
 
     /* This should never go past the max ratio size */
-    ForgeAudio_assert(*toDecode <= voice->src.decodeSamples);
+    forge_assert(*toDecode <= voice->src.decodeSamples);
 
     while (decoded < *toDecode && voice->src.queued_buffer_count != 0)
     {
@@ -533,7 +533,7 @@ static void forge_audio_decode_buffers(
         buffer = &voice->src.queued_buffers[0];
         start_buffer(voice, buffer);
 
-        decode_count = ForgeAudio_min(
+        decode_count = forge_min(
             (uint32_t) *toDecode - decoded,
             buffer_get_end(voice, buffer) - voice->src.curBufferOffset
         );
@@ -567,7 +567,7 @@ static void forge_audio_decode_buffers(
 
     if (decoded < *toDecode)
     {
-        ForgeAudio_zero(
+        forge_zero(
             voice->audio->decodeCache + (decoded * voice->src.format->channels),
             sizeof(float) * ((*toDecode - decoded) * voice->src.format->channels)
         );
@@ -579,7 +579,7 @@ static void forge_audio_decode_buffers(
         struct queued_buffer *buffer = &voice->src.queued_buffers[0];
         uint32_t decode_count;
 
-        decode_count = ForgeAudio_min(
+        decode_count = forge_min(
             EXTRA_DECODE_PADDING,
             buffer_get_end(voice, buffer) - voice->src.curBufferOffset
         );
@@ -593,7 +593,7 @@ static void forge_audio_decode_buffers(
 
         if (decode_count < EXTRA_DECODE_PADDING)
         {
-            ForgeAudio_zero(
+            forge_zero(
                 voice->audio->decodeCache + (decoded * voice->src.format->channels),
                 sizeof(float) * ((EXTRA_DECODE_PADDING - decode_count) * voice->src.format->channels)
             );
@@ -601,7 +601,7 @@ static void forge_audio_decode_buffers(
     }
     else
     {
-        ForgeAudio_zero(
+        forge_zero(
             voice->audio->decodeCache + (
                 decoded * voice->src.format->channels
             ),
@@ -721,7 +721,7 @@ static inline float *forge_audio_process_effect_chain(
                 dstParams.buffer = buffer;
             }
 
-            ForgeAudio_zero(
+            forge_zero(
                 dstParams.buffer,
                 voice->effects.desc[i].output_channels * srcParams.valid_frame_count * sizeof(float)
             );
@@ -746,7 +746,7 @@ static inline float *forge_audio_process_effect_chain(
             voice->effects.desc[i].initial_state
         );
 
-        ForgeAudio_memcpy(&srcParams, &dstParams, sizeof(dstParams));
+        forge_memcpy(&srcParams, &dstParams, sizeof(dstParams));
     }
 
     *samples = dstParams.valid_frame_count;
@@ -817,7 +817,7 @@ static void forge_audio_mix_source(ForgeSourceVoice *voice)
                 voice->src.resampleSamples * voice->src.format->channels
         );
         mixed = voice->src.resampleSamples;
-        ForgeAudio_zero(
+        forge_zero(
             voice->audio->resampleCache,
             mixed * voice->src.format->channels * sizeof(float)
         );
@@ -871,7 +871,7 @@ static void forge_audio_mix_source(ForgeSourceVoice *voice)
                     voice->src.resampleSamples * voice->src.format->channels
             );
             mixed = voice->src.resampleSamples;
-            ForgeAudio_zero(
+            forge_zero(
                 voice->audio->resampleCache,
                 mixed * voice->src.format->channels * sizeof(float)
             );
@@ -961,7 +961,7 @@ static void forge_audio_mix_source(ForgeSourceVoice *voice)
     /* Add the padding, for some reason this helps? */
     toResample += EXTRA_DECODE_PADDING;
     /* FIXME: I feel like this should be an assert but I suck */
-    toResample = ForgeAudio_min(toResample, voice->src.resampleSamples);
+    toResample = forge_min(toResample, voice->src.resampleSamples);
 
     /* Resample... */
     if (voice->src.resampleStep == FIXED_ONE)
@@ -1043,7 +1043,7 @@ sendwork:
          */
         if (mixed < voice->src.resampleSamples)
         {
-            ForgeAudio_zero(
+            forge_zero(
                 finalSamples + (mixed * voice->src.format->channels),
                 (voice->src.resampleSamples - mixed) * voice->src.format->channels * sizeof(float)
             );
@@ -1243,7 +1243,7 @@ static void forge_audio_mix_submix(ForgeSubmixVoice *voice)
 end:
     forge_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-    ForgeAudio_zero(
+    forge_zero(
         voice->mix.inputCache,
         sizeof(float) * voice->mix.inputSamples
     );
@@ -1266,7 +1266,7 @@ static void forge_audio_flush_pending_buffers(ForgeSourceVoice *voice)
         void *context = voice->src.flush_buffers[0].buffer.context;
 
         voice->src.flush_buffer_count -= 1;
-        ForgeAudio_memmove(
+        forge_memmove(
             &voice->src.flush_buffers[0],
             &voice->src.flush_buffers[1],
             voice->src.flush_buffer_count * sizeof(*voice->src.flush_buffers)
@@ -1332,7 +1332,7 @@ static void FORGE_AUDIO_CALL forge_audio_generate_output(ForgeAudioEngine *audio
     if (audio->master->master.effectCache != NULL)
     {
         audio->master->master.output = audio->master->master.effectCache;
-        ForgeAudio_zero(
+        forge_zero(
             audio->master->master.effectCache,
             (
                 sizeof(float) *
@@ -1403,7 +1403,7 @@ static void FORGE_AUDIO_CALL forge_audio_generate_output(ForgeAudioEngine *audio
 
         if (effectOut != output)
         {
-            ForgeAudio_memcpy(
+            forge_memcpy(
                 output,
                 effectOut,
                 totalSamples * audio->master->outputChannels * sizeof(float)
@@ -1411,7 +1411,7 @@ static void FORGE_AUDIO_CALL forge_audio_generate_output(ForgeAudioEngine *audio
         }
         if (totalSamples < audio->updateSize)
         {
-            ForgeAudio_zero(
+            forge_zero(
                 output + (totalSamples * audio->master->outputChannels),
                 (audio->updateSize - totalSamples) * sizeof(float)
             );
@@ -1494,7 +1494,7 @@ void forge_audio_alloc_effect_chain(
     voice->effects.desc = (ForgeEffectDesc*) voice->audio->malloc_func(
         voice->effects.count * sizeof(ForgeEffectDesc)
     );
-    ForgeAudio_memcpy(
+    forge_memcpy(
         voice->effects.desc,
         effect_chain->effects,
         voice->effects.count * sizeof(ForgeEffectDesc)
@@ -1503,7 +1503,7 @@ void forge_audio_alloc_effect_chain(
         voice->effects.prop = (type*) voice->audio->malloc_func( \
             voice->effects.count * sizeof(type) \
         ); \
-        ForgeAudio_zero( \
+        forge_zero( \
             voice->effects.prop, \
             voice->effects.count * sizeof(type) \
         );
@@ -1559,7 +1559,7 @@ ForgeResult forge_audio_voice_output_frequency(
             send_list->sends[0].output_voice->master.inputSampleRate :
             send_list->sends[0].output_voice->mix.inputSampleRate;
     }
-    newResampleSamples = (uint32_t) ForgeAudio_ceil(
+    newResampleSamples = (uint32_t) forge_ceil(
         voice->audio->updateSize *
         (double) outSampleRate /
         (double) voice->audio->master->master.inputSampleRate
@@ -1681,7 +1681,7 @@ void forge_audio_decode_pcm32f(
     uint32_t samples
 ) {
     LOG_FUNC_ENTER(voice->audio)
-    ForgeAudio_memcpy(decodeCache, src, sizeof(float) * samples * voice->src.format->channels);
+    forge_memcpy(decodeCache, src, sizeof(float) * samples * voice->src.format->channels);
     LOG_FUNC_EXIT(voice->audio)
 }
 
@@ -1695,6 +1695,6 @@ void forge_audio_decode_wma_error(
 ) {
     LOG_FUNC_ENTER(voice->audio)
     LOG_ERROR(voice->audio, "%s", "WMA IS NOT SUPPORTED IN THIS BUILD!")
-    ForgeAudio_zero(decodeCache, samples * voice->src.format->channels * sizeof(float));
+    forge_zero(decodeCache, samples * voice->src.format->channels * sizeof(float));
     LOG_FUNC_EXIT(voice->audio)
 }

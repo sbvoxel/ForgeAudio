@@ -65,7 +65,7 @@ static void forge_audio_mix_callback(
 
 	while (additional_amount > 0)
 	{
-		ForgeAudio_zero(dev->stagingBuffer, dev->stagingLen);
+		forge_zero(dev->stagingBuffer, dev->stagingLen);
 		forge_audio_update_engine(dev->audio, dev->stagingBuffer);
 		SDL_PutAudioStreamData(
 			stream,
@@ -172,8 +172,8 @@ void forge_platform_init(
 	SDL_AudioSpec spec;
 	int wantSamples;
 
-	ForgeAudio_assert(mixFormat != NULL);
-	ForgeAudio_assert(updateSize != NULL);
+	forge_assert(mixFormat != NULL);
+	forge_assert(updateSize != NULL);
 
 	/* Build the device spec */
 	spec.freq = mixFormat->format.sample_rate;
@@ -271,7 +271,7 @@ ForgeResult forge_platform_get_device_details(
 	int devcount;
 	SDL_AudioDeviceID *devs;
 
-	ForgeAudio_zero(details, sizeof(ForgeDeviceDetails));
+	forge_zero(details, sizeof(ForgeDeviceDetails));
 
 	devs = SDL_GetAudioPlaybackDevices(&devcount);
 	if (index > devcount)
@@ -463,7 +463,7 @@ static int FORGE_AUDIO_CALL forge_audio_ioclose(
 
 ForgeIOStream* forge_audio_fopen(const char *path)
 {
-	ForgeIOStream *io = (ForgeIOStream*) ForgeAudio_malloc(
+	ForgeIOStream *io = (ForgeIOStream*) forge_malloc(
 		sizeof(ForgeIOStream)
 	);
 	SDL_IOStream *stream = SDL_IOFromFile(path, "rb");
@@ -477,7 +477,7 @@ ForgeIOStream* forge_audio_fopen(const char *path)
 
 ForgeIOStream* forge_audio_memopen(void *mem, int len)
 {
-	ForgeIOStream *io = (ForgeIOStream*) ForgeAudio_malloc(
+	ForgeIOStream *io = (ForgeIOStream*) forge_malloc(
 		sizeof(ForgeIOStream)
 	);
 	SDL_IOStream *stream = SDL_IOFromMem(mem, len);
@@ -492,7 +492,7 @@ ForgeIOStream* forge_audio_memopen(void *mem, int len)
 uint8_t* forge_audio_memptr(ForgeIOStream *io, size_t offset)
 {
 	SDL_PropertiesID props = SDL_GetIOProperties((SDL_IOStream*) io->data);
-	ForgeAudio_assert(SDL_HasProperty(props, SDL_PROP_IOSTREAM_MEMORY_POINTER));
+	forge_assert(SDL_HasProperty(props, SDL_PROP_IOSTREAM_MEMORY_POINTER));
 	return ((uint8_t*) SDL_GetPointerProperty(props, SDL_PROP_IOSTREAM_MEMORY_POINTER, NULL)) + offset;
 }
 
@@ -500,7 +500,7 @@ void forge_audio_close(ForgeIOStream *io)
 {
 	io->close(io->data);
 	forge_platform_destroy_mutex((ForgeAudioMutex) io->lock);
-	ForgeAudio_free(io);
+	forge_free(io);
 }
 
 #ifdef FORGE_AUDIO_DUMP_VOICES
@@ -521,7 +521,7 @@ static size_t FORGE_AUDIO_CALL forge_audio_iosize(
 
 ForgeAudioIOStreamOut* forge_audio_fopen_out(const char *path, const char *mode)
 {
-	ForgeAudioIOStreamOut *io = (ForgeAudioIOStreamOut*) ForgeAudio_malloc(
+	ForgeAudioIOStreamOut *io = (ForgeAudioIOStreamOut*) forge_malloc(
 		sizeof(ForgeAudioIOStreamOut)
 	);
 	SDL_IOStream *stream = SDL_IOFromFile(path, mode);
@@ -539,7 +539,7 @@ void forge_audio_close_out(ForgeAudioIOStreamOut *io)
 {
 	io->close(io->data);
 	forge_platform_destroy_mutex((ForgeAudioMutex) io->lock);
-	ForgeAudio_free(io);
+	forge_free(io);
 }
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 
