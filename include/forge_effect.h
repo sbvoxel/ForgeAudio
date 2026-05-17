@@ -20,7 +20,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #ifndef FORGE_EFFECT_DECL
-    #define FORGE_EFFECT_DECL
+#define FORGE_EFFECT_DECL
 typedef struct ForgeEffect ForgeEffect;
 #endif /* FORGE_EFFECT_DECL */
 

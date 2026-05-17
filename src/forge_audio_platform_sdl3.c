@@ -12,9 +12,9 @@
 
 #ifndef FORGE_AUDIO_WIN32_PLATFORM
 
-    #include "forge_audio_internal.h"
+#include "forge_audio_internal.h"
 
-    #include <SDL3/SDL.h>
+#include <SDL3/SDL.h>
 
 typedef struct SDLAudioDevice {
     ForgeAudioEngine *audio;
@@ -350,7 +350,7 @@ void forge_audio_close(ForgeIOStream *io) {
     forge_free(io);
 }
 
-    #ifdef FORGE_AUDIO_DUMP_VOICES
+#ifdef FORGE_AUDIO_DUMP_VOICES
 static size_t FORGE_AUDIO_CALL forge_audio_iowrite(void *data, const void *src, size_t size, size_t count) {
     SDL_WriteIO((SDL_IOStream *)data, src, size * count);
 }
@@ -377,12 +377,12 @@ void forge_audio_close_out(ForgeAudioIOStreamOut *io) {
     forge_platform_destroy_mutex((ForgeAudioMutex)io->lock);
     forge_free(io);
 }
-    #endif /* FORGE_AUDIO_DUMP_VOICES */
+#endif /* FORGE_AUDIO_DUMP_VOICES */
 
 /* UTF8->UTF16 Conversion, taken from PhysicsFS */
 
-    #define UNICODE_BOGUS_CHAR_VALUE 0xFFFFFFFF
-    #define UNICODE_BOGUS_CHAR_CODEPOINT '?'
+#define UNICODE_BOGUS_CHAR_VALUE 0xFFFFFFFF
+#define UNICODE_BOGUS_CHAR_CODEPOINT '?'
 
 static uint32_t forge_utf8_code_point(const char **_str) {
     const char *str = *_str;

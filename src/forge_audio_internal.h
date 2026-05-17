@@ -16,154 +16,154 @@
 #include <stdarg.h>
 
 #ifdef FORGE_AUDIO_WIN32_PLATFORM
-    #include <stdio.h>
-    #include <stdlib.h>
-    #include <string.h>
-    #include <malloc.h>
-    #include <math.h>
-    #include <assert.h>
-    #include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <malloc.h>
+#include <math.h>
+#include <assert.h>
+#include <inttypes.h>
 
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
-    #define forge_malloc malloc
-    #define forge_realloc realloc
-    #define forge_free free
-    #define forge_alloca(x) alloca(x)
-    #define forge_dealloca(x) (void)(x)
-    #define forge_zero(ptr, size) memset(ptr, '\0', size)
-    #define forge_memset(ptr, val, size) memset(ptr, val, size)
-    #define forge_memcpy(dst, src, size) memcpy(dst, src, size)
-    #define forge_memmove(dst, src, size) memmove(dst, src, size)
-    #define forge_memcmp(ptr1, ptr2, size) memcmp(ptr1, ptr2, size)
+#define forge_malloc malloc
+#define forge_realloc realloc
+#define forge_free free
+#define forge_alloca(x) alloca(x)
+#define forge_dealloca(x) (void)(x)
+#define forge_zero(ptr, size) memset(ptr, '\0', size)
+#define forge_memset(ptr, val, size) memset(ptr, val, size)
+#define forge_memcpy(dst, src, size) memcpy(dst, src, size)
+#define forge_memmove(dst, src, size) memmove(dst, src, size)
+#define forge_memcmp(ptr1, ptr2, size) memcmp(ptr1, ptr2, size)
 
-    #define forge_strlen(ptr) strlen(ptr)
-    #define forge_strcmp(str1, str2) strcmp(str1, str2)
-    #define forge_strncmp(str1, str2, size) strncmp(str1, str2, size)
-    #define forge_strlcpy(ptr1, ptr2, size) lstrcpynA(ptr1, ptr2, size)
+#define forge_strlen(ptr) strlen(ptr)
+#define forge_strcmp(str1, str2) strcmp(str1, str2)
+#define forge_strncmp(str1, str2, size) strncmp(str1, str2, size)
+#define forge_strlcpy(ptr1, ptr2, size) lstrcpynA(ptr1, ptr2, size)
 
-    #define forge_pow(x, y) pow(x, y)
-    #define forge_powf(x, y) powf(x, y)
-    #define forge_log(x) log(x)
-    #define forge_log10(x) log10(x)
-    #define forge_sin(x) sin(x)
-    #define forge_cos(x) cos(x)
-    #define forge_tan(x) tan(x)
-    #define forge_acos(x) acos(x)
-    #define forge_ceil(x) ceil(x)
-    #define forge_floor(x) floor(x)
-    #define forge_abs(x) abs(x)
-    #define forge_ldexp(v, e) ldexp(v, e)
-    #define forge_exp(x) exp(x)
+#define forge_pow(x, y) pow(x, y)
+#define forge_powf(x, y) powf(x, y)
+#define forge_log(x) log(x)
+#define forge_log10(x) log10(x)
+#define forge_sin(x) sin(x)
+#define forge_cos(x) cos(x)
+#define forge_tan(x) tan(x)
+#define forge_acos(x) acos(x)
+#define forge_ceil(x) ceil(x)
+#define forge_floor(x) floor(x)
+#define forge_abs(x) abs(x)
+#define forge_ldexp(v, e) ldexp(v, e)
+#define forge_exp(x) exp(x)
 
-    #define forge_cosf(x) cosf(x)
-    #define forge_sinf(x) sinf(x)
-    #define forge_sqrtf(x) sqrtf(x)
-    #define forge_acosf(x) acosf(x)
-    #define forge_atan2f(y, x) atan2f(y, x)
-    #define forge_fabsf(x) fabsf(x)
+#define forge_cosf(x) cosf(x)
+#define forge_sinf(x) sinf(x)
+#define forge_sqrtf(x) sqrtf(x)
+#define forge_acosf(x) acosf(x)
+#define forge_atan2f(y, x) atan2f(y, x)
+#define forge_fabsf(x) fabsf(x)
 
-    #define forge_qsort qsort
+#define forge_qsort qsort
 
-    #define forge_assert assert
-    #define forge_snprintf snprintf
-    #define forge_vsnprintf vsnprintf
-    #define forge_getenv getenv
-    #define FORGE_PRIu64 PRIu64
-    #define FORGE_PRIx64 PRIx64
+#define forge_assert assert
+#define forge_snprintf snprintf
+#define forge_vsnprintf vsnprintf
+#define forge_getenv getenv
+#define FORGE_PRIu64 PRIu64
+#define FORGE_PRIx64 PRIx64
 
 extern void forge_log_message(char const *msg);
 
-    /* Native Win32 backend currently supports little-endian targets. */
-    #define forge_swap16le(x) (x)
-    #define forge_swap16be(x) ((x >> 8) & 0x00FF) | ((x << 8) & 0xFF00)
-    #define forge_swap32le(x) (x)
-    #define forge_swap32be(x)                                                                                          \
-        ((x >> 24) & 0x000000FF) | ((x >> 8) & 0x0000FF00) | ((x << 8) & 0x00FF0000) | ((x << 24) & 0xFF000000)
-    #define forge_swap64le(x) (x)
-    #define forge_swap64be(x)                                                                                          \
-        ((x >> 32) & 0x00000000000000FF) | ((x >> 24) & 0x000000000000FF00) | ((x >> 16) & 0x0000000000FF0000) |       \
-            ((x >> 8) & 0x00000000FF000000) | ((x << 8) & 0x000000FF00000000) | ((x << 16) & 0x0000FF0000000000) |     \
-            ((x << 24) & 0x00FF000000000000) | ((x << 32) & 0xFF00000000000000)
+/* Native Win32 backend currently supports little-endian targets. */
+#define forge_swap16le(x) (x)
+#define forge_swap16be(x) ((x >> 8) & 0x00FF) | ((x << 8) & 0xFF00)
+#define forge_swap32le(x) (x)
+#define forge_swap32be(x)                                                                                              \
+    ((x >> 24) & 0x000000FF) | ((x >> 8) & 0x0000FF00) | ((x << 8) & 0x00FF0000) | ((x << 24) & 0xFF000000)
+#define forge_swap64le(x) (x)
+#define forge_swap64be(x)                                                                                              \
+    ((x >> 32) & 0x00000000000000FF) | ((x >> 24) & 0x000000000000FF00) | ((x >> 16) & 0x0000000000FF0000) |           \
+        ((x >> 8) & 0x00000000FF000000) | ((x << 8) & 0x000000FF00000000) | ((x << 16) & 0x0000FF0000000000) |         \
+        ((x << 24) & 0x00FF000000000000) | ((x << 32) & 0xFF00000000000000)
 #else
-    #include <SDL3/SDL_stdinc.h>
-    #include <SDL3/SDL_assert.h>
-    #include <SDL3/SDL_endian.h>
-    #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_endian.h>
+#include <SDL3/SDL_log.h>
 
-    #define forge_swap16le(x) SDL_Swap16LE(x)
-    #define forge_swap16be(x) SDL_Swap16BE(x)
-    #define forge_swap32le(x) SDL_Swap32LE(x)
-    #define forge_swap32be(x) SDL_Swap32BE(x)
-    #define forge_swap64le(x) SDL_Swap64LE(x)
-    #define forge_swap64be(x) SDL_Swap64BE(x)
+#define forge_swap16le(x) SDL_Swap16LE(x)
+#define forge_swap16be(x) SDL_Swap16BE(x)
+#define forge_swap32le(x) SDL_Swap32LE(x)
+#define forge_swap32be(x) SDL_Swap32BE(x)
+#define forge_swap64le(x) SDL_Swap64LE(x)
+#define forge_swap64be(x) SDL_Swap64BE(x)
 
-    /* SDL3 allows memcpy/memset for compiler optimization reasons */
-    #ifdef SDL_SLOW_MEMCPY
-        #define STB_MEMCPY_OVERRIDE
-    #endif
-    #ifdef SDL_SLOW_MEMSET
-        #define STB_MEMSET_OVERRIDE
-    #endif
+/* SDL3 allows memcpy/memset for compiler optimization reasons */
+#ifdef SDL_SLOW_MEMCPY
+#define STB_MEMCPY_OVERRIDE
+#endif
+#ifdef SDL_SLOW_MEMSET
+#define STB_MEMSET_OVERRIDE
+#endif
 
-    #define forge_malloc SDL_malloc
-    #define forge_realloc SDL_realloc
-    #define forge_free SDL_free
-    #define forge_alloca(x) SDL_stack_alloc(uint8_t, x)
-    #define forge_dealloca(x) SDL_stack_free(x)
-    #define forge_zero(ptr, size) SDL_memset(ptr, '\0', size)
-    #define forge_memset(ptr, val, size) SDL_memset(ptr, val, size)
-    #define forge_memcpy(dst, src, size) SDL_memcpy(dst, src, size)
-    #define forge_memmove(dst, src, size) SDL_memmove(dst, src, size)
-    #define forge_memcmp(ptr1, ptr2, size) SDL_memcmp(ptr1, ptr2, size)
+#define forge_malloc SDL_malloc
+#define forge_realloc SDL_realloc
+#define forge_free SDL_free
+#define forge_alloca(x) SDL_stack_alloc(uint8_t, x)
+#define forge_dealloca(x) SDL_stack_free(x)
+#define forge_zero(ptr, size) SDL_memset(ptr, '\0', size)
+#define forge_memset(ptr, val, size) SDL_memset(ptr, val, size)
+#define forge_memcpy(dst, src, size) SDL_memcpy(dst, src, size)
+#define forge_memmove(dst, src, size) SDL_memmove(dst, src, size)
+#define forge_memcmp(ptr1, ptr2, size) SDL_memcmp(ptr1, ptr2, size)
 
-    #define forge_strlen(ptr) SDL_strlen(ptr)
-    #define forge_strcmp(str1, str2) SDL_strcmp(str1, str2)
-    #define forge_strncmp(str1, str2, size) SDL_strncmp(str1, str2, size)
-    #define forge_strlcpy(ptr1, ptr2, size) SDL_strlcpy(ptr1, ptr2, size)
+#define forge_strlen(ptr) SDL_strlen(ptr)
+#define forge_strcmp(str1, str2) SDL_strcmp(str1, str2)
+#define forge_strncmp(str1, str2, size) SDL_strncmp(str1, str2, size)
+#define forge_strlcpy(ptr1, ptr2, size) SDL_strlcpy(ptr1, ptr2, size)
 
-    #define forge_pow(x, y) SDL_pow(x, y)
-    #define forge_powf(x, y) SDL_powf(x, y)
-    #define forge_log(x) SDL_log(x)
-    #define forge_log10(x) SDL_log10(x)
-    #define forge_sin(x) SDL_sin(x)
-    #define forge_cos(x) SDL_cos(x)
-    #define forge_tan(x) SDL_tan(x)
-    #define forge_acos(x) SDL_acos(x)
-    #define forge_ceil(x) SDL_ceil(x)
-    #define forge_floor(x) SDL_floor(x)
-    #define forge_abs(x) SDL_abs(x)
-    #define forge_ldexp(v, e) SDL_scalbn(v, e)
-    #define forge_exp(x) SDL_exp(x)
+#define forge_pow(x, y) SDL_pow(x, y)
+#define forge_powf(x, y) SDL_powf(x, y)
+#define forge_log(x) SDL_log(x)
+#define forge_log10(x) SDL_log10(x)
+#define forge_sin(x) SDL_sin(x)
+#define forge_cos(x) SDL_cos(x)
+#define forge_tan(x) SDL_tan(x)
+#define forge_acos(x) SDL_acos(x)
+#define forge_ceil(x) SDL_ceil(x)
+#define forge_floor(x) SDL_floor(x)
+#define forge_abs(x) SDL_abs(x)
+#define forge_ldexp(v, e) SDL_scalbn(v, e)
+#define forge_exp(x) SDL_exp(x)
 
-    #define forge_cosf(x) SDL_cosf(x)
-    #define forge_sinf(x) SDL_sinf(x)
-    #define forge_sqrtf(x) SDL_sqrtf(x)
-    #define forge_acosf(x) SDL_acosf(x)
-    #define forge_atan2f(y, x) SDL_atan2f(y, x)
-    #define forge_fabsf(x) SDL_fabsf(x)
+#define forge_cosf(x) SDL_cosf(x)
+#define forge_sinf(x) SDL_sinf(x)
+#define forge_sqrtf(x) SDL_sqrtf(x)
+#define forge_acosf(x) SDL_acosf(x)
+#define forge_atan2f(y, x) SDL_atan2f(y, x)
+#define forge_fabsf(x) SDL_fabsf(x)
 
-    #define forge_qsort SDL_qsort
+#define forge_qsort SDL_qsort
 
-    #ifdef FORGE_AUDIO_LOG_ASSERTIONS
-        #define forge_assert(condition)                                                                                \
-            {                                                                                                          \
-                static uint8_t logged = 0;                                                                             \
-                if (!(condition) && !logged) {                                                                         \
-                    SDL_Log("Assertion failed: %s", #condition);                                                       \
-                    logged = 1;                                                                                        \
-                }                                                                                                      \
-            }
-    #else
-        #define forge_assert SDL_assert
-    #endif
-    #define forge_snprintf SDL_snprintf
-    #define forge_vsnprintf SDL_vsnprintf
-    #define forge_log_message(msg) SDL_Log("%s", msg)
-    #define forge_getenv SDL_getenv
-    #define FORGE_PRIu64 SDL_PRIu64
-    #define FORGE_PRIx64 SDL_PRIx64
+#ifdef FORGE_AUDIO_LOG_ASSERTIONS
+#define forge_assert(condition)                                                                                        \
+    {                                                                                                                  \
+        static uint8_t logged = 0;                                                                                     \
+        if (!(condition) && !logged) {                                                                                 \
+            SDL_Log("Assertion failed: %s", #condition);                                                               \
+            logged = 1;                                                                                                \
+        }                                                                                                              \
+    }
+#else
+#define forge_assert SDL_assert
+#endif
+#define forge_snprintf SDL_snprintf
+#define forge_vsnprintf SDL_vsnprintf
+#define forge_log_message(msg) SDL_Log("%s", msg)
+#define forge_getenv SDL_getenv
+#define FORGE_PRIu64 SDL_PRIu64
+#define FORGE_PRIx64 SDL_PRIx64
 #endif
 
 /* Easy Macros */
@@ -172,9 +172,9 @@ extern void forge_log_message(char const *msg);
 #define forge_clamp(val, min, max) (val > max ? max : (val < min ? min : val))
 
 #if defined(__GNUC__) || defined(__clang__)
-    #define FORGE_INTERNAL_API __attribute__((visibility("hidden")))
+#define FORGE_INTERNAL_API __attribute__((visibility("hidden")))
 #else
-    #define FORGE_INTERNAL_API
+#define FORGE_INTERNAL_API
 #endif
 
 #define FORGE_AUDIO_FORMAT_ID_SIZE 16
@@ -466,55 +466,55 @@ FORGE_INTERNAL_API bool forge_array_reserve(ForgeAudioEngine *audio, void **elem
 
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
 
-    #if defined(_MSC_VER)
+#if defined(_MSC_VER)
 /* VC doesn't support __attribute__ at all, and there's no replacement for format. */
 FORGE_INTERNAL_API void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
                                           const char *fmt, ...);
-    #else
+#else
 FORGE_INTERNAL_API void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
                                           const char *fmt, ...) __attribute__((format(printf, 5, 6)));
-    #endif
+#endif
 
 FORGE_INTERNAL_API void forge_audio_debug_fmt(ForgeAudioEngine *audio, const char *file, uint32_t line,
                                               const char *func, const ForgeAudioFormat *fmt);
 
-    #define PRINT_DEBUG(engine, cond, type, fmt, ...)                                                                  \
-        if (engine->debug.trace_mask & FORGE_AUDIO_LOG_##cond) {                                                       \
-            forge_audio_debug(engine, __FILE__, __LINE__, __func__, type ": " fmt, __VA_ARGS__);                       \
-        }
+#define PRINT_DEBUG(engine, cond, type, fmt, ...)                                                                      \
+    if (engine->debug.trace_mask & FORGE_AUDIO_LOG_##cond) {                                                           \
+        forge_audio_debug(engine, __FILE__, __LINE__, __func__, type ": " fmt, __VA_ARGS__);                           \
+    }
 
-    #define LOG_ERROR(engine, fmt, ...) PRINT_DEBUG(engine, ERRORS, "ERROR", fmt, __VA_ARGS__)
-    #define LOG_WARNING(engine, fmt, ...) PRINT_DEBUG(engine, WARNINGS, "WARNING", fmt, __VA_ARGS__)
-    #define LOG_INFO(engine, fmt, ...) PRINT_DEBUG(engine, INFO, "INFO", fmt, __VA_ARGS__)
-    #define LOG_DETAIL(engine, fmt, ...) PRINT_DEBUG(engine, DETAIL, "DETAIL", fmt, __VA_ARGS__)
-    #define LOG_API_ENTER(engine) PRINT_DEBUG(engine, API_CALLS, "API Enter", "%s", __func__)
-    #define LOG_API_EXIT(engine) PRINT_DEBUG(engine, API_CALLS, "API Exit", "%s", __func__)
-    #define LOG_FUNC_ENTER(engine) PRINT_DEBUG(engine, FUNC_CALLS, "FUNC Enter", "%s", __func__)
-    #define LOG_FUNC_EXIT(engine) PRINT_DEBUG(engine, FUNC_CALLS, "FUNC Exit", "%s", __func__)
-    #define LOG_MUTEX_CREATE(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Create", "%p (%s)", mutex, #mutex)
-    #define LOG_MUTEX_DESTROY(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex destroy", "%p (%s)", mutex, #mutex)
-    #define LOG_MUTEX_LOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Lock", "%p (%s)", mutex, #mutex)
-    #define LOG_MUTEX_UNLOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Unlock", "%p (%s)", mutex, #mutex)
-    #define LOG_FORMAT(engine, waveFormat)                                                                             \
-        if (engine->debug.trace_mask & FORGE_AUDIO_LOG_INFO) {                                                         \
-            forge_audio_debug_fmt(engine, __FILE__, __LINE__, __func__, waveFormat);                                   \
-        }
+#define LOG_ERROR(engine, fmt, ...) PRINT_DEBUG(engine, ERRORS, "ERROR", fmt, __VA_ARGS__)
+#define LOG_WARNING(engine, fmt, ...) PRINT_DEBUG(engine, WARNINGS, "WARNING", fmt, __VA_ARGS__)
+#define LOG_INFO(engine, fmt, ...) PRINT_DEBUG(engine, INFO, "INFO", fmt, __VA_ARGS__)
+#define LOG_DETAIL(engine, fmt, ...) PRINT_DEBUG(engine, DETAIL, "DETAIL", fmt, __VA_ARGS__)
+#define LOG_API_ENTER(engine) PRINT_DEBUG(engine, API_CALLS, "API Enter", "%s", __func__)
+#define LOG_API_EXIT(engine) PRINT_DEBUG(engine, API_CALLS, "API Exit", "%s", __func__)
+#define LOG_FUNC_ENTER(engine) PRINT_DEBUG(engine, FUNC_CALLS, "FUNC Enter", "%s", __func__)
+#define LOG_FUNC_EXIT(engine) PRINT_DEBUG(engine, FUNC_CALLS, "FUNC Exit", "%s", __func__)
+#define LOG_MUTEX_CREATE(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Create", "%p (%s)", mutex, #mutex)
+#define LOG_MUTEX_DESTROY(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex destroy", "%p (%s)", mutex, #mutex)
+#define LOG_MUTEX_LOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Lock", "%p (%s)", mutex, #mutex)
+#define LOG_MUTEX_UNLOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Unlock", "%p (%s)", mutex, #mutex)
+#define LOG_FORMAT(engine, waveFormat)                                                                                 \
+    if (engine->debug.trace_mask & FORGE_AUDIO_LOG_INFO) {                                                             \
+        forge_audio_debug_fmt(engine, __FILE__, __LINE__, __func__, waveFormat);                                       \
+    }
 
 #else
 
-    #define LOG_ERROR(engine, fmt, ...)
-    #define LOG_WARNING(engine, fmt, ...)
-    #define LOG_INFO(engine, fmt, ...)
-    #define LOG_DETAIL(engine, fmt, ...)
-    #define LOG_API_ENTER(engine)
-    #define LOG_API_EXIT(engine)
-    #define LOG_FUNC_ENTER(engine)
-    #define LOG_FUNC_EXIT(engine)
-    #define LOG_MUTEX_CREATE(engine, mutex)
-    #define LOG_MUTEX_DESTROY(engine, mutex)
-    #define LOG_MUTEX_LOCK(engine, mutex)
-    #define LOG_MUTEX_UNLOCK(engine, mutex)
-    #define LOG_FORMAT(engine, waveFormat)
+#define LOG_ERROR(engine, fmt, ...)
+#define LOG_WARNING(engine, fmt, ...)
+#define LOG_INFO(engine, fmt, ...)
+#define LOG_DETAIL(engine, fmt, ...)
+#define LOG_API_ENTER(engine)
+#define LOG_API_EXIT(engine)
+#define LOG_FUNC_ENTER(engine)
+#define LOG_FUNC_EXIT(engine)
+#define LOG_MUTEX_CREATE(engine, mutex)
+#define LOG_MUTEX_DESTROY(engine, mutex)
+#define LOG_MUTEX_LOCK(engine, mutex)
+#define LOG_MUTEX_UNLOCK(engine, mutex)
+#define LOG_FORMAT(engine, waveFormat)
 
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
 

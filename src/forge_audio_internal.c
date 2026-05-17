@@ -45,17 +45,17 @@ void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line,
 }
 
 static const char *get_wformattag_string(const ForgeAudioFormat *fmt) {
-    #define FMT_STRING(suffix)                                                                                         \
-        if (fmt->format_tag == FORGE_AUDIO_FORMAT_##suffix) {                                                          \
-            return #suffix;                                                                                            \
-        }
+#define FMT_STRING(suffix)                                                                                             \
+    if (fmt->format_tag == FORGE_AUDIO_FORMAT_##suffix) {                                                              \
+        return #suffix;                                                                                                \
+    }
     FMT_STRING(PCM)
     FMT_STRING(IEEE_FLOAT)
     FMT_STRING(XMAUDIO2)
     FMT_STRING(WMAUDIO2)
     FMT_STRING(WMAUDIO3)
     FMT_STRING(EXTENSIBLE)
-    #undef FMT_STRING
+#undef FMT_STRING
     return "UNKNOWN!";
 }
 
@@ -581,9 +581,8 @@ static inline float *forge_audio_process_effect_chain(ForgeVoice *voice, float *
         effect = voice->effects.desc[i].effect;
 
         if (!voice->effects.inPlaceProcessing[i]) {
-            dstParams.buffer = forge_audio_get_effect_chain_cache(voice->audio, srcParams.buffer,
-                                                                  voice->effects.desc[i].output_channels *
-                                                                      srcParams.valid_frame_count);
+            dstParams.buffer = forge_audio_get_effect_chain_cache(
+                voice->audio, srcParams.buffer, voice->effects.desc[i].output_channels * srcParams.valid_frame_count);
 
             forge_zero(dstParams.buffer,
                        voice->effects.desc[i].output_channels * srcParams.valid_frame_count * sizeof(float));

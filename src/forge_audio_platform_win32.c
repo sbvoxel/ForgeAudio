@@ -12,30 +12,30 @@
 
 #ifdef FORGE_AUDIO_WIN32_PLATFORM
 
-    #include <stddef.h>
+#include <stddef.h>
 
-    #define COBJMACROS
-    #include <windows.h>
-    #include <mfidl.h>
-    #include <mfapi.h>
-    #include <mferror.h>
-    #include <mfreadwrite.h>
-    #include <propvarutil.h>
+#define COBJMACROS
+#include <windows.h>
+#include <mfidl.h>
+#include <mfapi.h>
+#include <mferror.h>
+#include <mfreadwrite.h>
+#include <propvarutil.h>
 
-    #include <initguid.h>
-    #include <audioclient.h>
-    #include <mmdeviceapi.h>
-    #include <devpkey.h>
+#include <initguid.h>
+#include <audioclient.h>
+#include <mmdeviceapi.h>
+#include <devpkey.h>
 
-    #define _SPEAKER_POSITIONS_ /* Defined by SDK. */
-    #include "forge_audio_internal.h"
+#define _SPEAKER_POSITIONS_ /* Defined by SDK. */
+#include "forge_audio_internal.h"
 
-    #ifdef _MSC_VER
+#ifdef _MSC_VER
 DEFINE_GUID(IID_IAudioClient, 0x1CB9AD4C, 0xDBFA, 0x4c32, 0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2);
 DEFINE_GUID(IID_IAudioRenderClient, 0xF294ACFC, 0x3146, 0x4483, 0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2);
 DEFINE_GUID(IID_IMMDeviceEnumerator, 0xA95664D2, 0x9614, 0x4F35, 0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6);
 DEFINE_GUID(CLSID_MMDeviceEnumerator, 0xBCDE0395, 0xE52F, 0x467C, 0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E);
-    #endif
+#endif
 
 static CRITICAL_SECTION faudio_cs = {NULL, -1, 0, 0, 0, 0};
 static IMMDeviceEnumerator *device_enumerator;
@@ -279,13 +279,13 @@ void forge_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t devic
     HRESULT hr;
     HANDLE audioEvent = NULL;
     BOOL has_sse2 = IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE);
-    #if defined(__aarch64__) || defined(_M_ARM64) || defined(__arm64ec__) || defined(_M_ARM64EC)
+#if defined(__aarch64__) || defined(_M_ARM64) || defined(__arm64ec__) || defined(_M_ARM64EC)
     BOOL has_neon = TRUE;
-    #elif defined(__arm__) || defined(_M_ARM)
+#elif defined(__arm__) || defined(_M_ARM)
     BOOL has_neon = IsProcessorFeaturePresent(PF_ARM_NEON_INSTRUCTIONS_AVAILABLE);
-    #else
+#else
     BOOL has_neon = FALSE;
-    #endif
+#endif
     forge_audio_init_simd_functions(has_sse2, has_neon);
     ForgeAudio_ResolveSetThreadDescription();
 

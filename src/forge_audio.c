@@ -752,15 +752,15 @@ void forge_audio_set_debug_configuration(ForgeAudioEngine *audio, ForgeDebugConf
         audio->debug.log_timing = 1;
     }
 
-    #define CHECK_ENV(type)                                                                                            \
-        env = forge_getenv("FORGE_AUDIO_LOG_" #type);                                                                  \
-        if (env != NULL) {                                                                                             \
-            if (*env == '1') {                                                                                         \
-                audio->debug.trace_mask |= FORGE_AUDIO_LOG_##type;                                                     \
-            } else {                                                                                                   \
-                audio->debug.trace_mask &= ~FORGE_AUDIO_LOG_##type;                                                    \
-            }                                                                                                          \
-        }
+#define CHECK_ENV(type)                                                                                                \
+    env = forge_getenv("FORGE_AUDIO_LOG_" #type);                                                                      \
+    if (env != NULL) {                                                                                                 \
+        if (*env == '1') {                                                                                             \
+            audio->debug.trace_mask |= FORGE_AUDIO_LOG_##type;                                                         \
+        } else {                                                                                                       \
+            audio->debug.trace_mask &= ~FORGE_AUDIO_LOG_##type;                                                        \
+        }                                                                                                              \
+    }
     CHECK_ENV(ERRORS)
     CHECK_ENV(WARNINGS)
     CHECK_ENV(INFO)
@@ -771,17 +771,17 @@ void forge_audio_set_debug_configuration(ForgeAudioEngine *audio, ForgeDebugConf
     CHECK_ENV(LOCKS)
     CHECK_ENV(MEMORY)
     CHECK_ENV(STREAMING)
-    #undef CHECK_ENV
-    #define CHECK_ENV(envvar, boolvar)                                                                                 \
-        env = forge_getenv("FORGE_AUDIO_LOG_LOG" #envvar);                                                             \
-        if (env != NULL) {                                                                                             \
-            audio->debug.Log##boolvar = (*env == '1');                                                                 \
-        }
+#undef CHECK_ENV
+#define CHECK_ENV(envvar, boolvar)                                                                                     \
+    env = forge_getenv("FORGE_AUDIO_LOG_LOG" #envvar);                                                                 \
+    if (env != NULL) {                                                                                                 \
+        audio->debug.Log##boolvar = (*env == '1');                                                                     \
+    }
     CHECK_ENV(THREADID, ThreadID)
     CHECK_ENV(FILELINE, Fileline)
     CHECK_ENV(FUNCTIONNAME, FunctionName)
     CHECK_ENV(TIMING, Timing)
-    #undef CHECK_ENV
+#undef CHECK_ENV
 
     LOG_API_EXIT(audio)
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
@@ -880,12 +880,11 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
 
     if (voice->type == FORGE_AUDIO_VOICE_SOURCE && voice->src.decodeSamples != 0) {
         uint32_t outputRate = forge_audio_send_list_output_rate(voice->audio, send_list);
-        uint32_t sourceResampleSamples =
-            (uint32_t)forge_ceil((double)voice->audio->updateSize * (double)outputRate /
-                                 (double)voice->audio->master->master.inputSampleRate);
+        uint32_t sourceResampleSamples = (uint32_t)forge_ceil((double)voice->audio->updateSize * (double)outputRate /
+                                                              (double)voice->audio->master->master.inputSampleRate);
 
-        sourceDecodeSamples = forge_audio_source_decode_frame_count(
-            sourceResampleSamples, voice->src.maxFreqRatio, voice->src.format->sample_rate, outputRate);
+        sourceDecodeSamples = forge_audio_source_decode_frame_count(sourceResampleSamples, voice->src.maxFreqRatio,
+                                                                    voice->src.format->sample_rate, outputRate);
         forge_audio_resize_decode_cache(voice->audio,
                                         (sourceDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels);
     }

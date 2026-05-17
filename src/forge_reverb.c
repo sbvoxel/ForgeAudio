@@ -15,8 +15,8 @@
 
 /* #define DISABLE_SUBNORMALS */
 #ifdef DISABLE_SUBNORMALS
-    #include <math.h> /* ONLY USE THIS FOR fpclassify/_fpclass! */
-    #define IS_SUBNORMAL(a) (fpclassify(a) == FP_SUBNORMAL)
+#include <math.h> /* ONLY USE THIS FOR fpclassify/_fpclass! */
+#define IS_SUBNORMAL(a) (fpclassify(a) == FP_SUBNORMAL)
 #endif /* DISABLE_SUBNORMALS */
 
 /* Utility Functions */
@@ -30,7 +30,7 @@ static inline uint32_t MsToSamples(float msec, int32_t sampleRate) {
 }
 
 #ifndef DISABLE_SUBNORMALS
-    #define Undenormalize(a) ((a))
+#define Undenormalize(a) ((a))
 #else  /* DISABLE_SUBNORMALS */
 static inline float Undenormalize(float sample_in) {
     if (IS_SUBNORMAL(sample_in)) {
