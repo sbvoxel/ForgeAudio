@@ -59,8 +59,7 @@ static void FAudio_DUMPVOICE_WriteBuffer(
     const FAudioSourceVoice *voice,
     const FAudioBuffer *pBuffer,
     const FAudioBufferWMA *pBufferWMA,
-    const uint32_t playBegin,
-    const uint32_t playLength
+    const uint32_t size
 );
 #endif /* FAUDIO_DUMP_VOICES */
 
@@ -395,6 +394,7 @@ uint32_t FAudio_CreateSourceVoice(
             fmtex->wfx.nBlockAlign / fmtex->wfx.nChannels
         ) - 6) * 2;
         (*ppSourceVoice)->src.format = &fmtex->wfx;
+        (*ppSourceVoice)->src.samples_per_block = fmtex->wSamplesPerBlock;
     }
     else if (pSourceFormat->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
     {
@@ -420,6 +420,7 @@ uint32_t FAudio_CreateSourceVoice(
         /* Does XAudio2 validate this input?! */
         fmtex->wfx.cbSize = sizeof(FAudioXMA2WaveFormat) - sizeof(FAudioWaveFormatEx);
         (*ppSourceVoice)->src.format = &fmtex->wfx;
+        (*ppSourceVoice)->src.samples_per_block = fmtex->dwSamplesEncoded / fmtex->wBlockCount;
     }
     else
     {
@@ -438,8 +439,6 @@ uint32_t FAudio_CreateSourceVoice(
     (*ppSourceVoice)->src.active = 0;
     (*ppSourceVoice)->src.freqRatio = 1.0f;
     (*ppSourceVoice)->src.totalSamples = 0;
-    (*ppSourceVoice)->src.bufferList = NULL;
-    (*ppSourceVoice)->src.flushList = NULL;
     (*ppSourceVoice)->src.bufferLock = FAudio_PlatformCreateMutex();
     LOG_MUTEX_CREATE(audio, (*ppSourceVoice)->src.bufferLock)
 
@@ -474,6 +473,7 @@ uint32_t FAudio_CreateSourceVoice(
                 FAudio_assert(0 && "Unrecognized wBitsPerSample!");
             }
             #undef DECODER
+            (*ppSourceVoice)->src.samples_per_block = 1;
         }
         else if (COMPARE_GUID(IEEE_FLOAT))
         {
@@ -492,6 +492,7 @@ uint32_t FAudio_CreateSourceVoice(
             {
                 (*ppSourceVoice)->src.decode = FAudio_INTERNAL_DecodePCM32F;
             }
+            (*ppSourceVoice)->src.samples_per_block = 1;
         }
         else if (    COMPARE_GUID(WMAUDIO2) ||
                 COMPARE_GUID(WMAUDIO3) ||
@@ -2360,8 +2361,6 @@ static void destroy_voice(FAudioVoice *voice)
 
 	if (voice->type == FAUDIO_VOICE_SOURCE)
 	{
-		FAudioBufferEntry *entry, *next;
-
 #ifdef FAUDIO_DUMP_VOICES
 		FAudio_DUMPVOICE_Finalize((FAudioSourceVoice*) voice);
 #endif /* FAUDIO_DUMP_VOICES */
@@ -2384,23 +2383,10 @@ static void destroy_voice(FAudioVoice *voice)
 		FAudio_PlatformUnlockMutex(voice->audio->sourceLock);
 		LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-		entry = voice->src.bufferList;
-		while (entry != NULL)
-		{
-			next = entry->next;
-			voice->audio->pFree(entry);
-			entry = next;
-		}
-
-		entry = voice->src.flushList;
-		while (entry != NULL)
-		{
-			next = entry->next;
-			voice->audio->pFree(entry);
-			entry = next;
-		}
-
+		voice->audio->pFree(voice->src.queued_buffers);
+		voice->audio->pFree(voice->src.flush_buffers);
 		voice->audio->pFree(voice->src.format);
+		voice->audio->pFree(voice->src.unaligned_data);
 		LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
 		FAudio_PlatformDestroyMutex(voice->src.bufferLock);
 #ifdef HAVE_WMADEC
@@ -2622,9 +2608,11 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
     const FAudioBuffer *pBuffer,
     const FAudioBufferWMA *pBufferWMA
 ) {
-	uint32_t adpcmMask, *adpcmByteCount;
+    const uint32_t samples_per_block = voice->src.samples_per_block;
+    const uint32_t block_size = voice->src.format->nBlockAlign;
+	uint32_t adpcmMask;
 	uint32_t playBegin, playLength, loopBegin, loopLength, bufferLength;
-	FAudioBufferEntry *entry, *list;
+	struct queued_buffer *entry;
 
     LOG_API_ENTER(voice->audio)
     LOG_INFO(
@@ -2682,12 +2670,7 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
 			voice->src.format->nBlockAlign;
 	}
 
-	/* PlayLength Default */
-	if (playLength == 0)
-	{
-		playLength = bufferLength - playBegin;
-	}
-	else if (playBegin + playLength > bufferLength || playBegin + playLength < playLength)
+	if (playBegin + playLength > bufferLength || playBegin + playLength < playLength)
 	{
 		/* Reading past the end of the buffer, or begin + length overflow uint32_t, which
 		 * would also read past the end of the buffer. */
@@ -2697,24 +2680,33 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
 
     if (pBuffer->LoopCount > 0 && pBufferWMA == NULL && voice->src.format->wFormatTag != FAUDIO_FORMAT_XMAUDIO2)
     {
+        uint32_t realPlayLength = playLength;
+        uint32_t realLoopLength = loopLength;
+
+        /* PlayLength Default */
+        if (realPlayLength == 0)
+        {
+            realPlayLength = bufferLength - playBegin;
+        }
+
+        /* LoopLength Default */
+        if (realLoopLength == 0)
+        {
+            realLoopLength = playBegin + realPlayLength - loopBegin;
+        }
+
         /* "The value of LoopBegin must be less than PlayBegin + PlayLength" */
-        if (loopBegin >= (playBegin + playLength))
+        if (loopBegin >= (playBegin + realPlayLength))
         {
             LOG_API_EXIT(voice->audio)
             return FAUDIO_E_INVALID_CALL;
         }
 
-        /* LoopLength Default */
-        if (loopLength == 0)
-        {
-            loopLength = playBegin + playLength - loopBegin;
-        }
-
         /* "The value of LoopBegin + LoopLength must be greater than PlayBegin
          * and less than PlayBegin + PlayLength"
          */
-        if ((loopBegin + loopLength) <= playBegin ||
-           (loopBegin + loopLength) > (playBegin + playLength))
+        if ((loopBegin + realLoopLength) <= playBegin ||
+           (loopBegin + realLoopLength) > (playBegin + realPlayLength))
         {
             LOG_API_EXIT(voice->audio)
             return FAUDIO_E_INVALID_CALL;
@@ -2729,12 +2721,6 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
         playLength -= playLength % adpcmMask;
         loopBegin -= loopBegin % adpcmMask;
         loopLength -= loopLength % adpcmMask;
-
-        /* This is basically a const_cast... */
-        adpcmByteCount = (uint32_t*) &pBuffer->AudioBytes;
-        *adpcmByteCount = (
-            pBuffer->AudioBytes / voice->src.format->nBlockAlign
-        ) * voice->src.format->nBlockAlign;
     }
     else if (pBufferWMA != NULL || voice->src.format->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
     {
@@ -2743,8 +2729,19 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
         loopLength = playBegin + playLength;
     }
 
-    /* Allocate, now that we have valid input */
-    entry = (FAudioBufferEntry*) voice->audio->pMalloc(sizeof(FAudioBufferEntry));
+    FAudio_PlatformLockMutex(voice->src.bufferLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
+
+    array_reserve(
+        voice->audio,
+        (void**) &voice->src.queued_buffers,
+        &voice->src.queued_buffers_capacity,
+        voice->src.queued_buffer_count + 1,
+        sizeof(*voice->src.queued_buffers)
+    );
+
+    entry = &voice->src.queued_buffers[voice->src.queued_buffer_count++];
+    FAudio_memset(entry, 0, sizeof(*entry));
     FAudio_memcpy(&entry->buffer, pBuffer, sizeof(FAudioBuffer));
     entry->buffer.PlayBegin = playBegin;
     entry->buffer.PlayLength = playLength;
@@ -2754,40 +2751,42 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
     {
         FAudio_memcpy(&entry->bufferWMA, pBufferWMA, sizeof(FAudioBufferWMA));
     }
-    entry->next = NULL;
+    else
+    {
+        if (playLength != 0)
+        {
+            entry->play_bytes = playLength / samples_per_block * block_size;
+        }
+        else
+        {
+            entry->play_bytes = pBuffer->AudioBytes - (playBegin / samples_per_block * block_size);
+        }
+
+        if (loopLength != 0)
+        {
+            entry->loop_bytes = loopLength / samples_per_block * block_size;
+        }
+        else
+        {
+            entry->loop_bytes = entry->play_bytes
+                + (playBegin / samples_per_block * block_size)
+                - (loopBegin / samples_per_block * block_size);
+        }
+    }
 
 #ifdef FAUDIO_DUMP_VOICES
     /* dumping current buffer, append into "data" section */
-    if (pBuffer->pAudioData != NULL && playLength > 0)
+    if (pBuffer->pAudioData != NULL && entry->play_bytes > 0)
     {
-        FAudio_DUMPVOICE_WriteBuffer(voice, pBuffer, pBufferWMA, playBegin, playLength);
+        FAudio_DUMPVOICE_WriteBuffer(voice, pBuffer, pBufferWMA, entry->play_bytes);
     }
 #endif /* FAUDIO_DUMP_VOICES */
 
-    /* Submit! */
-    FAudio_PlatformLockMutex(voice->src.bufferLock);
-    LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
-    if (voice->src.bufferList == NULL)
+    if (voice->src.queued_buffer_count == 1)
     {
-        voice->src.bufferList = entry;
         voice->src.curBufferOffset = entry->buffer.PlayBegin;
-        voice->src.newBuffer = 1;
     }
-    else
-    {
-        list = voice->src.bufferList;
-        while (list->next != NULL)
-        {
-            list = list->next;
-        }
-        list->next = entry;
 
-        /* For some bizarre reason we get scenarios where a buffer is freed, only to
-         * have the allocator give us the exact same address and somehow get a single
-         * buffer referencing itself. I don't even know.
-         */
-        FAudio_assert(list != entry);
-    }
     LOG_INFO(
         voice->audio,
         "%p: appended buffer %p",
@@ -2803,7 +2802,7 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
 uint32_t FAudioSourceVoice_FlushSourceBuffers(
     FAudioSourceVoice *voice
 ) {
-    FAudioBufferEntry *entry, *latest;
+    size_t offset = 0;
 
     LOG_API_ENTER(voice->audio)
     FAudio_assert(voice->type == FAUDIO_VOICE_SOURCE);
@@ -2811,37 +2810,36 @@ uint32_t FAudioSourceVoice_FlushSourceBuffers(
     FAudio_PlatformLockMutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
 
-    /* If the source is playing, don't flush the active buffer */
-    entry = voice->src.bufferList;
-    if ((voice->src.active == 1) && entry != NULL && !voice->src.newBuffer)
+    array_reserve(
+        voice->audio,
+        (void**) &voice->src.flush_buffers,
+        &voice->src.flush_buffers_capacity,
+        voice->src.flush_buffer_count + voice->src.queued_buffer_count,
+        sizeof(*voice->src.flush_buffers)
+    );
+
+    if (    voice->src.active == 1 &&
+        voice->src.queued_buffer_count > 0 &&
+        voice->src.queued_buffers[0].sent_OnStartBuffer    )
     {
-        entry = entry->next;
-        voice->src.bufferList->next = NULL;
+        offset = 1;
     }
     else
     {
         voice->src.curBufferOffset = 0;
-        voice->src.bufferList = NULL;
-        voice->src.newBuffer = 0;
     }
 
-    /* Move them to the pending flush list */
-    if (entry != NULL)
+    if (voice->src.queued_buffer_count > offset)
     {
-        if (voice->src.flushList == NULL)
-        {
-            voice->src.flushList = entry;
-        }
-        else
-        {
-            latest = voice->src.flushList;
-            while (latest->next != NULL)
-            {
-                latest = latest->next;
-            }
-            latest->next = entry;
-        }
+        FAudio_memcpy(
+            voice->src.flush_buffers + voice->src.flush_buffer_count,
+            voice->src.queued_buffers + offset,
+            (voice->src.queued_buffer_count - offset) * sizeof(*voice->src.flush_buffers)
+        );
     }
+
+    voice->src.flush_buffer_count += voice->src.queued_buffer_count - offset;
+    voice->src.queued_buffer_count = offset;
 
     FAudio_PlatformUnlockMutex(voice->src.bufferLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
@@ -2852,18 +2850,15 @@ uint32_t FAudioSourceVoice_FlushSourceBuffers(
 uint32_t FAudioSourceVoice_Discontinuity(
     FAudioSourceVoice *voice
 ) {
-    FAudioBufferEntry *buf;
-
     LOG_API_ENTER(voice->audio)
     FAudio_assert(voice->type == FAUDIO_VOICE_SOURCE);
 
     FAudio_PlatformLockMutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
 
-    if (voice->src.bufferList != NULL)
+    if (voice->src.queued_buffer_count != 0)
     {
-        for (buf = voice->src.bufferList; buf->next != NULL; buf = buf->next);
-        buf->buffer.Flags |= FAUDIO_END_OF_STREAM;
+        voice->src.queued_buffers[voice->src.queued_buffer_count - 1].buffer.Flags |= FAUDIO_END_OF_STREAM;
     }
 
     FAudio_PlatformUnlockMutex(voice->src.bufferLock);
@@ -2893,9 +2888,9 @@ uint32_t FAudioSourceVoice_ExitLoop(
     FAudio_PlatformLockMutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
 
-    if (voice->src.bufferList != NULL)
+    if (voice->src.queued_buffer_count != 0)
     {
-        voice->src.bufferList->buffer.LoopCount = 0;
+        voice->src.queued_buffers[0].buffer.LoopCount = 0;
     }
 
     FAudio_PlatformUnlockMutex(voice->src.bufferLock);
@@ -2909,8 +2904,6 @@ void FAudioSourceVoice_GetState(
     FAudioVoiceState *pVoiceState,
     uint32_t Flags
 ) {
-    FAudioBufferEntry *entry;
-
     LOG_API_ENTER(voice->audio)
     FAudio_assert(voice->type == FAUDIO_VOICE_SOURCE);
 
@@ -2924,27 +2917,15 @@ void FAudioSourceVoice_GetState(
 
     pVoiceState->BuffersQueued = 0;
     pVoiceState->pCurrentBufferContext = NULL;
-    if (voice->src.bufferList != NULL)
+
+    if (voice->src.queued_buffer_count != 0)
     {
-        entry = voice->src.bufferList;
-        if (!voice->src.newBuffer)
-        {
-            pVoiceState->pCurrentBufferContext = entry->buffer.pContext;
-        }
-        do
-        {
-            pVoiceState->BuffersQueued += 1;
-            entry = entry->next;
-        } while (entry != NULL);
+        pVoiceState->pCurrentBufferContext = voice->src.queued_buffers[0].buffer.pContext;
     }
+    pVoiceState->BuffersQueued += (uint32_t) voice->src.queued_buffer_count;
 
     /* Pending flushed buffers also count */
-    entry = voice->src.flushList;
-    while (entry != NULL)
-    {
-        pVoiceState->BuffersQueued += 1;
-        entry = entry->next;
-    }
+    pVoiceState->BuffersQueued += (uint32_t) voice->src.flush_buffer_count;
 
     LOG_INFO(
         voice->audio,
@@ -3017,7 +2998,7 @@ uint32_t FAudioSourceVoice_SetSourceSampleRate(
 
     FAudio_PlatformLockMutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
-    if (voice->src.bufferList != NULL)
+    if (voice->src.queued_buffer_count != 0)
     {
         FAudio_PlatformUnlockMutex(voice->src.bufferLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
@@ -3339,8 +3320,7 @@ static void FAudio_DUMPVOICE_WriteBuffer(
     const FAudioSourceVoice *voice,
     const FAudioBuffer *pBuffer,
     const FAudioBufferWMA *pBufferWMA,
-    const uint32_t playBegin,
-    const uint32_t playLength
+    const uint32_t size
 ) {
     FAudioIOStreamOut *io_data = DumpVoices_fopen(voice, voice->src.format, "ab", "data");
     if (io_data == NULL)
@@ -3372,8 +3352,8 @@ static void FAudio_DUMPVOICE_WriteBuffer(
         /* dump unencoded buffer contents */
         uint16_t bytesPerFrame = (voice->src.format->nChannels * voice->src.format->wBitsPerSample / 8);
         FAudio_assert(bytesPerFrame > 0);
-        const void *pAudioDataBegin = pBuffer->pAudioData + playBegin*bytesPerFrame;
-        io_data->write(io_data->data, pAudioDataBegin, bytesPerFrame, playLength);
+        const void *pAudioDataBegin = pBuffer->pAudioData + pBuffer->PlayBegin * bytesPerFrame;
+        io_data->write(io_data->data, pAudioDataBegin, 1, size);
     }
     FAudio_PlatformUnlockMutex((FAudioMutex) io_data->lock);
     FAudio_close_out(io_data);

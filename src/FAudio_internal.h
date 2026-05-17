@@ -27,6 +27,7 @@
 #include "ForgeAudio.h"
 #include "ForgeAPOBase.h"
 #include <stdarg.h>
+#include <stdbool.h>
 
 #ifdef FAUDIO_WIN32_PLATFORM
 #include <stdio.h>
@@ -255,19 +256,26 @@ typedef enum FAudioVoiceType
     FAUDIO_VOICE_MASTER
 } FAudioVoiceType;
 
-typedef struct FAudioBufferEntry FAudioBufferEntry;
-struct FAudioBufferEntry
+struct queued_buffer
 {
     FAudioBuffer buffer;
     FAudioBufferWMA bufferWMA;
-    FAudioBufferEntry *next;
+    uint32_t loop_bytes, play_bytes;
+    bool sent_OnStartBuffer;
+    bool internal;
+
+    /* Byte offset of the first block in this buffer. This is usually zero,
+     * but will be nonzero if the previous buffer did not have an aligned
+     * size. */
+    uint32_t first_block_offset;
 };
 
 typedef void (FAUDIOCALL * FAudioDecodeCallback)(
     FAudioVoice *voice,
-    FAudioBuffer *buffer,    /* Buffer to decode */
-    float *decodeCache,    /* Decode into here */
-    uint32_t samples    /* Samples to decode */
+    const void *src,
+    float *decodeCache,
+    uint32_t block_offset,
+    uint32_t samples
 );
 
 typedef void (FAUDIOCALL * FAudioResampleCallback)(
@@ -475,13 +483,24 @@ struct FAudioVoice
             FAudioResampleCallback resample;
             FAudioVoiceCallback *callback;
 
+            /* For PCM this is always 1. For compressed formats, the size of
+             * a block is format->nBlockAlign. */
+            uint32_t samples_per_block;
+
             /* Dynamic */
             uint8_t active;
             float freqRatio;
-            uint8_t newBuffer;
             uint64_t totalSamples;
-            FAudioBufferEntry *bufferList;
-            FAudioBufferEntry *flushList;
+            struct queued_buffer *queued_buffers;
+            size_t queued_buffer_count, queued_buffers_capacity;
+            struct queued_buffer *flush_buffers;
+            size_t flush_buffer_count, flush_buffers_capacity;
+
+            /* Data left over from one or more buffers whose size was
+             * unaligned. */
+            uint8_t *unaligned_data;
+            uint32_t unaligned_size;
+
             FAudioMutex bufferLock;
         } src;
         struct
@@ -532,6 +551,8 @@ uint32_t FAudio_INTERNAL_VoiceOutputFrequency(
     const FAudioVoiceSends *pSendList
 );
 extern const float FAUDIO_INTERNAL_MATRIX_DEFAULTS[8][8][64];
+
+bool array_reserve(FAudio *audio, void **elements, size_t *capacity, size_t count, size_t size);
 
 /* Debug */
 
@@ -716,8 +737,9 @@ void FAudio_INTERNAL_InitSIMDFunctions(uint8_t hasSSE2, uint8_t hasNEON);
 #define DECODE_FUNC(type) \
     extern void FAudio_INTERNAL_Decode##type( \
         FAudioVoice *voice, \
-        FAudioBuffer *buffer, \
+        const void *src, \
         float *decodeCache, \
+        uint32_t block_offset, \
         uint32_t samples \
     );
 DECODE_FUNC(PCM8)
