@@ -56,7 +56,7 @@ extern "C" {
 
 typedef struct ForgeEffectBase ForgeEffectBase;
 
-typedef void (FORGE_EFFECT_CALL * OnSetParametersFunc)(
+typedef void (FORGE_EFFECT_CALL * ForgeEffectBaseSetParametersFunc)(
     ForgeEffectBase *effect,
     const void* parameters,
     uint32_t parametersSize
@@ -67,10 +67,10 @@ struct ForgeEffectBase
 {
     /* Base Classes/Interfaces */
     ForgeEffect base;
-    void (FORGE_EFFECT_CALL *Destructor)(void*);
+    void (FORGE_EFFECT_CALL *destructor)(void*);
 
     /* Public Virtual Functions */
-    OnSetParametersFunc OnSetParameters;
+    ForgeEffectBaseSetParametersFunc on_set_parameters;
 
     /* Private Variables */
     const ForgeEffectProperties *registration_properties;
@@ -109,9 +109,9 @@ FORGE_EFFECT_API void forge_effect_base_init_with_allocator(
     uint8_t *parameter_blocks,
     uint32_t parameter_block_byte_size,
     uint8_t producer,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 
 FORGE_EFFECT_API void forge_effect_base_destroy(ForgeEffectBase *effect);
@@ -138,16 +138,16 @@ FORGE_EFFECT_API ForgeResult forge_effect_base_is_output_format_supported(
 FORGE_EFFECT_API ForgeResult forge_effect_base_initialize(
     ForgeEffectBase *effect,
     const void* data,
-    uint32_t DataByteSize
+    uint32_t data_byte_size
 );
 
 FORGE_EFFECT_API void forge_effect_base_reset(ForgeEffectBase *effect);
 
 FORGE_EFFECT_API ForgeResult forge_effect_base_lock_for_process(
     ForgeEffectBase *effect,
-    uint32_t InputLockedParameterCount,
+    uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
-    uint32_t OutputLockedParameterCount,
+    uint32_t output_locked_parameter_count,
     const ForgeEffectLockBuffer *output_locked_parameters
 );
 
@@ -155,12 +155,12 @@ FORGE_EFFECT_API void forge_effect_base_unlock_for_process(ForgeEffectBase *effe
 
 FORGE_EFFECT_API uint32_t forge_effect_base_calc_input_frames(
     ForgeEffectBase *effect,
-    uint32_t OutputFrameCount
+    uint32_t output_frame_count
 );
 
 FORGE_EFFECT_API uint32_t forge_effect_base_calc_output_frames(
     ForgeEffectBase *effect,
-    uint32_t InputFrameCount
+    uint32_t input_frame_count
 );
 
 FORGE_EFFECT_API ForgeResult forge_effect_base_validate_default_format(
@@ -180,22 +180,22 @@ FORGE_EFFECT_API void forge_effect_base_process_through(
     ForgeEffectBase *effect,
     void* input_buffer,
     float *output_buffer,
-    uint32_t FrameCount,
-    uint16_t InputChannelCount,
-    uint16_t OutputChannelCount,
-    uint8_t MixWithOutput
+    uint32_t frame_count,
+    uint16_t input_channel_count,
+    uint16_t output_channel_count,
+    uint8_t mix_with_output
 );
 
 FORGE_EFFECT_API void forge_effect_base_set_parameters(
     ForgeEffectBase *effect,
     const void* parameters,
-    uint32_t ParameterByteSize
+    uint32_t parameter_byte_size
 );
 
 FORGE_EFFECT_API void forge_effect_base_get_parameters(
     ForgeEffectBase *effect,
     void* parameters,
-    uint32_t ParameterByteSize
+    uint32_t parameter_byte_size
 );
 
 FORGE_EFFECT_API void forge_effect_base_on_set_parameters(

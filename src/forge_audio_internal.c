@@ -41,7 +41,7 @@ void ForgeAudio_Internal_debug(
     out[0] = '\0';
 
     /* Logging extras */
-    if (audio->debug.LogThreadID)
+    if (audio->debug.log_thread_id)
     {
         out += ForgeAudio_snprintf(
             out,
@@ -50,7 +50,7 @@ void ForgeAudio_Internal_debug(
             ForgeAudio_PlatformGetThreadID()
         );
     }
-    if (audio->debug.LogFileline)
+    if (audio->debug.log_fileline)
     {
         out += ForgeAudio_snprintf(
             out,
@@ -60,7 +60,7 @@ void ForgeAudio_Internal_debug(
             line
         );
     }
-    if (audio->debug.LogFunctionName)
+    if (audio->debug.log_function_name)
     {
         out += ForgeAudio_snprintf(
             out,
@@ -69,7 +69,7 @@ void ForgeAudio_Internal_debug(
             func
         );
     }
-    if (audio->debug.LogTiming)
+    if (audio->debug.log_timing)
     {
         out += ForgeAudio_snprintf(
             out,
@@ -118,11 +118,11 @@ static const char *get_subformat_string(const ForgeAudioFormat *fmt)
     {
         return "N/A";
     }
-    if (!ForgeAudio_memcmp(&fmtex->SubFormat, &FORGE_AUDIO_SUBTYPE_IEEE_FLOAT, sizeof(ForgeGuid)))
+    if (!ForgeAudio_memcmp(&fmtex->sub_format, &FORGE_AUDIO_SUBTYPE_IEEE_FLOAT, sizeof(ForgeGuid)))
     {
         return "IEEE_FLOAT";
     }
-    if (!ForgeAudio_memcmp(&fmtex->SubFormat, &FORGE_AUDIO_SUBTYPE_PCM, sizeof(ForgeGuid)))
+    if (!ForgeAudio_memcmp(&fmtex->sub_format, &FORGE_AUDIO_SUBTYPE_PCM, sizeof(ForgeGuid)))
     {
         return "PCM";
     }
@@ -148,7 +148,7 @@ void ForgeAudio_Internal_debug_fmt(
             "sample_rate: %u, "
             "bits_per_sample: %u, "
             "block_align: %u, "
-            "SubFormat: %s"
+            "sub_format: %s"
             "}"
         ),
         fmt->format_tag,
@@ -345,9 +345,9 @@ static uint32_t ForgeAudio_Internal_GetBytesRequested(
         const struct queued_buffer *buffer = &voice->src.queued_buffers[i];
         uint32_t size = 0;
 
-        if (buffer->buffer.LoopCount > 0)
+        if (buffer->buffer.loop_count > 0)
         {
-            size += buffer->loop_bytes * buffer->buffer.LoopCount;
+            size += buffer->loop_bytes * buffer->buffer.loop_count;
         }
         size += buffer->play_bytes;
         size -= voice->src.curBufferOffset * block_size;
@@ -368,12 +368,12 @@ static uint32_t buffer_get_end(ForgeSourceVoice *voice, const struct queued_buff
 {
     const uint32_t block_size = voice->src.format->block_align;
 
-    if (buffer->buffer.LoopCount != 0)
+    if (buffer->buffer.loop_count != 0)
     {
-        return buffer->buffer.LoopBegin + (buffer->loop_bytes / block_size);
+        return buffer->buffer.loop_begin + (buffer->loop_bytes / block_size);
     }
 
-    return buffer->buffer.PlayBegin + (buffer->play_bytes / block_size);
+    return buffer->buffer.play_begin + (buffer->play_bytes / block_size);
 }
 
 static void start_buffer(ForgeSourceVoice *voice, struct queued_buffer *buffer)
@@ -383,7 +383,7 @@ static void start_buffer(ForgeSourceVoice *voice, struct queued_buffer *buffer)
         buffer->sent_OnStartBuffer = true;
 
         if (    voice->src.callback != NULL &&
-            voice->src.callback->OnBufferStart != NULL    )
+            voice->src.callback->on_buffer_start != NULL    )
         {
             ForgeAudio_PlatformUnlockMutex(voice->src.bufferLock);
             LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
@@ -394,7 +394,7 @@ static void start_buffer(ForgeSourceVoice *voice, struct queued_buffer *buffer)
             ForgeAudio_PlatformUnlockMutex(voice->audio->sourceLock);
             LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-            voice->src.callback->OnBufferStart(
+            voice->src.callback->on_buffer_start(
                 voice->src.callback,
                 buffer->buffer.context
             );
@@ -414,19 +414,19 @@ static void start_buffer(ForgeSourceVoice *voice, struct queued_buffer *buffer)
 static void end_buffer(ForgeSourceVoice *voice)
 {
     struct queued_buffer *buffer = &voice->src.queued_buffers[0];
-    bool eos = buffer->buffer.Flags & FORGE_AUDIO_END_OF_STREAM;
+    bool eos = buffer->buffer.flags & FORGE_AUDIO_END_OF_STREAM;
     ForgeVoiceCallback *callback = voice->src.callback;
     void *context = buffer->buffer.context;
 
-    if (buffer->buffer.LoopCount > 0)
+    if (buffer->buffer.loop_count > 0)
     {
-        voice->src.curBufferOffset = buffer->buffer.LoopBegin;
-        if (buffer->buffer.LoopCount < FORGE_AUDIO_LOOP_INFINITE)
+        voice->src.curBufferOffset = buffer->buffer.loop_begin;
+        if (buffer->buffer.loop_count < FORGE_AUDIO_LOOP_INFINITE)
         {
-            buffer->buffer.LoopCount -= 1;
+            buffer->buffer.loop_count -= 1;
         }
 
-        if (callback != NULL && callback->OnLoopEnd != NULL)
+        if (callback != NULL && callback->on_loop_end != NULL)
         {
             ForgeAudio_PlatformUnlockMutex(voice->src.bufferLock);
             LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
@@ -437,7 +437,7 @@ static void end_buffer(ForgeSourceVoice *voice)
             ForgeAudio_PlatformUnlockMutex(voice->audio->sourceLock);
             LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-            callback->OnLoopEnd(callback, context);
+            callback->on_loop_end(callback, context);
 
             ForgeAudio_PlatformLockMutex(voice->audio->sourceLock);
             LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
@@ -468,7 +468,7 @@ static void end_buffer(ForgeSourceVoice *voice)
 
     if (voice->src.queued_buffer_count != 0)
     {
-        voice->src.curBufferOffset = voice->src.queued_buffers[0].buffer.PlayBegin;
+        voice->src.curBufferOffset = voice->src.queued_buffers[0].buffer.play_begin;
     }
 
     if (callback != NULL)
@@ -482,14 +482,14 @@ static void end_buffer(ForgeSourceVoice *voice)
         ForgeAudio_PlatformUnlockMutex(voice->audio->sourceLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-        if (callback->OnBufferEnd != NULL)
+        if (callback->on_buffer_end != NULL)
         {
-            callback->OnBufferEnd(callback, context);
+            callback->on_buffer_end(callback, context);
         }
 
-        if (eos && callback->OnStreamEnd != NULL)
+        if (eos && callback->on_stream_end != NULL)
         {
-            callback->OnStreamEnd(callback);
+            callback->on_stream_end(callback);
         }
 
         ForgeAudio_PlatformLockMutex(voice->audio->sourceLock);
@@ -623,11 +623,11 @@ static inline void ForgeAudio_Internal_FilterVoice(
      * The difference equations of the filter are:
      *
      * Yl(n) = F Yb(n - 1) + Yl(n - 1)
-     * Yh(n) = x(n) - Yl(n) - OneOverQ Yb(n - 1)
+     * Yh(n) = x(n) - Yl(n) - one_over_q Yb(n - 1)
      * Yb(n) = F Yh(n) + Yb(n - 1)
      * Yn(n) = Yl(n) + Yh(n)
      *
-     * Please note that ForgeFilterParameters.Frequency is defined as:
+     * Please note that ForgeFilterParameters.frequency is defined as:
      *
      * (2 * sin(pi * (desired filter cutoff frequency) / sampleRate))
      *
@@ -637,11 +637,11 @@ static inline void ForgeAudio_Internal_FilterVoice(
     for (j = 0; j < numSamples; j += 1)
     for (ci = 0; ci < numChannels; ci += 1)
     {
-        filterState[ci][ForgeFilterLowPass] = filterState[ci][ForgeFilterLowPass] + (filter->Frequency * filterState[ci][ForgeFilterBandPass]);
-        filterState[ci][ForgeFilterHighPass] = samples[j * numChannels + ci] - filterState[ci][ForgeFilterLowPass] - (filter->OneOverQ * filterState[ci][ForgeFilterBandPass]);
-        filterState[ci][ForgeFilterBandPass] = (filter->Frequency * filterState[ci][ForgeFilterHighPass]) + filterState[ci][ForgeFilterBandPass];
+        filterState[ci][ForgeFilterLowPass] = filterState[ci][ForgeFilterLowPass] + (filter->frequency * filterState[ci][ForgeFilterBandPass]);
+        filterState[ci][ForgeFilterHighPass] = samples[j * numChannels + ci] - filterState[ci][ForgeFilterLowPass] - (filter->one_over_q * filterState[ci][ForgeFilterBandPass]);
+        filterState[ci][ForgeFilterBandPass] = (filter->frequency * filterState[ci][ForgeFilterHighPass]) + filterState[ci][ForgeFilterBandPass];
         filterState[ci][ForgeFilterNotch] = filterState[ci][ForgeFilterHighPass] + filterState[ci][ForgeFilterLowPass];
-        samples[j * numChannels + ci] = filterState[ci][filter->Type] * filter->WetDryMix + samples[j * numChannels + ci] * (1.0 - filter->WetDryMix);
+        samples[j * numChannels + ci] = filterState[ci][filter->type] * filter->wet_dry_mix + samples[j * numChannels + ci] * (1.0 - filter->wet_dry_mix);
     }
 
     LOG_FUNC_EXIT(audio)
@@ -673,21 +673,21 @@ static inline float *ForgeAudio_Internal_ProcessEffectChain(
 
     /* Set up the buffer to be written into */
     srcParams.buffer = buffer;
-    srcParams.BufferFlags = FORGE_EFFECT_BUFFER_SILENT;
-    srcParams.ValidFrameCount = *samples;
-    for (uint32_t i = 0; i < srcParams.ValidFrameCount; i += 1)
+    srcParams.buffer_flags = FORGE_EFFECT_BUFFER_SILENT;
+    srcParams.valid_frame_count = *samples;
+    for (uint32_t i = 0; i < srcParams.valid_frame_count; i += 1)
     {
         if (buffer[i] != 0.0f) /* Arbitrary! */
         {
-            srcParams.BufferFlags = FORGE_EFFECT_BUFFER_VALID;
+            srcParams.buffer_flags = FORGE_EFFECT_BUFFER_VALID;
             break;
         }
     }
 
-    /* Initialize output parameters to something sane */
+    /* initialize output parameters to something sane */
     dstParams.buffer = srcParams.buffer;
-    dstParams.BufferFlags = FORGE_EFFECT_BUFFER_VALID;
-    dstParams.ValidFrameCount = srcParams.ValidFrameCount;
+    dstParams.buffer_flags = FORGE_EFFECT_BUFFER_VALID;
+    dstParams.valid_frame_count = srcParams.valid_frame_count;
 
     /* Update parameters, process! */
     for (uint32_t i = 0; i < voice->effects.count; i += 1)
@@ -700,27 +700,27 @@ static inline float *ForgeAudio_Internal_ProcessEffectChain(
             {
                 ForgeAudio_Internal_ResizeEffectChainCache(
                     voice->audio,
-                    voice->effects.desc[i].OutputChannels * srcParams.ValidFrameCount
+                    voice->effects.desc[i].output_channels * srcParams.valid_frame_count
                 );
                 dstParams.buffer = voice->audio->effectChainCache;
             }
             else
             {
                 /* FIXME: What if this is smaller because
-                 * inputChannels < desc[i].OutputChannels?
+                 * inputChannels < desc[i].output_channels?
                  */
                 dstParams.buffer = buffer;
             }
 
             ForgeAudio_zero(
                 dstParams.buffer,
-                voice->effects.desc[i].OutputChannels * srcParams.ValidFrameCount * sizeof(float)
+                voice->effects.desc[i].output_channels * srcParams.valid_frame_count * sizeof(float)
             );
         }
 
         if (voice->effects.parameterUpdates[i])
         {
-            effect->SetParameters(
+            effect->set_parameters(
                 effect,
                 voice->effects.parameters[i],
                 voice->effects.parameterSizes[i]
@@ -728,22 +728,22 @@ static inline float *ForgeAudio_Internal_ProcessEffectChain(
             voice->effects.parameterUpdates[i] = 0;
         }
 
-        effect->Process(
+        effect->process(
             effect,
             1,
             &srcParams,
             1,
             &dstParams,
-            voice->effects.desc[i].InitialState
+            voice->effects.desc[i].initial_state
         );
 
         ForgeAudio_memcpy(&srcParams, &dstParams, sizeof(dstParams));
     }
 
-    *samples = dstParams.ValidFrameCount;
+    *samples = dstParams.valid_frame_count;
 
     /* Save the output buffer-flags so the mixer-function can determine when it's save to stop processing the effect chain */
-    voice->effects.state = dstParams.BufferFlags;
+    voice->effects.state = dstParams.buffer_flags;
 
     LOG_FUNC_EXIT(voice->audio)
     return (float*) dstParams.buffer;
@@ -785,7 +785,7 @@ static void ForgeAudio_Internal_MixSource(ForgeSourceVoice *voice)
     /* Calculate the resample stepping value */
     if (voice->src.resampleFreq != voice->src.freqRatio * voice->src.format->sample_rate)
     {
-        out = (voice->sends.SendCount == 0) ?
+        out = (voice->sends.send_count == 0) ?
             voice->audio->master : /* Barf */
             voice->sends.sends->output_voice;
         outputRate = (out->type == FORGE_AUDIO_VOICE_MASTER) ?
@@ -825,7 +825,7 @@ static void ForgeAudio_Internal_MixSource(ForgeSourceVoice *voice)
 
     /* First voice callback */
     if (    voice->src.callback != NULL &&
-        voice->src.callback->OnVoiceProcessingPassStart != NULL    )
+        voice->src.callback->on_voice_processing_pass_start != NULL    )
     {
         ForgeAudio_PlatformUnlockMutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
@@ -833,7 +833,7 @@ static void ForgeAudio_Internal_MixSource(ForgeSourceVoice *voice)
         ForgeAudio_PlatformUnlockMutex(voice->audio->sourceLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-        voice->src.callback->OnVoiceProcessingPassStart(
+        voice->src.callback->on_voice_processing_pass_start(
             voice->src.callback,
             ForgeAudio_Internal_GetBytesRequested(voice, (uint32_t) toDecode)
         );
@@ -877,9 +877,9 @@ static void ForgeAudio_Internal_MixSource(ForgeSourceVoice *voice)
         LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
         if (    voice->src.callback != NULL &&
-            voice->src.callback->OnVoiceProcessingPassEnd != NULL)
+            voice->src.callback->on_voice_processing_pass_end != NULL)
         {
-            voice->src.callback->OnVoiceProcessingPassEnd(
+            voice->src.callback->on_voice_processing_pass_end(
                 voice->src.callback
             );
         }
@@ -903,7 +903,7 @@ static void ForgeAudio_Internal_MixSource(ForgeSourceVoice *voice)
 
     /* Okay, we're done messing with client data */
     if (    voice->src.callback != NULL &&
-        voice->src.callback->OnVoiceProcessingPassEnd != NULL)
+        voice->src.callback->on_voice_processing_pass_end != NULL)
     {
         ForgeAudio_PlatformUnlockMutex(voice->src.bufferLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
@@ -914,7 +914,7 @@ static void ForgeAudio_Internal_MixSource(ForgeSourceVoice *voice)
         ForgeAudio_PlatformUnlockMutex(voice->audio->sourceLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-        voice->src.callback->OnVoiceProcessingPassEnd(
+        voice->src.callback->on_voice_processing_pass_end(
             voice->src.callback
         );
 
@@ -1024,7 +1024,7 @@ sendwork:
         LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
     }
 
-    /* Process effect chain */
+    /* process effect chain */
     ForgeAudio_PlatformLockMutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
     if (voice->effects.count > 0)
@@ -1050,7 +1050,7 @@ sendwork:
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
 
     /* Nowhere to send it? Just skip the rest...*/
-    if (voice->sends.SendCount == 0)
+    if (voice->sends.send_count == 0)
     {
         ForgeAudio_PlatformUnlockMutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
@@ -1061,7 +1061,7 @@ sendwork:
     /* Send float cache to sends */
     ForgeAudio_PlatformLockMutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
-    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.send_count; i += 1)
     {
         out = voice->sends.sends[i].output_voice;
         if (out->type == FORGE_AUDIO_VOICE_MASTER)
@@ -1084,7 +1084,7 @@ sendwork:
             voice->mixCoefficients[i]
         );
 
-        if (voice->sends.sends[i].Flags & FORGE_AUDIO_SEND_USEFILTER)
+        if (voice->sends.sends[i].flags & FORGE_AUDIO_SEND_USEFILTER)
         {
             ForgeAudio_Internal_FilterVoice(
                 voice->audio,
@@ -1169,7 +1169,7 @@ static void ForgeAudio_Internal_MixSubmix(ForgeSubmixVoice *voice)
         LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
     }
 
-    /* Process effect chain */
+    /* process effect chain */
     ForgeAudio_PlatformLockMutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
     if (voice->effects.count > 0)
@@ -1184,7 +1184,7 @@ static void ForgeAudio_Internal_MixSubmix(ForgeSubmixVoice *voice)
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
 
     /* Nothing more to do? */
-    if (voice->sends.SendCount == 0)
+    if (voice->sends.send_count == 0)
     {
         goto end;
     }
@@ -1192,7 +1192,7 @@ static void ForgeAudio_Internal_MixSubmix(ForgeSubmixVoice *voice)
     /* Send float cache to sends */
     ForgeAudio_PlatformLockMutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
-    for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
+    for (uint32_t i = 0; i < voice->sends.send_count; i += 1)
     {
         out = voice->sends.sends[i].output_voice;
         if (out->type == FORGE_AUDIO_VOICE_MASTER)
@@ -1215,7 +1215,7 @@ static void ForgeAudio_Internal_MixSubmix(ForgeSubmixVoice *voice)
             voice->mixCoefficients[i]
         );
 
-        if (voice->sends.sends[i].Flags & FORGE_AUDIO_SEND_USEFILTER)
+        if (voice->sends.sends[i].flags & FORGE_AUDIO_SEND_USEFILTER)
         {
             ForgeAudio_Internal_FilterVoice(
                 voice->audio,
@@ -1246,7 +1246,7 @@ static void ForgeAudio_Internal_FlushPendingBuffers(ForgeSourceVoice *voice)
     ForgeAudio_PlatformLockMutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
 
-    if (voice->src.callback == NULL || voice->src.callback->OnBufferEnd == NULL)
+    if (voice->src.callback == NULL || voice->src.callback->on_buffer_end == NULL)
     {
         voice->src.flush_buffer_count = 0;
     }
@@ -1269,7 +1269,7 @@ static void ForgeAudio_Internal_FlushPendingBuffers(ForgeSourceVoice *voice)
         ForgeAudio_PlatformUnlockMutex(voice->audio->sourceLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->audio->sourceLock)
 
-        voice->src.callback->OnBufferEnd(voice->src.callback, context);
+        voice->src.callback->on_buffer_end(voice->src.callback, context);
 
         ForgeAudio_PlatformLockMutex(voice->audio->sourceLock);
         LOG_MUTEX_LOCK(voice->audio, voice->audio->sourceLock)
@@ -1306,9 +1306,9 @@ static void FORGE_AUDIO_CALL ForgeAudio_Internal_GenerateOutput(ForgeAudioEngine
     while (list != NULL)
     {
         callback = (ForgeEngineCallback*) list->entry;
-        if (callback->OnProcessingPassStart != NULL)
+        if (callback->on_processing_pass_start != NULL)
         {
-            callback->OnProcessingPassStart(
+            callback->on_processing_pass_start(
                 callback
             );
         }
@@ -1380,7 +1380,7 @@ static void FORGE_AUDIO_CALL ForgeAudio_Internal_GenerateOutput(ForgeAudioEngine
         );
     }
 
-    /* Process master effect chain */
+    /* process master effect chain */
     ForgeAudio_PlatformLockMutex(audio->master->effectLock);
     LOG_MUTEX_LOCK(audio, audio->master->effectLock)
     if (audio->master->effects.count > 0)
@@ -1411,16 +1411,16 @@ static void FORGE_AUDIO_CALL ForgeAudio_Internal_GenerateOutput(ForgeAudioEngine
     ForgeAudio_PlatformUnlockMutex(audio->master->effectLock);
     LOG_MUTEX_UNLOCK(audio, audio->master->effectLock)
 
-    /* OnProcessingPassEnd callbacks */
+    /* on_processing_pass_end callbacks */
     ForgeAudio_PlatformLockMutex(audio->callbackLock);
     LOG_MUTEX_LOCK(audio, audio->callbackLock)
     list = audio->callbacks;
     while (list != NULL)
     {
         callback = (ForgeEngineCallback*) list->entry;
-        if (callback->OnProcessingPassEnd != NULL)
+        if (callback->on_processing_pass_end != NULL)
         {
-            callback->OnProcessingPassEnd(
+            callback->on_processing_pass_end(
                 callback
             );
         }
@@ -1475,7 +1475,7 @@ void ForgeAudio_Internal_AllocEffectChain(
 ) {
     LOG_FUNC_ENTER(voice->audio)
     voice->effects.state = FORGE_EFFECT_BUFFER_VALID;
-    voice->effects.count = effect_chain->EffectCount;
+    voice->effects.count = effect_chain->effect_count;
     if (voice->effects.count == 0)
     {
         LOG_FUNC_EXIT(voice->audio)
@@ -1517,7 +1517,7 @@ void ForgeAudio_Internal_FreeEffectChain(ForgeVoice *voice)
 
     for (uint32_t i = 0; i < voice->effects.count; i += 1)
     {
-        voice->effects.desc[i].effect->UnlockForProcess(voice->effects.desc[i].effect);
+        voice->effects.desc[i].effect->unlock_for_process(voice->effects.desc[i].effect);
         forge_effect_destroy(voice->effects.desc[i].effect);
     }
 
@@ -1539,7 +1539,7 @@ ForgeResult ForgeAudio_Internal_VoiceOutputFrequency(
 
     LOG_FUNC_ENTER(voice->audio)
 
-    if ((send_list == NULL) || (send_list->SendCount == 0))
+    if ((send_list == NULL) || (send_list->send_count == 0))
     {
         /* When we're deliberately given no sends, use master rate! */
         outSampleRate = voice->audio->master->master.inputSampleRate;

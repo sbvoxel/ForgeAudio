@@ -58,7 +58,7 @@ static inline float Undenormalize(float sample_in)
 }
 #endif /* DISABLE_SUBNORMALS */
 
-/* Component - Delay */
+/* Component - delay */
 
 #define DSP_DELAY_MAX_DELAY_MS 300
 
@@ -373,73 +373,73 @@ static inline void DspAllPass_Destroy(DspAllPass *filter, ForgeFreeFunc free_fun
 }
 
 /*
-Reverb network - loosely based on the reverberator from
+reverb network - loosely based on the reverberator from
 "Designing Audio Effect Plug-Ins in C++" by Will Pirkle and
 the classic classic Schroeder-Moorer reverberator with modifications
 to fit the ForgeAudio reverb parameters.
 
-                                                                         
-    In    +--------+   +----+      +------------+      +-----+           
+
+    In    +--------+   +----+      +------------+      +-----+
   ----|--->PreDelay---->APF1---+--->Sub LeftCh  |----->|     |   Left Out
-      |   +--------+   +----+  |   +------------+      | Wet |-------->  
-      |                        |   +------------+      |     |           
-      |                        |---|Sub RightCh |----->| Dry |           
+      |   +--------+   +----+  |   +------------+      | Wet |-------->
+      |                        |   +------------+      |     |
+      |                        |---|Sub RightCh |----->| Dry |
       |                            +------------+      |     |  Right Out
-      |                                                | Mix |-------->  
-      +----------------------------------------------->|     |           
-                                                       +-----+           
- Sub routine per channel :                                                                    
-                                                                         
-     In  +-----+      +-----+ * cg                                       
-   ---+->|Delay|--+---|Comb1|------+                                     
-      |  +-----+  |   +-----+      |                                     
-      |           |                |                                     
-      |           |   +-----+ * cg |                                     
-      |           +--->Comb2|------+                                     
-      |           |   +-----+      |     +-----+                         
-      |           |                +---->| SUM |--------+                
-      |           |   +-----+ * cg |     +-----+        |                
-      |           +--->...  |------+                    |                
-      | * g0      |   +-----+      |                    |                
-      |           |                |                    |                
-      |           +--->-----+ * cg |                    |                
-      |               |Comb8|------+                    |                
-      |               +-----+                           |                
-      v                                                 |                
-   +-----+  g1   +----+   +----+   +----+   +----+      |                
-   | SUM |<------|APF4|<--|APF3|<--|APF2|<--|APF1|<-----+                
-   +-----+       +----+   +----+   +----+   +----+                       
-      |                                                                  
-      |                                                                  
-      |            +-------------+          Out                          
-      +----------->|RoomFilter   |------------------------>              
-                   +-------------+                                       
-                                                                         
+      |                                                | Mix |-------->
+      +----------------------------------------------->|     |
+                                                       +-----+
+ Sub routine per channel :
+
+     In  +-----+      +-----+ * cg
+   ---+->|delay|--+---|Comb1|------+
+      |  +-----+  |   +-----+      |
+      |           |                |
+      |           |   +-----+ * cg |
+      |           +--->Comb2|------+
+      |           |   +-----+      |     +-----+
+      |           |                +---->| SUM |--------+
+      |           |   +-----+ * cg |     +-----+        |
+      |           +--->...  |------+                    |
+      | * g0      |   +-----+      |                    |
+      |           |                |                    |
+      |           +--->-----+ * cg |                    |
+      |               |Comb8|------+                    |
+      |               +-----+                           |
+      v                                                 |
+   +-----+  g1   +----+   +----+   +----+   +----+      |
+   | SUM |<------|APF4|<--|APF3|<--|APF2|<--|APF1|<-----+
+   +-----+       +----+   +----+   +----+   +----+
+      |
+      |
+      |            +-------------+          Out
+      +----------->|RoomFilter   |------------------------>
+                   +-------------+
+
 
 Parameters:
 
-float WetDryMix;        0 - 100 (0 = fully dry, 100 = fully wet)
-uint32_t ReflectionsDelay;    0 - 300 ms
-uint8_t ReverbDelay;        0 - 85 ms
-uint8_t RearDelay;        0 - 5 ms
-uint8_t PositionLeft;        0 - 30
-uint8_t PositionRight;        0 - 30
-uint8_t PositionMatrixLeft;    0 - 30
-uint8_t PositionMatrixRight;    0 - 30
-uint8_t EarlyDiffusion;        0 - 15
-uint8_t LateDiffusion;        0 - 15
-uint8_t LowEQGain;        0 - 12 (formula dB = LowEQGain - 8)
-uint8_t LowEQCutoff;        0 - 9  (formula Hz = 50 + (LowEQCutoff * 50))
-uint8_t HighEQGain;        0 - 8  (formula dB = HighEQGain - 8)
-uint8_t HighEQCutoff;        0 - 14 (formula Hz = 1000 + (HighEqCutoff * 500))
-float RoomFilterFreq;        20 - 20000Hz
-float RoomFilterMain;        -100 - 0dB
-float RoomFilterHF;        -100 - 0dB
-float ReflectionsGain;        -100 - 20dB
-float ReverbGain;        -100 - 20dB
-float DecayTime;        0.1 - .... ms
-float Density;            0 - 100 %
-float RoomSize;            1 - 100 feet (NOT USED YET)
+float wet_dry_mix;        0 - 100 (0 = fully dry, 100 = fully wet)
+uint32_t reflections_delay;    0 - 300 ms
+uint8_t reverb_delay;        0 - 85 ms
+uint8_t rear_delay;        0 - 5 ms
+uint8_t position_left;        0 - 30
+uint8_t position_right;        0 - 30
+uint8_t position_matrix_left;    0 - 30
+uint8_t position_matrix_right;    0 - 30
+uint8_t early_diffusion;        0 - 15
+uint8_t late_diffusion;        0 - 15
+uint8_t low_eq_gain;        0 - 12 (formula dB = low_eq_gain - 8)
+uint8_t low_eq_cutoff;        0 - 9  (formula Hz = 50 + (low_eq_cutoff * 50))
+uint8_t high_eq_gain;        0 - 8  (formula dB = high_eq_gain - 8)
+uint8_t high_eq_cutoff;        0 - 14 (formula Hz = 1000 + (HighEqCutoff * 500))
+float room_filter_freq;        20 - 20000Hz
+float room_filter_main;        -100 - 0dB
+float room_filter_hf;        -100 - 0dB
+float reflections_gain;        -100 - 20dB
+float reverb_gain;        -100 - 20dB
+float decay_time;        0.1 - .... ms
+float density;            0 - 100 %
+float room_size;            1 - 100 feet (NOT USED YET)
 
 */
 
@@ -550,7 +550,7 @@ typedef struct DspReverb
 {
     DspDelay early_delay;
     DspAllPass apf_in[REVERB_COUNT_APF_IN];
-    
+
     int32_t in_channels;
     int32_t out_channels;
     int32_t reverb_channels;
@@ -695,11 +695,11 @@ static inline void DspReverb_SetParameters(
     DspCombShelving *comb;
     int32_t i, c;
 
-    /* Pre-Delay */
-    DspDelay_Change(&reverb->early_delay, (float) params->ReflectionsDelay);
+    /* Pre-delay */
+    DspDelay_Change(&reverb->early_delay, (float) params->reflections_delay);
 
-    /* Early Reflections - Diffusion */
-    early_diffusion = 0.6f - ((params->EarlyDiffusion / 15.0f) * 0.2f);
+    /* Early reflections - diffusion */
+    early_diffusion = 0.6f - ((params->early_diffusion / 15.0f) * 0.2f);
 
     for (i = 0; i < REVERB_COUNT_APF_IN; i += 1)
     {
@@ -715,12 +715,12 @@ static inline void DspReverb_SetParameters(
     {
         float channel_delay =
             (ForgeAudio_GetChannelPositionFlags(reverb->reverb_channels, c) & Position_Rear) ?
-            params->RearDelay :
+            params->rear_delay :
             0.0f;
 
         DspDelay_Change(
             &reverb->channel[c].reverb_delay,
-            (float) params->ReverbDelay + channel_delay
+            (float) params->reverb_delay + channel_delay
         );
 
         for (i = 0; i < REVERB_COUNT_COMB; i += 1)
@@ -734,34 +734,34 @@ static inline void DspReverb_SetParameters(
             );
             comb->comb_feedback_gain = DspComb_FeedbackFromRT60(
                 &comb->comb_delay,
-                ForgeAudio_max(params->DecayTime, FORGE_AUDIO_REVERB_MIN_DECAY_TIME) * 1000.0f
+                ForgeAudio_max(params->decay_time, FORGE_AUDIO_REVERB_MIN_DECAY_TIME) * 1000.0f
             );
 
             /* High/Low shelving */
             DspBiQuad_Change(
                 &comb->low_shelving,
                 DSP_BIQUAD_LOWSHELVING,
-                50.0f + params->LowEQCutoff * 50.0f,
+                50.0f + params->low_eq_cutoff * 50.0f,
                 0.0f,
-                params->LowEQGain - 8.0f
+                params->low_eq_gain - 8.0f
             );
             DspBiQuad_Change(
                 &comb->high_shelving,
                 DSP_BIQUAD_HIGHSHELVING,
-                1000 + params->HighEQCutoff * 500.0f,
+                1000 + params->high_eq_cutoff * 500.0f,
                 0.0f,
-                params->HighEQGain - 8.0f
+                params->high_eq_gain - 8.0f
             );
         }
     }
 
     /* Gain */
-    reverb->early_gain = DbGainToFactor(params->ReflectionsGain);
-    reverb->reverb_gain = DbGainToFactor(params->ReverbGain);
-    reverb->room_gain = DbGainToFactor(params->RoomFilterMain);
+    reverb->early_gain = DbGainToFactor(params->reflections_gain);
+    reverb->reverb_gain = DbGainToFactor(params->reverb_gain);
+    reverb->room_gain = DbGainToFactor(params->room_filter_main);
 
-    /* Late Diffusion */
-    late_diffusion = 0.6f - ((params->LateDiffusion / 15.0f) * 0.2f);
+    /* Late diffusion */
+    late_diffusion = 0.6f - ((params->late_diffusion / 15.0f) * 0.2f);
 
     for (c = 0; c < reverb->reverb_channels; c += 1)
     {
@@ -780,22 +780,22 @@ static inline void DspReverb_SetParameters(
         DspBiQuad_Change(
             &reverb->channel[c].room_high_shelf,
             DSP_BIQUAD_HIGHSHELVING,
-            params->RoomFilterFreq,
+            params->room_filter_freq,
             0.0f,
-            params->RoomFilterMain + params->RoomFilterHF
+            params->room_filter_main + params->room_filter_hf
         );
 
         if (position & Position_Left)
         {
-            gain = params->PositionMatrixLeft;
+            gain = params->position_matrix_left;
         }
         else if (position & Position_Right)
         {
-            gain = params->PositionMatrixRight;
+            gain = params->position_matrix_right;
         }
         else /*if (position & Position_Center) */
         {
-            gain = (params->PositionMatrixLeft + params->PositionMatrixRight) / 2.0f;
+            gain = (params->position_matrix_left + params->position_matrix_right) / 2.0f;
         }
         reverb->channel[c].gain = 1.5f - (gain / 27.0f) * 0.5f;
 
@@ -807,15 +807,15 @@ static inline void DspReverb_SetParameters(
 
         if (position & Position_Left)
         {
-            gain = params->PositionLeft;
+            gain = params->position_left;
         }
         else if (position & Position_Right)
         {
-            gain = params->PositionRight;
+            gain = params->position_right;
         }
         else /*if (position & Position_Center) */
         {
-            gain = (params->PositionLeft + params->PositionRight) / 2.0f;
+            gain = (params->position_left + params->position_right) / 2.0f;
         }
         reverb->channel[c].early_gain = 1.2f - (gain / 6.0f) * 0.2f;
         reverb->channel[c].early_gain = (
@@ -825,7 +825,7 @@ static inline void DspReverb_SetParameters(
     }
 
     /* Wet/Dry Mix (100 = fully wet, 0 = fully dry) */
-    reverb->wet_ratio = params->WetDryMix / 100.0f;
+    reverb->wet_ratio = params->wet_dry_mix / 100.0f;
     reverb->dry_ratio = 1.0f - reverb->wet_ratio;
 }
 
@@ -834,28 +834,28 @@ static inline void DspReverb_SetParameters9(
     ForgeAudioReverbParameters7Point1 *params
 ) {
     ForgeAudioReverbParameters oldParams;
-    oldParams.WetDryMix = params->WetDryMix;
-    oldParams.ReflectionsDelay = params->ReflectionsDelay;
-    oldParams.ReverbDelay = params->ReverbDelay;
-    oldParams.RearDelay = params->RearDelay;
-    oldParams.PositionLeft = params->PositionLeft;
-    oldParams.PositionRight = params->PositionRight;
-    oldParams.PositionMatrixLeft = params->PositionMatrixLeft;
-    oldParams.PositionMatrixRight = params->PositionMatrixRight;
-    oldParams.EarlyDiffusion = params->EarlyDiffusion;
-    oldParams.LateDiffusion = params->LateDiffusion;
-    oldParams.LowEQGain = params->LowEQGain;
-    oldParams.LowEQCutoff = params->LowEQCutoff;
-    oldParams.HighEQGain = params->HighEQGain;
-    oldParams.HighEQCutoff = params->HighEQCutoff;
-    oldParams.RoomFilterFreq = params->RoomFilterFreq;
-    oldParams.RoomFilterMain = params->RoomFilterMain;
-    oldParams.RoomFilterHF = params->RoomFilterHF;
-    oldParams.ReflectionsGain = params->ReflectionsGain;
-    oldParams.ReverbGain = params->ReverbGain;
-    oldParams.DecayTime = params->DecayTime;
-    oldParams.Density = params->Density;
-    oldParams.RoomSize = params->RoomSize;
+    oldParams.wet_dry_mix = params->wet_dry_mix;
+    oldParams.reflections_delay = params->reflections_delay;
+    oldParams.reverb_delay = params->reverb_delay;
+    oldParams.rear_delay = params->rear_delay;
+    oldParams.position_left = params->position_left;
+    oldParams.position_right = params->position_right;
+    oldParams.position_matrix_left = params->position_matrix_left;
+    oldParams.position_matrix_right = params->position_matrix_right;
+    oldParams.early_diffusion = params->early_diffusion;
+    oldParams.late_diffusion = params->late_diffusion;
+    oldParams.low_eq_gain = params->low_eq_gain;
+    oldParams.low_eq_cutoff = params->low_eq_cutoff;
+    oldParams.high_eq_gain = params->high_eq_gain;
+    oldParams.high_eq_cutoff = params->high_eq_cutoff;
+    oldParams.room_filter_freq = params->room_filter_freq;
+    oldParams.room_filter_main = params->room_filter_main;
+    oldParams.room_filter_hf = params->room_filter_hf;
+    oldParams.reflections_gain = params->reflections_gain;
+    oldParams.reverb_gain = params->reverb_gain;
+    oldParams.decay_time = params->decay_time;
+    oldParams.density = params->density;
+    oldParams.room_size = params->room_size;
     DspReverb_SetParameters(reverb, &oldParams);
 }
 
@@ -866,10 +866,10 @@ static inline float DspReverb_INTERNAL_ProcessEarly(
     float early;
     int32_t i;
 
-    /* Pre-Delay */
+    /* Pre-delay */
     early = DspDelay_Process(&reverb->early_delay, sample_in);
 
-    /* Early Reflections */
+    /* Early reflections */
     for (i = 0; i < REVERB_COUNT_APF_IN; i += 1)
     {
         early = DspAllPass_Process(&reverb->apf_in[i], early);
@@ -898,7 +898,7 @@ static inline float DspReverb_INTERNAL_ProcessChannel(
     }
     sample_out /= (float) REVERB_COUNT_COMB;
 
-    /* Output Diffusion */
+    /* Output diffusion */
     for (i = 0; i < REVERB_COUNT_APF_OUT; i += 1)
     {
         sample_out = DspAllPass_Process(
@@ -913,17 +913,17 @@ static inline float DspReverb_INTERNAL_ProcessChannel(
         (sample_out * reverb->reverb_gain)
     );
 
-    /* Room filter */
+    /* room filter */
     sample_out = DspBiQuad_Process(
         &channel->room_high_shelf,
         early_late * reverb->room_gain
     );
 
-    /* PositionMatrixLeft/Right */
+    /* position_matrix_left/Right */
     return sample_out * channel->gain;
 }
 
-/* Reverb Process Functions */
+/* reverb process Functions */
 
 static inline float DspReverb_INTERNAL_Process_1_to_1(
     DspReverb *reverb,
@@ -940,7 +940,7 @@ static inline float DspReverb_INTERNAL_Process_1_to_1(
         /* Input */
         in = *samples_in++;
 
-        /* Early Reflections */
+        /* Early reflections */
         early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
 
         /* Reverberation */
@@ -978,7 +978,7 @@ static inline float DspReverb_INTERNAL_Process_1_to_5p1(
         in = *samples_in++;
         in_ratio = in * reverb->dry_ratio;
 
-        /* Early Reflections */
+        /* Early reflections */
         early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
 
         /* Reverberation with Wet/Dry Mix */
@@ -1019,7 +1019,7 @@ static inline float DspReverb_INTERNAL_Process_2_to_2(
         /* Input - Combine 2 channels into 1 */
         in = (samples_in[0] + samples_in[1]) / 2.0f;
 
-        /* Early Reflections */
+        /* Early reflections */
         early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
 
         /* Reverberation with Wet/Dry Mix */
@@ -1063,7 +1063,7 @@ static inline float DspReverb_INTERNAL_Process_2_to_5p1(
         in_ratio = in * reverb->dry_ratio;
         samples_in += 2;
 
-        /* Early Reflections */
+        /* Early reflections */
         early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
 
         /* Reverberation with Wet/Dry Mix */
@@ -1107,7 +1107,7 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(
                 samples_in[4] + samples_in[5]) / 5.0f;
         in_ratio = in * reverb->dry_ratio;
 
-        /* Early Reflections */
+        /* Early reflections */
         early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
 
         /* Reverberation with Wet/Dry Mix */
@@ -1137,7 +1137,7 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(
 
 #undef OUTPUT_SAMPLE
 
-/* Reverb ForgeEffect Implementation */
+/* reverb ForgeEffect Implementation */
 
 const ForgeGuid FORGE_AUDIO_FX_ID_REVERB = /* 2.7 */
 {
@@ -1159,26 +1159,26 @@ const ForgeGuid FORGE_AUDIO_FX_ID_REVERB = /* 2.7 */
 static ForgeEffectProperties ReverbProperties =
 {
     /* .clsid = */ {0},
-    /*.FriendlyName = */
+    /*.friendly_name = */
     {
         'R', 'e', 'v', 'e', 'r', 'b', '\0'
     },
-    /*.CopyrightInfo = */ {
+    /*.copyright_info = */ {
         'C', 'o', 'p', 'y', 'r', 'i', 'g', 'h', 't', ' ', '(', 'c', ')',
         'E', 't', 'h', 'a', 'n', ' ', 'L', 'e', 'e', '\0'
     },
-    /*.MajorVersion = */ 0,
-    /*.MinorVersion = */ 0,
-    /*.Flags = */ (
+    /*.major_version = */ 0,
+    /*.minor_version = */ 0,
+    /*.flags = */ (
         FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
         FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
         FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
         FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED
     ),
-    /*.MinInputBufferCount = */ 1,
-    /*.MaxInputBufferCount = */ 1,
-    /*.MinOutputBufferCount = */ 1,
-    /*.MaxOutputBufferCount = */ 1
+    /*.min_input_buffer_count = */ 1,
+    /*.max_input_buffer_count = */ 1,
+    /*.min_output_buffer_count = */ 1,
+    /*.max_output_buffer_count = */ 1
 };
 
 typedef struct ForgeAudioFxReverb
@@ -1219,7 +1219,7 @@ static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
         #undef MAKE_SUBFORMAT_GUID
 
         if (ForgeAudio_memcmp(
-            &((ForgeAudioFormatExtensible*) format)->SubFormat,
+            &((ForgeAudioFormatExtensible*) format)->sub_format,
             &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
             sizeof(ForgeGuid)
         ) == 0) {
@@ -1251,7 +1251,7 @@ ForgeResult ForgeAudioFxReverb_IsInputFormatSupported(
         SET_SUPPORTED_FIELD(sample_rate, output_format->sample_rate);
     }
 
-    /* Data Type */
+    /* Data type */
     if (!IsFloatFormat(requested_input_format))
     {
         SET_SUPPORTED_FIELD(format_tag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
@@ -1306,7 +1306,7 @@ ForgeResult ForgeAudioFxReverb_IsOutputFormatSupported(
         SET_SUPPORTED_FIELD(sample_rate, input_format->sample_rate);
     }
 
-    /* Data Type */
+    /* Data type */
     if (!IsFloatFormat(requested_output_format))
     {
         SET_SUPPORTED_FIELD(format_tag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
@@ -1341,13 +1341,13 @@ ForgeResult ForgeAudioFxReverb_IsOutputFormatSupported(
 ForgeResult ForgeAudioFxReverb_Initialize(
     ForgeAudioFxReverb *effect,
     const void* data,
-    uint32_t DataByteSize
+    uint32_t data_byte_size
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            effect->base.parameter_blocks + DataByteSize * offset, \
+            effect->base.parameter_blocks + data_byte_size * offset, \
             data, \
-            DataByteSize \
+            data_byte_size \
         );
     INITPARAMS(0)
     INITPARAMS(1)
@@ -1358,14 +1358,14 @@ ForgeResult ForgeAudioFxReverb_Initialize(
 
 ForgeResult ForgeAudioFxReverb_LockForProcess(
     ForgeAudioFxReverb *effect,
-    uint32_t InputLockedParameterCount,
+    uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
-    uint32_t OutputLockedParameterCount,
+    uint32_t output_locked_parameter_count,
     const ForgeEffectLockBuffer *output_locked_parameters
 ) {
     ForgeResult result;
 
-    /* Reverb specific validation */
+    /* reverb specific validation */
     if (!IsFloatFormat(input_locked_parameters->format))
     {
         return ForgeResultEffectFormatUnsupported;
@@ -1391,9 +1391,9 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
 
     result = forge_effect_base_lock_for_process(
         &effect->base,
-        InputLockedParameterCount,
+        input_locked_parameter_count,
         input_locked_parameters,
-        OutputLockedParameterCount,
+        output_locked_parameter_count,
         output_locked_parameters
     );
     if (result != 0)
@@ -1417,7 +1417,7 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
         effect->base.malloc_func
     );
 
-    /* Initialize the effect to a default setting */
+    /* initialize the effect to a default setting */
     if (effect->apiVersion == 9)
     {
         DspReverb_SetParameters9(
@@ -1454,7 +1454,7 @@ static inline void ForgeAudioFxReverb_CopyBuffer(
     {
         return;
     }
-    
+
     /* equal channel count */
     if (effect->inBlockAlign == effect->outBlockAlign)
     {
@@ -1504,11 +1504,11 @@ static inline void ForgeAudioFxReverb_CopyBuffer(
 
 void ForgeAudioFxReverb_Process(
     ForgeAudioFxReverb *effect,
-    uint32_t InputProcessParameterCount,
+    uint32_t input_process_parameter_count,
     const ForgeEffectProcessBuffer* input_process_parameters,
-    uint32_t OutputProcessParameterCount,
+    uint32_t output_process_parameter_count,
     ForgeEffectProcessBuffer* output_process_parameters,
-    int32_t IsEnabled
+    int32_t is_enabled
 ) {
     ForgeAudioReverbParameters *params;
     uint8_t update_params = forge_effect_base_parameters_changed(&effect->base);
@@ -1531,33 +1531,33 @@ void ForgeAudioFxReverb_Process(
             DspReverb_SetParameters(&effect->reverb, params);
         }
     }
-    
-    /* Handle disabled filter */
-    if (IsEnabled == 0)
-    {
-        output_process_parameters->BufferFlags = input_process_parameters->BufferFlags;
 
-        if (output_process_parameters->BufferFlags != FORGE_EFFECT_BUFFER_SILENT)
+    /* Handle disabled filter */
+    if (is_enabled == 0)
+    {
+        output_process_parameters->buffer_flags = input_process_parameters->buffer_flags;
+
+        if (output_process_parameters->buffer_flags != FORGE_EFFECT_BUFFER_SILENT)
         {
             ForgeAudioFxReverb_CopyBuffer(
                 effect,
                 (float*) input_process_parameters->buffer,
                 (float*) output_process_parameters->buffer,
-                input_process_parameters->ValidFrameCount
+                input_process_parameters->valid_frame_count
             );
         }
 
         forge_effect_base_end_process(&effect->base);
         return;
     }
-    
+
     /* Use a silent buffer when no input buffer is available to play the effect tail. */
-    if (input_process_parameters->BufferFlags == FORGE_EFFECT_BUFFER_SILENT)
+    if (input_process_parameters->buffer_flags == FORGE_EFFECT_BUFFER_SILENT)
     {
         /* Make sure input data is usable. FIXME: Is this required? */
         ForgeAudio_zero(
             input_process_parameters->buffer,
-            input_process_parameters->ValidFrameCount * effect->inBlockAlign
+            input_process_parameters->valid_frame_count * effect->inBlockAlign
         );
     }
 
@@ -1567,7 +1567,7 @@ void ForgeAudioFxReverb_Process(
             &effect->reverb, \
             (float*) input_process_parameters->buffer, \
             (float*) output_process_parameters->buffer, \
-            input_process_parameters->ValidFrameCount * effect->inChannels \
+            input_process_parameters->valid_frame_count * effect->inChannels \
         )
     switch (effect->reverb.out_channels)
     {
@@ -1594,8 +1594,8 @@ void ForgeAudioFxReverb_Process(
     }
     #undef PROCESS
 
-    /* Set BufferFlags to silent so PLAY_TAILS knows when to stop */
-    output_process_parameters->BufferFlags = (total < 0.0000001f) ?
+    /* Set buffer_flags to silent so PLAY_TAILS knows when to stop */
+    output_process_parameters->buffer_flags = (total < 0.0000001f) ?
         FORGE_EFFECT_BUFFER_SILENT :
         FORGE_EFFECT_BUFFER_VALID;
 
@@ -1607,7 +1607,7 @@ void ForgeAudioFxReverb_Reset(ForgeAudioFxReverb *effect)
     int32_t i, c;
     forge_effect_base_reset(&effect->base);
 
-    /* Reset the cached state of the reverb filter */
+    /* reset the cached state of the reverb filter */
     DspDelay_Reset(&effect->reverb.early_delay);
 
     for (i = 0; i < REVERB_COUNT_APF_IN; i += 1)
@@ -1643,11 +1643,11 @@ void ForgeAudioFxReverb_Free(void* effect)
 
 /* Public API (Version 7) */
 
-ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t Flags)
+ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t flags)
 {
     return forge_audio_create_reverb_with_allocator(
         effect,
-        Flags,
+        flags,
         ForgeAudio_malloc,
         ForgeAudio_free,
         ForgeAudio_realloc
@@ -1656,10 +1656,10 @@ ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t Flags)
 
 ForgeResult forge_audio_create_reverb_with_allocator(
     ForgeEffect** effect,
-    uint32_t Flags,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t flags,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 ) {
     const ForgeAudioReverbParameters fxdefault =
     {
@@ -1688,13 +1688,13 @@ ForgeResult forge_audio_create_reverb_with_allocator(
     };
 
     /* Allocate... */
-    ForgeAudioFxReverb *result = (ForgeAudioFxReverb*) customMalloc(sizeof(ForgeAudioFxReverb));
-    uint8_t *params = (uint8_t*) customMalloc(
+    ForgeAudioFxReverb *result = (ForgeAudioFxReverb*) custom_malloc(sizeof(ForgeAudioFxReverb));
+    uint8_t *params = (uint8_t*) custom_malloc(
         sizeof(ForgeAudioReverbParameters) * 3
     );
     result->apiVersion = 7;
 
-    /* Initialize... */
+    /* initialize... */
     ForgeAudio_memcpy(
         &ReverbProperties.clsid,
         &FORGE_AUDIO_FX_ID_REVERB,
@@ -1706,9 +1706,9 @@ ForgeResult forge_audio_create_reverb_with_allocator(
         params,
         sizeof(ForgeAudioReverbParameters),
         0,
-        customMalloc,
-        customFree,
-        customRealloc
+        custom_malloc,
+        custom_free,
+        custom_realloc
     );
 
     result->inChannels = 0;
@@ -1717,22 +1717,22 @@ ForgeResult forge_audio_create_reverb_with_allocator(
     ForgeAudio_zero(&result->reverb, sizeof(DspReverb));
 
     /* Function table... */
-    result->base.base.LockForProcess = (ForgeEffectLockForProcessFunc)
+    result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
         ForgeAudioFxReverb_LockForProcess;
-    result->base.base.UnlockForProcess = (ForgeEffectUnlockForProcessFunc)
+    result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
         ForgeAudioFxReverb_UnlockForProcess;
-    result->base.base.IsInputFormatSupported = (ForgeEffectIsInputFormatSupportedFunc)
+    result->base.base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
         ForgeAudioFxReverb_IsInputFormatSupported;
-    result->base.base.IsOutputFormatSupported = (ForgeEffectIsOutputFormatSupportedFunc)
+    result->base.base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
         ForgeAudioFxReverb_IsOutputFormatSupported;
-    result->base.base.Initialize = (ForgeEffectInitializeFunc)
+    result->base.base.initialize = (ForgeEffectInitializeFunc)
         ForgeAudioFxReverb_Initialize;
-    result->base.base.Reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
-    result->base.base.Process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
-    result->base.Destructor = ForgeAudioFxReverb_Free;
+    result->base.base.reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
+    result->base.base.process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
+    result->base.destructor = ForgeAudioFxReverb_Free;
 
     /* Prepare the default parameters */
-    result->base.base.Initialize(
+    result->base.base.initialize(
         result,
         &fxdefault,
         sizeof(ForgeAudioReverbParameters)
@@ -1750,42 +1750,42 @@ void forge_audio_reverb_convert_i3dl2(
     float reflectionsDelay;
     float reverbDelay;
 
-    native->RearDelay = FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY;
-    native->PositionLeft = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->PositionRight = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->PositionMatrixLeft = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->PositionMatrixRight = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->RoomSize = FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE;
-    native->LowEQCutoff = 4;
-    native->HighEQCutoff = 6;
+    native->rear_delay = FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY;
+    native->position_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
+    native->position_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
+    native->position_matrix_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
+    native->position_matrix_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
+    native->room_size = FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE;
+    native->low_eq_cutoff = 4;
+    native->high_eq_cutoff = 6;
 
-    native->RoomFilterMain = (float) i3dl2->Room / 100.0f;
-    native->RoomFilterHF = (float) i3dl2->RoomHF / 100.0f;
+    native->room_filter_main = (float) i3dl2->room / 100.0f;
+    native->room_filter_hf = (float) i3dl2->room_hf / 100.0f;
 
-    if (i3dl2->DecayHFRatio >= 1.0f)
+    if (i3dl2->decay_hf_ratio >= 1.0f)
     {
-        int32_t index = (int32_t) (-4.0 * ForgeAudio_log10(i3dl2->DecayHFRatio));
+        int32_t index = (int32_t) (-4.0 * ForgeAudio_log10(i3dl2->decay_hf_ratio));
         if (index < -8)
         {
             index = -8;
         }
-        native->LowEQGain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->HighEQGain = 8;
-        native->DecayTime = i3dl2->DecayTime * i3dl2->DecayHFRatio;
+        native->low_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        native->high_eq_gain = 8;
+        native->decay_time = i3dl2->decay_time * i3dl2->decay_hf_ratio;
     }
     else
     {
-        int32_t index = (int32_t) (4.0 * ForgeAudio_log10(i3dl2->DecayHFRatio));
+        int32_t index = (int32_t) (4.0 * ForgeAudio_log10(i3dl2->decay_hf_ratio));
         if (index < -8)
         {
             index = -8;
         }
-        native->LowEQGain = 8;
-        native->HighEQGain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->DecayTime = i3dl2->DecayTime;
+        native->low_eq_gain = 8;
+        native->high_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        native->decay_time = i3dl2->decay_time;
     }
 
-    reflectionsDelay = i3dl2->ReflectionsDelay * 1000.0f;
+    reflectionsDelay = i3dl2->reflections_delay * 1000.0f;
     if (reflectionsDelay >= FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY)
     {
         reflectionsDelay = (float) (FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY - 1);
@@ -1794,32 +1794,32 @@ void forge_audio_reverb_convert_i3dl2(
     {
         reflectionsDelay = 1;
     }
-    native->ReflectionsDelay = (uint32_t) reflectionsDelay;
+    native->reflections_delay = (uint32_t) reflectionsDelay;
 
-    reverbDelay = i3dl2->ReverbDelay * 1000.0f;
+    reverbDelay = i3dl2->reverb_delay * 1000.0f;
     if (reverbDelay >= FORGE_AUDIO_REVERB_MAX_REVERB_DELAY)
     {
         reverbDelay = (float) (FORGE_AUDIO_REVERB_MAX_REVERB_DELAY - 1);
     }
-    native->ReverbDelay = (uint8_t) reverbDelay;
+    native->reverb_delay = (uint8_t) reverbDelay;
 
-    native->ReflectionsGain = i3dl2->Reflections / 100.0f;
-    native->ReverbGain = i3dl2->Reverb / 100.0f;
-    native->EarlyDiffusion = (uint8_t) (15.0f * i3dl2->Diffusion / 100.0f);
-    native->LateDiffusion = native->EarlyDiffusion;
-    native->Density = i3dl2->Density;
-    native->RoomFilterFreq = i3dl2->HFReference;
+    native->reflections_gain = i3dl2->reflections / 100.0f;
+    native->reverb_gain = i3dl2->reverb / 100.0f;
+    native->early_diffusion = (uint8_t) (15.0f * i3dl2->diffusion / 100.0f);
+    native->late_diffusion = native->early_diffusion;
+    native->density = i3dl2->density;
+    native->room_filter_freq = i3dl2->hf_reference;
 
-    native->WetDryMix = i3dl2->WetDryMix;
+    native->wet_dry_mix = i3dl2->wet_dry_mix;
 }
 
 /* Public API (Version 9) */
 
-ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t Flags)
+ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t flags)
 {
     return forge_audio_create_reverb_7point1_with_allocator(
         effect,
-        Flags,
+        flags,
         ForgeAudio_malloc,
         ForgeAudio_free,
         ForgeAudio_realloc
@@ -1828,10 +1828,10 @@ ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t Fla
 
 ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     ForgeEffect** effect,
-    uint32_t Flags,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t flags,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 ) {
     const ForgeAudioReverbParameters7Point1 fxdefault =
     {
@@ -1861,13 +1861,13 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     };
 
     /* Allocate... */
-    ForgeAudioFxReverb *result = (ForgeAudioFxReverb*) customMalloc(sizeof(ForgeAudioFxReverb));
-    uint8_t *params = (uint8_t*) customMalloc(
+    ForgeAudioFxReverb *result = (ForgeAudioFxReverb*) custom_malloc(sizeof(ForgeAudioFxReverb));
+    uint8_t *params = (uint8_t*) custom_malloc(
         sizeof(ForgeAudioReverbParameters7Point1) * 3
     );
     result->apiVersion = 9;
 
-    /* Initialize... */
+    /* initialize... */
     ForgeAudio_memcpy(
         &ReverbProperties.clsid,
         &FORGE_AUDIO_FX_ID_REVERB,
@@ -1879,9 +1879,9 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
         params,
         sizeof(ForgeAudioReverbParameters7Point1),
         0,
-        customMalloc,
-        customFree,
-        customRealloc
+        custom_malloc,
+        custom_free,
+        custom_realloc
     );
 
     result->inChannels = 0;
@@ -1890,22 +1890,22 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     ForgeAudio_zero(&result->reverb, sizeof(DspReverb));
 
     /* Function table... */
-    result->base.base.LockForProcess = (ForgeEffectLockForProcessFunc)
+    result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)
         ForgeAudioFxReverb_LockForProcess;
-    result->base.base.UnlockForProcess = (ForgeEffectUnlockForProcessFunc)
+    result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
         ForgeAudioFxReverb_UnlockForProcess;
-    result->base.base.IsInputFormatSupported = (ForgeEffectIsInputFormatSupportedFunc)
+    result->base.base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
         ForgeAudioFxReverb_IsInputFormatSupported;
-    result->base.base.IsOutputFormatSupported = (ForgeEffectIsOutputFormatSupportedFunc)
+    result->base.base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
         ForgeAudioFxReverb_IsOutputFormatSupported;
-    result->base.base.Initialize = (ForgeEffectInitializeFunc)
+    result->base.base.initialize = (ForgeEffectInitializeFunc)
         ForgeAudioFxReverb_Initialize;
-    result->base.base.Reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
-    result->base.base.Process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
-    result->base.Destructor = ForgeAudioFxReverb_Free;
+    result->base.base.reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
+    result->base.base.process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
+    result->base.destructor = ForgeAudioFxReverb_Free;
 
     /* Prepare the default parameters */
-    result->base.base.Initialize(
+    result->base.base.initialize(
         result,
         &fxdefault,
         sizeof(ForgeAudioReverbParameters7Point1)
@@ -1919,55 +1919,55 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
 void forge_audio_reverb_convert_i3dl2_7point1(
     const ForgeAudioReverbI3DL2Parameters *i3dl2,
     ForgeAudioReverbParameters7Point1 *native,
-    int32_t sevenDotOneReverb
+    int32_t seven_point_one_reverb
 ) {
     float reflectionsDelay;
     float reverbDelay;
 
-    if (sevenDotOneReverb)
+    if (seven_point_one_reverb)
     {
-        native->RearDelay = FORGE_AUDIO_REVERB_DEFAULT_7_1_REAR_DELAY;
+        native->rear_delay = FORGE_AUDIO_REVERB_DEFAULT_7_1_REAR_DELAY;
     }
     else
     {
-        native->RearDelay = FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY;
+        native->rear_delay = FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY;
     }
-    native->SideDelay = FORGE_AUDIO_REVERB_DEFAULT_7_1_SIDE_DELAY;
-    native->PositionLeft = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->PositionRight = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
-    native->PositionMatrixLeft = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->PositionMatrixRight = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
-    native->RoomSize = FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE;
-    native->LowEQCutoff = 4;
-    native->HighEQCutoff = 6;
+    native->side_delay = FORGE_AUDIO_REVERB_DEFAULT_7_1_SIDE_DELAY;
+    native->position_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
+    native->position_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION;
+    native->position_matrix_left = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
+    native->position_matrix_right = FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX;
+    native->room_size = FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE;
+    native->low_eq_cutoff = 4;
+    native->high_eq_cutoff = 6;
 
-    native->RoomFilterMain = (float) i3dl2->Room / 100.0f;
-    native->RoomFilterHF = (float) i3dl2->RoomHF / 100.0f;
+    native->room_filter_main = (float) i3dl2->room / 100.0f;
+    native->room_filter_hf = (float) i3dl2->room_hf / 100.0f;
 
-    if (i3dl2->DecayHFRatio >= 1.0f)
+    if (i3dl2->decay_hf_ratio >= 1.0f)
     {
-        int32_t index = (int32_t) (-4.0 * ForgeAudio_log10(i3dl2->DecayHFRatio));
+        int32_t index = (int32_t) (-4.0 * ForgeAudio_log10(i3dl2->decay_hf_ratio));
         if (index < -8)
         {
             index = -8;
         }
-        native->LowEQGain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->HighEQGain = 8;
-        native->DecayTime = i3dl2->DecayTime * i3dl2->DecayHFRatio;
+        native->low_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        native->high_eq_gain = 8;
+        native->decay_time = i3dl2->decay_time * i3dl2->decay_hf_ratio;
     }
     else
     {
-        int32_t index = (int32_t) (4.0 * ForgeAudio_log10(i3dl2->DecayHFRatio));
+        int32_t index = (int32_t) (4.0 * ForgeAudio_log10(i3dl2->decay_hf_ratio));
         if (index < -8)
         {
             index = -8;
         }
-        native->LowEQGain = 8;
-        native->HighEQGain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->DecayTime = i3dl2->DecayTime;
+        native->low_eq_gain = 8;
+        native->high_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        native->decay_time = i3dl2->decay_time;
     }
 
-    reflectionsDelay = i3dl2->ReflectionsDelay * 1000.0f;
+    reflectionsDelay = i3dl2->reflections_delay * 1000.0f;
     if (reflectionsDelay >= FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY)
     {
         reflectionsDelay = (float) (FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY - 1);
@@ -1976,21 +1976,21 @@ void forge_audio_reverb_convert_i3dl2_7point1(
     {
         reflectionsDelay = 1;
     }
-    native->ReflectionsDelay = (uint32_t) reflectionsDelay;
+    native->reflections_delay = (uint32_t) reflectionsDelay;
 
-    reverbDelay = i3dl2->ReverbDelay * 1000.0f;
+    reverbDelay = i3dl2->reverb_delay * 1000.0f;
     if (reverbDelay >= FORGE_AUDIO_REVERB_MAX_REVERB_DELAY)
     {
         reverbDelay = (float) (FORGE_AUDIO_REVERB_MAX_REVERB_DELAY - 1);
     }
-    native->ReverbDelay = (uint8_t) reverbDelay;
+    native->reverb_delay = (uint8_t) reverbDelay;
 
-    native->ReflectionsGain = i3dl2->Reflections / 100.0f;
-    native->ReverbGain = i3dl2->Reverb / 100.0f;
-    native->EarlyDiffusion = (uint8_t) (15.0f * i3dl2->Diffusion / 100.0f);
-    native->LateDiffusion = native->EarlyDiffusion;
-    native->Density = i3dl2->Density;
-    native->RoomFilterFreq = i3dl2->HFReference;
+    native->reflections_gain = i3dl2->reflections / 100.0f;
+    native->reverb_gain = i3dl2->reverb / 100.0f;
+    native->early_diffusion = (uint8_t) (15.0f * i3dl2->diffusion / 100.0f);
+    native->late_diffusion = native->early_diffusion;
+    native->density = i3dl2->density;
+    native->room_filter_freq = i3dl2->hf_reference;
 
-    native->WetDryMix = i3dl2->WetDryMix;
+    native->wet_dry_mix = i3dl2->wet_dry_mix;
 }

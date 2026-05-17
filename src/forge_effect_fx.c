@@ -31,13 +31,13 @@ ForgeResult forge_effect_create(
     const ForgeGuid *clsid,
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize
+    uint32_t init_data_byte_size
 ) {
     return forge_effect_create_with_allocator(
         clsid,
         effect,
         init_data,
-        InitDataByteSize,
+        init_data_byte_size,
         ForgeAudio_malloc,
         ForgeAudio_free,
         ForgeAudio_realloc
@@ -48,10 +48,10 @@ ForgeResult forge_effect_create_with_allocator(
     const ForgeGuid *clsid,
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t init_data_byte_size,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 ) {
 #define CHECK_AND_RETURN(id, create_func) \
     if (ForgeAudio_memcmp(clsid, &(id), sizeof(ForgeGuid)) == 0) \
@@ -59,10 +59,10 @@ ForgeResult forge_effect_create_with_allocator(
         return create_func( \
             effect, \
             init_data, \
-            InitDataByteSize, \
-            customMalloc, \
-            customFree, \
-            customRealloc \
+            init_data_byte_size, \
+            custom_malloc, \
+            custom_free, \
+            custom_realloc \
         ); \
     }
     CHECK_AND_RETURN(FORGE_EFFECT_FX_ID_EQ, forge_effect_create_eq)

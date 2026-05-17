@@ -49,28 +49,28 @@ const ForgeGuid FORGE_EFFECT_FX_ID_ECHO =
 static ForgeEffectProperties FXEchoProperties =
 {
     /* .clsid = */ {0},
-    /* .FriendlyName = */
+    /* .friendly_name = */
     {
         'F', 'X', 'E', 'c', 'h', 'o', '\0'
     },
-    /*.CopyrightInfo = */
+    /*.copyright_info = */
     {
         'C', 'o', 'p', 'y', 'r', 'i', 'g', 'h', 't', ' ', '(', 'c', ')',
         'E', 't', 'h', 'a', 'n', ' ', 'L', 'e', 'e', '\0'
     },
-    /*.MajorVersion = */ 0,
-    /*.MinorVersion = */ 0,
-    /*.Flags = */(
+    /*.major_version = */ 0,
+    /*.minor_version = */ 0,
+    /*.flags = */(
         FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
         FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
         FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
         FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED |
         FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED
     ),
-    /*.MinInputBufferCount = */ 1,
-    /*.MaxInputBufferCount = */  1,
-    /*.MinOutputBufferCount = */ 1,
-    /*.MaxOutputBufferCount =*/ 1
+    /*.min_input_buffer_count = */ 1,
+    /*.max_input_buffer_count = */  1,
+    /*.min_output_buffer_count = */ 1,
+    /*.max_output_buffer_count =*/ 1
 };
 
 typedef struct ForgeEffectEcho
@@ -83,13 +83,13 @@ typedef struct ForgeEffectEcho
 ForgeResult ForgeEffectEcho_Initialize(
     ForgeEffectEcho *effect,
     const void* data,
-    uint32_t DataByteSize
+    uint32_t data_byte_size
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            effect->base.parameter_blocks + DataByteSize * offset, \
+            effect->base.parameter_blocks + data_byte_size * offset, \
             data, \
-            DataByteSize \
+            data_byte_size \
         );
     INITPARAMS(0)
     INITPARAMS(1)
@@ -100,11 +100,11 @@ ForgeResult ForgeEffectEcho_Initialize(
 
 void ForgeEffectEcho_Process(
     ForgeEffectEcho *effect,
-    uint32_t InputProcessParameterCount,
+    uint32_t input_process_parameter_count,
     const ForgeEffectProcessBuffer* input_process_parameters,
-    uint32_t OutputProcessParameterCount,
+    uint32_t output_process_parameter_count,
     ForgeEffectProcessBuffer* output_process_parameters,
-    int32_t IsEnabled
+    int32_t is_enabled
 ) {
     forge_effect_base_begin_process(&effect->base);
 
@@ -125,10 +125,10 @@ void ForgeEffectEcho_Free(void* effect)
 ForgeResult forge_effect_create_echo(
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t init_data_byte_size,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 ) {
     const ForgeEffectEchoParameters fxdefault =
     {
@@ -138,10 +138,10 @@ ForgeResult forge_effect_create_echo(
     };
 
     /* Allocate... */
-    ForgeEffectEcho *result = (ForgeEffectEcho*) customMalloc(
+    ForgeEffectEcho *result = (ForgeEffectEcho*) custom_malloc(
         sizeof(ForgeEffectEcho)
     );
-    uint8_t *params = (uint8_t*) customMalloc(
+    uint8_t *params = (uint8_t*) custom_malloc(
         sizeof(ForgeEffectEchoParameters) * 3
     );
     if (init_data == NULL)
@@ -160,13 +160,13 @@ ForgeResult forge_effect_create_echo(
     }
     else
     {
-        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeEffectEchoParameters));
-        ForgeAudio_memcpy(params, init_data, InitDataByteSize);
-        ForgeAudio_memcpy(params + InitDataByteSize, init_data, InitDataByteSize);
-        ForgeAudio_memcpy(params + (InitDataByteSize * 2), init_data, InitDataByteSize);
+        ForgeAudio_assert(init_data_byte_size == sizeof(ForgeEffectEchoParameters));
+        ForgeAudio_memcpy(params, init_data, init_data_byte_size);
+        ForgeAudio_memcpy(params + init_data_byte_size, init_data, init_data_byte_size);
+        ForgeAudio_memcpy(params + (init_data_byte_size * 2), init_data, init_data_byte_size);
     }
 
-    /* Initialize... */
+    /* initialize... */
     ForgeAudio_memcpy(
         &FXEchoProperties.clsid,
         &FORGE_EFFECT_FX_ID_ECHO,
@@ -178,17 +178,17 @@ ForgeResult forge_effect_create_echo(
         params,
         sizeof(ForgeEffectEchoParameters),
         0,
-        customMalloc,
-        customFree,
-        customRealloc
+        custom_malloc,
+        custom_free,
+        custom_realloc
     );
 
     /* Function table... */
-    result->base.base.Initialize = (ForgeEffectInitializeFunc)
+    result->base.base.initialize = (ForgeEffectInitializeFunc)
         ForgeEffectEcho_Initialize;
-    result->base.base.Process = (ForgeEffectProcessFunc)
+    result->base.base.process = (ForgeEffectProcessFunc)
         ForgeEffectEcho_Process;
-    result->base.Destructor = ForgeEffectEcho_Free;
+    result->base.destructor = ForgeEffectEcho_Free;
 
     /* Finally. */
     *effect = &result->base.base;

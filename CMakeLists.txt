@@ -26,7 +26,7 @@ option(FORCE_ENABLE_DEBUGCONFIGURATION "Enable DebugConfiguration in all build t
 option(DUMP_VOICES "Dump voices to RIFF WAVE files" OFF)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 
-# Build Type
+# Build type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     # By default, we use Release
     message(STATUS "Setting build type to 'Release' as none was specified.")
@@ -40,7 +40,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     )
 endif()
 
-# Platform Flags
+# Platform flags
 if(APPLE)
     set(CMAKE_MACOSX_RPATH ON)
     set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
@@ -49,7 +49,7 @@ endif()
 # Source lists
 add_library(ForgeAudio
     # Public Headers
-    include/forge_3d_audio.h
+    include/forge_spatial_audio.h
     include/forge_effect_base.h
     include/forge_effect_fx.h
     include/forge_effect.h

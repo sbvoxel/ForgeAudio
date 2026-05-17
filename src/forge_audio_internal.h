@@ -295,7 +295,7 @@ typedef float ForgeAudioFilterState[4];
 
 typedef struct ForgeAudio_OperationSet_Operation ForgeAudio_OperationSet_Operation;
 
-void ForgeAudio_OperationSet_Commit(ForgeAudioEngine *audio, uint32_t OperationSet);
+void ForgeAudio_OperationSet_Commit(ForgeAudioEngine *audio, uint32_t operation_set);
 void ForgeAudio_OperationSet_CommitAll(ForgeAudioEngine *audio);
 void ForgeAudio_OperationSet_Execute(ForgeAudioEngine *audio);
 
@@ -304,69 +304,69 @@ void ForgeAudio_OperationSet_ClearAllForVoice(ForgeVoice *voice);
 
 void ForgeAudio_OperationSet_QueueEnableEffect(
     ForgeVoice *voice,
-    uint32_t EffectIndex,
-    uint32_t OperationSet
+    uint32_t effect_index,
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueDisableEffect(
     ForgeVoice *voice,
-    uint32_t EffectIndex,
-    uint32_t OperationSet
+    uint32_t effect_index,
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueSetEffectParameters(
     ForgeVoice *voice,
-    uint32_t EffectIndex,
+    uint32_t effect_index,
     const void *parameters,
-    uint32_t ParametersByteSize,
-    uint32_t OperationSet
+    uint32_t parameters_byte_size,
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueSetFilterParameters(
     ForgeVoice *voice,
     const ForgeFilterParameters *parameters,
-    uint32_t OperationSet
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueSetOutputFilterParameters(
     ForgeVoice *voice,
     ForgeVoice *destination_voice,
     const ForgeFilterParameters *parameters,
-    uint32_t OperationSet
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueSetVolume(
     ForgeVoice *voice,
-    float Volume,
-    uint32_t OperationSet
+    float volume,
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueSetChannelVolumes(
     ForgeVoice *voice,
-    uint32_t Channels,
+    uint32_t channels,
     const float *volumes,
-    uint32_t OperationSet
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueSetOutputMatrix(
     ForgeVoice *voice,
     ForgeVoice *destination_voice,
-    uint32_t SourceChannels,
-    uint32_t DestinationChannels,
+    uint32_t source_channels,
+    uint32_t destination_channels,
     const float *level_matrix,
-    uint32_t OperationSet
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueStart(
     ForgeSourceVoice *voice,
-    uint32_t Flags,
-    uint32_t OperationSet
+    uint32_t flags,
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueStop(
     ForgeSourceVoice *voice,
-    uint32_t Flags,
-    uint32_t OperationSet
+    uint32_t flags,
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueExitLoop(
     ForgeSourceVoice *voice,
-    uint32_t OperationSet
+    uint32_t operation_set
 );
 void ForgeAudio_OperationSet_QueueSetFrequencyRatio(
     ForgeSourceVoice *voice,
-    float Ratio,
-    uint32_t OperationSet
+    float ratio,
+    uint32_t operation_set
 );
 
 /* Public ForgeAudioEngine Types */
@@ -570,7 +570,7 @@ void ForgeAudio_Internal_debug_fmt(
 );
 
 #define PRINT_DEBUG(engine, cond, type, fmt, ...) \
-    if (engine->debug.TraceMask & FORGE_AUDIO_LOG_##cond) \
+    if (engine->debug.trace_mask & FORGE_AUDIO_LOG_##cond) \
     { \
         ForgeAudio_Internal_debug( \
             engine, \
@@ -592,14 +592,14 @@ void ForgeAudio_Internal_debug_fmt(
 #define LOG_FUNC_EXIT(engine) PRINT_DEBUG(engine, FUNC_CALLS, "FUNC Exit", "%s", __func__)
 /* TODO: LOG_TIMING */
 #define LOG_MUTEX_CREATE(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Create", "%p (%s)", mutex, #mutex)
-#define LOG_MUTEX_DESTROY(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Destroy", "%p (%s)", mutex, #mutex)
+#define LOG_MUTEX_DESTROY(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex destroy", "%p (%s)", mutex, #mutex)
 #define LOG_MUTEX_LOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Lock", "%p (%s)", mutex, #mutex)
 #define LOG_MUTEX_UNLOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Unlock", "%p (%s)", mutex, #mutex)
 /* TODO: LOG_MEMORY */
 /* TODO: LOG_STREAMING */
 
 #define LOG_FORMAT(engine, waveFormat) \
-    if (engine->debug.TraceMask & FORGE_AUDIO_LOG_INFO) \
+    if (engine->debug.trace_mask & FORGE_AUDIO_LOG_INFO) \
     { \
         ForgeAudio_Internal_debug_fmt( \
             engine, \
@@ -638,34 +638,34 @@ void ForgeAudio_Internal_debug_fmt(
 extern ForgeResult forge_effect_create_eq(
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t init_data_byte_size,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 extern ForgeResult forge_effect_create_mastering_limiter(
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t init_data_byte_size,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 extern ForgeResult forge_effect_create_reverb(
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t init_data_byte_size,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 extern ForgeResult forge_effect_create_echo(
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t init_data_byte_size,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 
 /* SIMD Stuff */
@@ -810,22 +810,22 @@ static inline void WriteWaveFormatExtensible(
     const ForgeGuid *subformat
 ) {
     ForgeAudio_assert(fmt != NULL);
-    fmt->Format.bits_per_sample = 32;
-    fmt->Format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
-    fmt->Format.channels = channels;
-    fmt->Format.sample_rate = samplerate;
-    fmt->Format.block_align = (
-        fmt->Format.channels *
-        (fmt->Format.bits_per_sample / 8)
+    fmt->format.bits_per_sample = 32;
+    fmt->format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
+    fmt->format.channels = channels;
+    fmt->format.sample_rate = samplerate;
+    fmt->format.block_align = (
+        fmt->format.channels *
+        (fmt->format.bits_per_sample / 8)
     );
-    fmt->Format.average_bytes_per_second = (
-        fmt->Format.sample_rate *
-        fmt->Format.block_align
+    fmt->format.average_bytes_per_second = (
+        fmt->format.sample_rate *
+        fmt->format.block_align
     );
-    fmt->Format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
-    fmt->Samples.valid_bits_per_sample = 32;
-    fmt->channel_mask = GetMask(fmt->Format.channels);
-    ForgeAudio_memcpy(&fmt->SubFormat, subformat, sizeof(ForgeGuid));
+    fmt->format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
+    fmt->samples.valid_bits_per_sample = 32;
+    fmt->channel_mask = GetMask(fmt->format.channels);
+    ForgeAudio_memcpy(&fmt->sub_format, subformat, sizeof(ForgeGuid));
 }
 
 /* Resampling */

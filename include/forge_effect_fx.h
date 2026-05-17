@@ -51,25 +51,25 @@ extern const ForgeGuid FORGE_EFFECT_FX_ID_ECHO;
  */
 typedef struct ForgeEffectEqParameters
 {
-    float FrequencyCenter0;
-    float Gain0;
-    float Bandwidth0;
-    float FrequencyCenter1;
-    float Gain1;
-    float Bandwidth1;
-    float FrequencyCenter2;
-    float Gain2;
-    float Bandwidth2;
-    float FrequencyCenter3;
-    float Gain3;
-    float Bandwidth3;
+    float frequency_center_0;
+    float gain_0;
+    float bandwidth_0;
+    float frequency_center_1;
+    float gain_1;
+    float bandwidth_1;
+    float frequency_center_2;
+    float gain_2;
+    float bandwidth_2;
+    float frequency_center_3;
+    float gain_3;
+    float bandwidth_3;
 } ForgeEffectEqParameters;
 
 /* See FORGE_EFFECT_MASTERING_LIMITER_* constants below. */
 typedef struct ForgeEffectMasteringLimiterParameters
 {
-    uint32_t Release;    /* In milliseconds */
-    uint32_t Loudness;
+    uint32_t release_ms;    /* In milliseconds */
+    uint32_t loudness;
 } ForgeEffectMasteringLimiterParameters;
 
 /* See FORGE_EFFECT_REVERB_* constants below.
@@ -77,16 +77,16 @@ typedef struct ForgeEffectMasteringLimiterParameters
  */
 typedef struct ForgeEffectReverbParameters
 {
-    float Diffusion;
-    float RoomSize;
+    float diffusion;
+    float room_size;
 } ForgeEffectReverbParameters;
 
 /* See FORGE_EFFECT_ECHO_* constants below. */
 typedef struct ForgeEffectEchoParameters
 {
-    float WetDryMix;    /* Percentage of processed signal vs original */
-    float Feedback;        /* Percentage to feed back into input */
-    float Delay;        /* In milliseconds */
+    float wet_dry_mix;    /* Percentage of processed signal vs original */
+    float feedback;        /* Percentage to feed back into input */
+    float delay;        /* In milliseconds */
 } ForgeEffectEchoParameters;
 
 #pragma pack(pop)
@@ -147,7 +147,7 @@ typedef struct ForgeEffectEchoParameters
  * effect:        Filled with the resulting caller-owned ForgeEffect object. Destroy
  *            with forge_effect_destroy, or transfer to a voice effect chain.
  * init_data:        Starting parameters, pass NULL to use the default values
- * InitDataByteSize:    Parameter struct size, pass 0 if init_data is NULL
+ * init_data_byte_size:    Parameter struct size, pass 0 if init_data is NULL
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -155,7 +155,7 @@ FORGE_EFFECT_FX_API ForgeResult forge_effect_create(
     const ForgeGuid *clsid,
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize
+    uint32_t init_data_byte_size
 );
 
 /* See "extensions/custom allocator.txt" for more details. */
@@ -163,10 +163,10 @@ FORGE_EFFECT_FX_API ForgeResult forge_effect_create_with_allocator(
     const ForgeGuid *clsid,
     ForgeEffect **effect,
     const void *init_data,
-    uint32_t InitDataByteSize,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t init_data_byte_size,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 
 #ifdef __cplusplus

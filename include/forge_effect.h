@@ -51,28 +51,28 @@ typedef enum ForgeEffectBufferFlags
 typedef struct ForgeEffectProperties
 {
     ForgeGuid clsid;
-    int16_t FriendlyName[256]; /* Win32 wchar_t */
-    int16_t CopyrightInfo[256]; /* Win32 wchar_t */
-    uint32_t MajorVersion;
-    uint32_t MinorVersion;
-    uint32_t Flags;
-    uint32_t MinInputBufferCount;
-    uint32_t MaxInputBufferCount;
-    uint32_t MinOutputBufferCount;
-    uint32_t MaxOutputBufferCount;
+    int16_t friendly_name[256]; /* Win32 wchar_t */
+    int16_t copyright_info[256]; /* Win32 wchar_t */
+    uint32_t major_version;
+    uint32_t minor_version;
+    uint32_t flags;
+    uint32_t min_input_buffer_count;
+    uint32_t max_input_buffer_count;
+    uint32_t min_output_buffer_count;
+    uint32_t max_output_buffer_count;
 } ForgeEffectProperties;
 
 typedef struct ForgeEffectLockBuffer
 {
     const ForgeAudioFormat *format;
-    uint32_t MaxFrameCount;
+    uint32_t max_frame_count;
 } ForgeEffectLockBuffer;
 
 typedef struct ForgeEffectProcessBuffer
 {
     void* buffer;
-    ForgeEffectBufferFlags BufferFlags;
-    uint32_t ValidFrameCount;
+    ForgeEffectBufferFlags buffer_flags;
+    uint32_t valid_frame_count;
 } ForgeEffectProcessBuffer;
 
 #pragma pack(pop)
@@ -123,16 +123,16 @@ typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectIsOutputFormatSupportedFunc)
 typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectInitializeFunc)(
     void* effect,
     const void* data,
-    uint32_t DataByteSize
+    uint32_t data_byte_size
 );
 typedef void (FORGE_EFFECT_CALL * ForgeEffectResetFunc)(
     void* effect
 );
 typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectLockForProcessFunc)(
     void* effect,
-    uint32_t InputLockedParameterCount,
+    uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
-    uint32_t OutputLockedParameterCount,
+    uint32_t output_locked_parameter_count,
     const ForgeEffectLockBuffer *output_locked_parameters
 );
 typedef void (FORGE_EFFECT_CALL * ForgeEffectUnlockForProcessFunc)(
@@ -140,46 +140,46 @@ typedef void (FORGE_EFFECT_CALL * ForgeEffectUnlockForProcessFunc)(
 );
 typedef void (FORGE_EFFECT_CALL * ForgeEffectProcessFunc)(
     void* effect,
-    uint32_t InputProcessParameterCount,
+    uint32_t input_process_parameter_count,
     const ForgeEffectProcessBuffer* input_process_parameters,
-    uint32_t OutputProcessParameterCount,
+    uint32_t output_process_parameter_count,
     ForgeEffectProcessBuffer* output_process_parameters,
-    int32_t IsEnabled
+    int32_t is_enabled
 );
 typedef uint32_t (FORGE_EFFECT_CALL * ForgeEffectCalcInputFramesFunc)(
     void* effect,
-    uint32_t OutputFrameCount
+    uint32_t output_frame_count
 );
 typedef uint32_t (FORGE_EFFECT_CALL * ForgeEffectCalcOutputFramesFunc)(
     void* effect,
-    uint32_t InputFrameCount
+    uint32_t input_frame_count
 );
 typedef void (FORGE_EFFECT_CALL * ForgeEffectSetParametersFunc)(
     void* effect,
     const void* parameters,
-    uint32_t ParameterByteSize
+    uint32_t parameter_byte_size
 );
 typedef void (FORGE_EFFECT_CALL * ForgeEffectGetParametersFunc)(
     void* effect,
     void* parameters,
-    uint32_t ParameterByteSize
+    uint32_t parameter_byte_size
 );
 
 struct ForgeEffect
 {
-    ForgeEffectDestroyFunc Destroy;
-    ForgeEffectGetPropertiesFunc GetRegistrationProperties;
-    ForgeEffectIsInputFormatSupportedFunc IsInputFormatSupported;
-    ForgeEffectIsOutputFormatSupportedFunc IsOutputFormatSupported;
-    ForgeEffectInitializeFunc Initialize;
-    ForgeEffectResetFunc Reset;
-    ForgeEffectLockForProcessFunc LockForProcess;
-    ForgeEffectUnlockForProcessFunc UnlockForProcess;
-    ForgeEffectProcessFunc Process;
-    ForgeEffectCalcInputFramesFunc CalcInputFrames;
-    ForgeEffectCalcOutputFramesFunc CalcOutputFrames;
-    ForgeEffectSetParametersFunc SetParameters;
-    ForgeEffectGetParametersFunc GetParameters;
+    ForgeEffectDestroyFunc destroy;
+    ForgeEffectGetPropertiesFunc get_properties;
+    ForgeEffectIsInputFormatSupportedFunc is_input_format_supported;
+    ForgeEffectIsOutputFormatSupportedFunc is_output_format_supported;
+    ForgeEffectInitializeFunc initialize;
+    ForgeEffectResetFunc reset;
+    ForgeEffectLockForProcessFunc lock_for_process;
+    ForgeEffectUnlockForProcessFunc unlock_for_process;
+    ForgeEffectProcessFunc process;
+    ForgeEffectCalcInputFramesFunc calc_input_frames;
+    ForgeEffectCalcOutputFramesFunc calc_output_frames;
+    ForgeEffectSetParametersFunc set_parameters;
+    ForgeEffectGetParametersFunc get_parameters;
 };
 
 FORGE_EFFECT_API void forge_effect_destroy(ForgeEffect *effect);

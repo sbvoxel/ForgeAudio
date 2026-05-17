@@ -204,7 +204,7 @@ uint32_t load_data(const char *filename)
         if (fread(&format, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read RIFF format");
         chunk_position += sizeof (uint32_t);
-        std::cout << "Format:           "
+        std::cout << "format:           "
                   << uint32_to_charstr(format) << std::endl;
     }
     uint32_t fmt_chunk_start = chunk_position;
@@ -349,7 +349,7 @@ int main(int argc, char *argv[]) {
 
     if (load_data(argv[1]) != 0)
     {
-        printf("Error loading data\n");
+        printf("error loading data\n");
         return -1;
     }
 

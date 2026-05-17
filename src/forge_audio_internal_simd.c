@@ -73,7 +73,7 @@
 #define HAVE_SSE2_INTRINSICS 1
 #endif
 
-/* SECTION 1: Type Converters */
+/* SECTION 1: type Converters */
 
 /* The SSE/NEON converters are based on SDL_audiotypecvt:
  * https://hg.libsdl.org/SDL/file/default/src/audio/SDL_audiotypecvt.c

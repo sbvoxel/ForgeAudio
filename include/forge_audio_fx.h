@@ -46,77 +46,77 @@ typedef struct ForgeAudioFxVolumeMeterLevels
 {
     float *peak_levels;
     float *rms_levels;
-    uint32_t ChannelCount;
+    uint32_t channel_count;
 } ForgeAudioFxVolumeMeterLevels;
 
 typedef struct ForgeAudioReverbParameters
 {
-    float WetDryMix;
-    uint32_t ReflectionsDelay;
-    uint8_t ReverbDelay;
-    uint8_t RearDelay;
-    uint8_t PositionLeft;
-    uint8_t PositionRight;
-    uint8_t PositionMatrixLeft;
-    uint8_t PositionMatrixRight;
-    uint8_t EarlyDiffusion;
-    uint8_t LateDiffusion;
-    uint8_t LowEQGain;
-    uint8_t LowEQCutoff;
-    uint8_t HighEQGain;
-    uint8_t HighEQCutoff;
-    float RoomFilterFreq;
-    float RoomFilterMain;
-    float RoomFilterHF;
-    float ReflectionsGain;
-    float ReverbGain;
-    float DecayTime;
-    float Density;
-    float RoomSize;
+    float wet_dry_mix;
+    uint32_t reflections_delay;
+    uint8_t reverb_delay;
+    uint8_t rear_delay;
+    uint8_t position_left;
+    uint8_t position_right;
+    uint8_t position_matrix_left;
+    uint8_t position_matrix_right;
+    uint8_t early_diffusion;
+    uint8_t late_diffusion;
+    uint8_t low_eq_gain;
+    uint8_t low_eq_cutoff;
+    uint8_t high_eq_gain;
+    uint8_t high_eq_cutoff;
+    float room_filter_freq;
+    float room_filter_main;
+    float room_filter_hf;
+    float reflections_gain;
+    float reverb_gain;
+    float decay_time;
+    float density;
+    float room_size;
 } ForgeAudioReverbParameters;
 
 typedef struct ForgeAudioReverbParameters7Point1
 {
-    float WetDryMix;
-    uint32_t ReflectionsDelay;
-    uint8_t ReverbDelay;
-    uint8_t RearDelay;
-    uint8_t SideDelay;
-    uint8_t PositionLeft;
-    uint8_t PositionRight;
-    uint8_t PositionMatrixLeft;
-    uint8_t PositionMatrixRight;
-    uint8_t EarlyDiffusion;
-    uint8_t LateDiffusion;
-    uint8_t LowEQGain;
-    uint8_t LowEQCutoff;
-    uint8_t HighEQGain;
-    uint8_t HighEQCutoff;
-    float RoomFilterFreq;
-    float RoomFilterMain;
-    float RoomFilterHF;
-    float ReflectionsGain;
-    float ReverbGain;
-    float DecayTime;
-    float Density;
-    float RoomSize;
+    float wet_dry_mix;
+    uint32_t reflections_delay;
+    uint8_t reverb_delay;
+    uint8_t rear_delay;
+    uint8_t side_delay;
+    uint8_t position_left;
+    uint8_t position_right;
+    uint8_t position_matrix_left;
+    uint8_t position_matrix_right;
+    uint8_t early_diffusion;
+    uint8_t late_diffusion;
+    uint8_t low_eq_gain;
+    uint8_t low_eq_cutoff;
+    uint8_t high_eq_gain;
+    uint8_t high_eq_cutoff;
+    float room_filter_freq;
+    float room_filter_main;
+    float room_filter_hf;
+    float reflections_gain;
+    float reverb_gain;
+    float decay_time;
+    float density;
+    float room_size;
 } ForgeAudioReverbParameters7Point1;
 
 typedef struct ForgeAudioReverbI3DL2Parameters
 {
-    float WetDryMix;
-    int32_t Room;
-    int32_t RoomHF;
-    float RoomRolloffFactor;
-    float DecayTime;
-    float DecayHFRatio;
-    int32_t Reflections;
-    float ReflectionsDelay;
-    int32_t Reverb;
-    float ReverbDelay;
-    float Diffusion;
-    float Density;
-    float HFReference;
+    float wet_dry_mix;
+    int32_t room;
+    int32_t room_hf;
+    float room_rolloff_factor;
+    float decay_time;
+    float decay_hf_ratio;
+    int32_t reflections;
+    float reflections_delay;
+    int32_t reverb;
+    float reverb_delay;
+    float diffusion;
+    float density;
+    float hf_reference;
 } ForgeAudioReverbI3DL2Parameters;
 
 #pragma pack(pop)
@@ -258,31 +258,31 @@ typedef struct ForgeAudioReverbI3DL2Parameters
 /* These return caller-owned ForgeEffect objects. Destroy with forge_effect_destroy,
  * or transfer to a voice effect chain.
  */
-FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeEffect** effect, uint32_t Flags);
-FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t Flags);
-FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeEffect** effect, uint32_t flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t flags);
 
 /* See "extensions/custom allocator.txt" for more information. */
 FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter_with_allocator(
     ForgeEffect** effect,
-    uint32_t Flags,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t flags,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_with_allocator(
     ForgeEffect** effect,
-    uint32_t Flags,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t flags,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     ForgeEffect** effect,
-    uint32_t Flags,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    uint32_t flags,
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 );
 
 FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2(
@@ -292,7 +292,7 @@ FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2(
 FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2_7point1(
     const ForgeAudioReverbI3DL2Parameters *i3dl2,
     ForgeAudioReverbParameters7Point1 *native,
-    int32_t sevenDotOneReverb
+    int32_t seven_point_one_reverb
 );
 
 #ifdef __cplusplus

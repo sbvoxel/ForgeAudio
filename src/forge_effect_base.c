@@ -54,35 +54,35 @@ void forge_effect_base_init_with_allocator(
     uint8_t *parameter_blocks,
     uint32_t parameter_block_byte_size,
     uint8_t producer,
-    ForgeMallocFunc customMalloc,
-    ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc
+    ForgeMallocFunc custom_malloc,
+    ForgeFreeFunc custom_free,
+    ForgeReallocFunc custom_realloc
 ) {
     /* Base Classes/Interfaces */
-    effect->base.Destroy = (ForgeEffectDestroyFunc) forge_effect_base_destroy;
-    effect->base.GetRegistrationProperties = (ForgeEffectGetPropertiesFunc)
+    effect->base.destroy = (ForgeEffectDestroyFunc) forge_effect_base_destroy;
+    effect->base.get_properties = (ForgeEffectGetPropertiesFunc)
         forge_effect_base_get_properties;
-    effect->base.IsInputFormatSupported = (ForgeEffectIsInputFormatSupportedFunc)
+    effect->base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
         forge_effect_base_is_input_format_supported;
-    effect->base.IsOutputFormatSupported = (ForgeEffectIsOutputFormatSupportedFunc)
+    effect->base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
         forge_effect_base_is_output_format_supported;
-    effect->base.Initialize = (ForgeEffectInitializeFunc) forge_effect_base_initialize;
-    effect->base.Reset = (ForgeEffectResetFunc) forge_effect_base_reset;
-    effect->base.LockForProcess = (ForgeEffectLockForProcessFunc)
+    effect->base.initialize = (ForgeEffectInitializeFunc) forge_effect_base_initialize;
+    effect->base.reset = (ForgeEffectResetFunc) forge_effect_base_reset;
+    effect->base.lock_for_process = (ForgeEffectLockForProcessFunc)
         forge_effect_base_lock_for_process;
-    effect->base.UnlockForProcess = (ForgeEffectUnlockForProcessFunc)
+    effect->base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)
         forge_effect_base_unlock_for_process;
-    effect->base.CalcInputFrames = (ForgeEffectCalcInputFramesFunc)
+    effect->base.calc_input_frames = (ForgeEffectCalcInputFramesFunc)
         forge_effect_base_calc_input_frames;
-    effect->base.CalcOutputFrames = (ForgeEffectCalcOutputFramesFunc)
+    effect->base.calc_output_frames = (ForgeEffectCalcOutputFramesFunc)
         forge_effect_base_calc_output_frames;
-    effect->base.SetParameters = (ForgeEffectSetParametersFunc)
+    effect->base.set_parameters = (ForgeEffectSetParametersFunc)
         forge_effect_base_set_parameters;
-    effect->base.GetParameters = (ForgeEffectGetParametersFunc)
+    effect->base.get_parameters = (ForgeEffectGetParametersFunc)
         forge_effect_base_get_parameters;
 
     /* Public Virtual Functions */
-    effect->OnSetParameters = (OnSetParametersFunc)
+    effect->on_set_parameters = (ForgeEffectBaseSetParametersFunc)
         forge_effect_base_on_set_parameters;
 
     /* Private Variables */
@@ -101,19 +101,19 @@ void forge_effect_base_init_with_allocator(
     effect->producer = producer;
 
     /* Allocator Callbacks */
-    effect->malloc_func = customMalloc;
-    effect->free_func = customFree;
-    effect->realloc_func = customRealloc;
+    effect->malloc_func = custom_malloc;
+    effect->free_func = custom_free;
+    effect->realloc_func = custom_realloc;
 }
 
 void forge_effect_destroy(ForgeEffect *effect)
 {
-    effect->Destroy(effect);
+    effect->destroy(effect);
 }
 
 void forge_effect_base_destroy(ForgeEffectBase *effect)
 {
-    effect->Destructor(effect);
+    effect->destructor(effect);
 }
 
 ForgeResult forge_effect_base_get_properties(
@@ -204,7 +204,7 @@ ForgeResult forge_effect_base_is_output_format_supported(
 ForgeResult forge_effect_base_initialize(
     ForgeEffectBase *effect,
     const void* data,
-    uint32_t DataByteSize
+    uint32_t data_byte_size
 ) {
     return 0;
 }
@@ -215,16 +215,16 @@ void forge_effect_base_reset(ForgeEffectBase *effect)
 
 ForgeResult forge_effect_base_lock_for_process(
     ForgeEffectBase *effect,
-    uint32_t InputLockedParameterCount,
+    uint32_t input_locked_parameter_count,
     const ForgeEffectLockBuffer *input_locked_parameters,
-    uint32_t OutputLockedParameterCount,
+    uint32_t output_locked_parameter_count,
     const ForgeEffectLockBuffer *output_locked_parameters
 ) {
     /* Verify parameter counts... */
-    if (    InputLockedParameterCount < effect->registration_properties->MinInputBufferCount ||
-        InputLockedParameterCount > effect->registration_properties->MaxInputBufferCount ||
-        OutputLockedParameterCount < effect->registration_properties->MinOutputBufferCount ||
-        OutputLockedParameterCount > effect->registration_properties->MaxOutputBufferCount    )
+    if (    input_locked_parameter_count < effect->registration_properties->min_input_buffer_count ||
+        input_locked_parameter_count > effect->registration_properties->max_input_buffer_count ||
+        output_locked_parameter_count < effect->registration_properties->min_output_buffer_count ||
+        output_locked_parameter_count > effect->registration_properties->max_output_buffer_count    )
     {
         return ForgeResultInvalidArgument;
     }
@@ -232,7 +232,7 @@ ForgeResult forge_effect_base_lock_for_process(
 
     /* Validate input/output formats */
     #define VERIFY_FORMAT_FLAG(flag, prop) \
-        if (    (effect->registration_properties->Flags & flag) && \
+        if (    (effect->registration_properties->flags & flag) && \
             (input_locked_parameters->format->prop != output_locked_parameters->format->prop)    ) \
         { \
             return ForgeResultInvalidArgument; \
@@ -241,8 +241,8 @@ ForgeResult forge_effect_base_lock_for_process(
     VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH, sample_rate)
     VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH, bits_per_sample)
     #undef VERIFY_FORMAT_FLAG
-    if (    (effect->registration_properties->Flags & FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH) &&
-        (InputLockedParameterCount != OutputLockedParameterCount)    )
+    if (    (effect->registration_properties->flags & FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH) &&
+        (input_locked_parameter_count != output_locked_parameter_count)    )
     {
         return ForgeResultInvalidArgument;
     }
@@ -255,14 +255,14 @@ void forge_effect_base_unlock_for_process(ForgeEffectBase *effect)
     effect->is_locked = 0;
 }
 
-uint32_t forge_effect_base_calc_input_frames(ForgeEffectBase *effect, uint32_t OutputFrameCount)
+uint32_t forge_effect_base_calc_input_frames(ForgeEffectBase *effect, uint32_t output_frame_count)
 {
-    return OutputFrameCount;
+    return output_frame_count;
 }
 
-uint32_t forge_effect_base_calc_output_frames(ForgeEffectBase *effect, uint32_t InputFrameCount)
+uint32_t forge_effect_base_calc_output_frames(ForgeEffectBase *effect, uint32_t input_frame_count)
 {
-    return InputFrameCount;
+    return input_frame_count;
 }
 
 ForgeResult forge_effect_base_validate_default_format(
@@ -338,36 +338,36 @@ void forge_effect_base_process_through(
     ForgeEffectBase *effect,
     void* input_buffer,
     float *output_buffer,
-    uint32_t FrameCount,
-    uint16_t InputChannelCount,
-    uint16_t OutputChannelCount,
-    uint8_t MixWithOutput
+    uint32_t frame_count,
+    uint16_t input_channel_count,
+    uint16_t output_channel_count,
+    uint8_t mix_with_output
 ) {
     uint32_t i, co, ci;
     float *input = (float*) input_buffer;
 
-    if (MixWithOutput)
+    if (mix_with_output)
     {
         /* TODO: SSE */
-        for (i = 0; i < FrameCount; i += 1)
-        for (co = 0; co < OutputChannelCount; co += 1)
-        for (ci = 0; ci < InputChannelCount; ci += 1)
+        for (i = 0; i < frame_count; i += 1)
+        for (co = 0; co < output_channel_count; co += 1)
+        for (ci = 0; ci < input_channel_count; ci += 1)
         {
             /* Add, don't overwrite! */
-            output_buffer[i * OutputChannelCount + co] +=
-                input[i * InputChannelCount + ci];
+            output_buffer[i * output_channel_count + co] +=
+                input[i * input_channel_count + ci];
         }
     }
     else
     {
         /* TODO: SSE */
-        for (i = 0; i < FrameCount; i += 1)
-        for (co = 0; co < OutputChannelCount; co += 1)
-        for (ci = 0; ci < InputChannelCount; ci += 1)
+        for (i = 0; i < frame_count; i += 1)
+        for (co = 0; co < output_channel_count; co += 1)
+        for (ci = 0; ci < input_channel_count; ci += 1)
         {
             /* Overwrite, don't add! */
-            output_buffer[i * OutputChannelCount + co] =
-                input[i * InputChannelCount + ci];
+            output_buffer[i * output_channel_count + co] =
+                input[i * input_channel_count + ci];
         }
     }
 }
@@ -375,15 +375,15 @@ void forge_effect_base_process_through(
 void forge_effect_base_set_parameters(
     ForgeEffectBase *effect,
     const void* parameters,
-    uint32_t ParameterByteSize
+    uint32_t parameter_byte_size
 ) {
     ForgeAudio_assert(!effect->producer);
 
     /* User callback for validation */
-    effect->OnSetParameters(
+    effect->on_set_parameters(
         effect,
         parameters,
-        ParameterByteSize
+        parameter_byte_size
     );
 
     /* Increment parameter block index... */
@@ -401,20 +401,20 @@ void forge_effect_base_set_parameters(
     ForgeAudio_memcpy(
         effect->current_parameters_internal,
         parameters,
-        ParameterByteSize
+        parameter_byte_size
     );
 }
 
 void forge_effect_base_get_parameters(
     ForgeEffectBase *effect,
     void* parameters,
-    uint32_t ParameterByteSize
+    uint32_t parameter_byte_size
 ) {
-    /* Copy what's current as of the last Process */
+    /* Copy what's current as of the last process */
     ForgeAudio_memcpy(
         parameters,
         effect->current_parameters,
-        ParameterByteSize
+        parameter_byte_size
     );
 }
 
@@ -427,13 +427,13 @@ void forge_effect_base_on_set_parameters(
 
 uint8_t forge_effect_base_parameters_changed(ForgeEffectBase *effect)
 {
-    /* Internal will get updated when SetParameters is called */
+    /* Internal will get updated when set_parameters is called */
     return effect->current_parameters_internal != effect->current_parameters;
 }
 
 uint8_t* forge_effect_base_begin_process(ForgeEffectBase *effect)
 {
-    /* Set the latest block as "current", this is what Process will use now */
+    /* Set the latest block as "current", this is what process will use now */
     effect->current_parameters = effect->current_parameters_internal;
     return effect->current_parameters;
 }

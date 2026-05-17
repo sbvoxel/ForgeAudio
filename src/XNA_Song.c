@@ -120,7 +120,7 @@ static void XNA_SongSubmitBuffer(ForgeVoiceCallback *callback, void *buffer_cont
 			(float*) songCache,
 			activeVorbisSongInfo.sample_rate * activeVorbisSongInfo.channels
 		);
-		buffer.AudioBytes = decoded * activeVorbisSongInfo.channels * sizeof(float);
+		buffer.audio_bytes = decoded * activeVorbisSongInfo.channels * sizeof(float);
 	}
 	else if (activeQoaSong != NULL)
 	{
@@ -129,7 +129,7 @@ static void XNA_SongSubmitBuffer(ForgeVoiceCallback *callback, void *buffer_cont
 			activeQoaSong,
 			(short*) songCache
 		);
-		buffer.AudioBytes = decoded * qoaChannels * sizeof(short);
+		buffer.audio_bytes = decoded * qoaChannels * sizeof(short);
 	}
 
     if (decoded == 0)
@@ -138,13 +138,13 @@ static void XNA_SongSubmitBuffer(ForgeVoiceCallback *callback, void *buffer_cont
     }
 
 	songOffset += decoded;
-	buffer.Flags = (songOffset >= songLength) ? FORGE_AUDIO_END_OF_STREAM : 0;
+	buffer.flags = (songOffset >= songLength) ? FORGE_AUDIO_END_OF_STREAM : 0;
 	buffer.audio_data = songCache;
-	buffer.PlayBegin = 0;
-	buffer.PlayLength = decoded;
-	buffer.LoopBegin = 0;
-	buffer.LoopLength = 0;
-	buffer.LoopCount = 0;
+	buffer.play_begin = 0;
+	buffer.play_length = decoded;
+	buffer.loop_begin = 0;
+	buffer.loop_length = 0;
+	buffer.loop_count = 0;
 	buffer.context = NULL;
 	forge_source_voice_submit_buffer(
 		songVoice,
@@ -251,7 +251,7 @@ FORGE_AUDIO_API float XNA_PlaySong(const char *name)
 
     /* Init voice */
     ForgeAudio_zero(&callbacks, sizeof(ForgeVoiceCallback));
-    callbacks.OnBufferEnd = XNA_SongSubmitBuffer;
+    callbacks.on_buffer_end = XNA_SongSubmitBuffer;
     forge_audio_create_source_voice(
         songAudio,
         &songVoice,
@@ -331,7 +331,7 @@ FORGE_AUDIO_API uint32_t XNA_GetSongEnded()
         return 1;
     }
     forge_source_voice_get_state(songVoice, &state, 0);
-    return state.BuffersQueued == 0 && state.SamplesPlayed == 0;
+    return state.buffers_queued == 0 && state.samples_played == 0;
 }
 
 FORGE_AUDIO_API void XNA_EnableVisualization(uint32_t enable)

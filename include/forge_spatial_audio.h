@@ -141,11 +141,11 @@ extern "C" {
 
 typedef struct ForgeSpatializer
 {
-    uint32_t SpeakerChannelMask;
-    uint32_t SpeakerCount;
-    uint32_t LowFrequencyChannelIndex;
-    float SpeedOfSound;
-    float SpeedOfSoundEpsilon;
+    uint32_t speaker_channel_mask;
+    uint32_t speaker_count;
+    uint32_t low_frequency_channel_index;
+    float speed_of_sound;
+    float speed_of_sound_epsilon;
 } ForgeSpatializer;
 
 typedef struct ForgeVector3
@@ -157,72 +157,72 @@ typedef struct ForgeVector3
 
 typedef struct ForgeSpatialDistanceCurvePoint
 {
-    float Distance;
-    float DSPSetting;
+    float distance;
+    float dsp_setting;
 } ForgeSpatialDistanceCurvePoint;
 
 typedef struct ForgeSpatialDistanceCurve
 {
     ForgeSpatialDistanceCurvePoint *points;
-    uint32_t PointCount;
+    uint32_t point_count;
 } ForgeSpatialDistanceCurve;
 
 typedef struct ForgeSpatialCone
 {
-    float InnerAngle;
-    float OuterAngle;
-    float InnerVolume;
-    float OuterVolume;
-    float InnerLPF;
-    float OuterLPF;
-    float InnerReverb;
-    float OuterReverb;
+    float inner_angle;
+    float outer_angle;
+    float inner_volume;
+    float outer_volume;
+    float inner_lpf;
+    float outer_lpf;
+    float inner_reverb;
+    float outer_reverb;
 } ForgeSpatialCone;
 
 typedef struct ForgeSpatialListener
 {
-    ForgeVector3 OrientFront;
-    ForgeVector3 OrientTop;
-    ForgeVector3 Position;
-    ForgeVector3 Velocity;
+    ForgeVector3 orient_front;
+    ForgeVector3 orient_top;
+    ForgeVector3 position;
+    ForgeVector3 velocity;
     ForgeSpatialCone *cone;
 } ForgeSpatialListener;
 
 typedef struct ForgeSpatialEmitter
 {
     ForgeSpatialCone *cone;
-    ForgeVector3 OrientFront;
-    ForgeVector3 OrientTop;
-    ForgeVector3 Position;
-    ForgeVector3 Velocity;
-    float InnerRadius;
-    float InnerRadiusAngle;
-    uint32_t ChannelCount;
-    float ChannelRadius;
+    ForgeVector3 orient_front;
+    ForgeVector3 orient_top;
+    ForgeVector3 position;
+    ForgeVector3 velocity;
+    float inner_radius;
+    float inner_radius_angle;
+    uint32_t channel_count;
+    float channel_radius;
     float *channel_azimuths;
     ForgeSpatialDistanceCurve *volume_curve;
     ForgeSpatialDistanceCurve *lfe_curve;
     ForgeSpatialDistanceCurve *lpf_direct_curve;
     ForgeSpatialDistanceCurve *lpf_reverb_curve;
     ForgeSpatialDistanceCurve *reverb_curve;
-    float CurveDistanceScaler;
-    float DopplerScaler;
+    float curve_distance_scaler;
+    float doppler_scaler;
 } ForgeSpatialEmitter;
 
 typedef struct ForgeSpatialDspSettings
 {
     float *matrix_coefficients;
     float *delay_times;
-    uint32_t SrcChannelCount;
-    uint32_t DstChannelCount;
-    float LPFDirectCoefficient;
-    float LPFReverbCoefficient;
-    float ReverbLevel;
-    float DopplerFactor;
-    float EmitterToListenerAngle;
-    float EmitterToListenerDistance;
-    float EmitterVelocityComponent;
-    float ListenerVelocityComponent;
+    uint32_t src_channel_count;
+    uint32_t dst_channel_count;
+    float lpf_direct_coefficient;
+    float lpf_reverb_coefficient;
+    float reverb_level;
+    float doppler_factor;
+    float emitter_to_listener_angle;
+    float emitter_to_listener_distance;
+    float emitter_velocity_component;
+    float listener_velocity_component;
 } ForgeSpatialDspSettings;
 
 #pragma pack(pop)
@@ -230,8 +230,8 @@ typedef struct ForgeSpatialDspSettings
 /* Functions */
 
 FORGE_SPATIAL_API bool forge_spatializer_init(
-    uint32_t SpeakerChannelMask,
-    float SpeedOfSound,
+    uint32_t speaker_channel_mask,
+    float speed_of_sound,
     ForgeSpatializer *spatializer
 );
 
@@ -239,7 +239,7 @@ FORGE_SPATIAL_API void forge_spatializer_calculate(
     const ForgeSpatializer *spatializer,
     const ForgeSpatialListener *listener,
     const ForgeSpatialEmitter *emitter,
-    uint32_t Flags,
+    uint32_t flags,
     ForgeSpatialDspSettings *dsp_settings
 );
 

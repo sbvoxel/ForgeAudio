@@ -167,9 +167,9 @@ void ForgeAudio_PlatformInit(
 	ForgeAudio_assert(updateSize != NULL);
 
 	/* Build the device spec */
-	spec.freq = mixFormat->Format.sample_rate;
+	spec.freq = mixFormat->format.sample_rate;
 	spec.format = SDL_AUDIO_F32;
-	spec.channels = mixFormat->Format.channels;
+	spec.channels = mixFormat->format.channels;
 	if (flags & FORGE_AUDIO_1024_QUANTUM)
 	{
 		/* Get the sample count for a 21.33ms frame.
@@ -271,11 +271,11 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 		return ForgeResultInvalidCall;
 	}
 
-	details->DeviceID[0] = L'0' + index;
+	details->device_id[0] = L'0' + index;
 	if (index == 0)
 	{
 		name = "Default Device";
-		details->Role = ForgeDeviceRoleDefault;
+		details->role = ForgeDeviceRoleDefault;
 
 		/* This variable will look like a DSound GUID or WASAPI ID, i.e.
 		 * "{0.0.0.00000000}.{FD47D9CC-4218-4135-9CE2-0C195C87405B}"
@@ -285,20 +285,20 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 		{
 			ForgeAudio_UTF8_To_UTF16(
 				envvar,
-				(uint16_t*) details->DeviceID,
-				sizeof(details->DeviceID)
+				(uint16_t*) details->device_id,
+				sizeof(details->device_id)
 			);
 		}
 	}
 	else
 	{
 		name = SDL_GetAudioDeviceName(devs[index - 1]);
-		details->Role = ForgeDeviceRoleNone;
+		details->role = ForgeDeviceRoleNone;
 	}
 	ForgeAudio_UTF8_To_UTF16(
 		name,
-		(uint16_t*) details->DisplayName,
-		sizeof(details->DisplayName)
+		(uint16_t*) details->display_name,
+		sizeof(details->display_name)
 	);
 
 	/* Environment variables take precedence over all possible values */
@@ -358,7 +358,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 
 	/* Write the format, finally. */
 	WriteWaveFormatExtensible(
-		&details->OutputFormat,
+		&details->output_format,
 		channels,
 		rate,
 		&FORGE_AUDIO_SUBTYPE_PCM
@@ -570,7 +570,7 @@ static uint32_t ForgeAudio_UTF8_CodePoint(const char **_str)
         (*_str)++;  /* advance at least one byte in case of an error */
         octet -= (128+64);
         octet2 = (uint32_t) ((uint8_t) *(++str));
-        if ((octet2 & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet2 & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         *_str += 1;  /* skip to next possible start of codepoint. */
@@ -584,11 +584,11 @@ static uint32_t ForgeAudio_UTF8_CodePoint(const char **_str)
         (*_str)++;  /* advance at least one byte in case of an error */
         octet -= (128+64+32);
         octet2 = (uint32_t) ((uint8_t) *(++str));
-        if ((octet2 & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet2 & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet3 = (uint32_t) ((uint8_t) *(++str));
-        if ((octet3 & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet3 & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         *_str += 2;  /* skip to next possible start of codepoint. */
@@ -617,15 +617,15 @@ static uint32_t ForgeAudio_UTF8_CodePoint(const char **_str)
         (*_str)++;  /* advance at least one byte in case of an error */
         octet -= (128+64+32+16);
         octet2 = (uint32_t) ((uint8_t) *(++str));
-        if ((octet2 & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet2 & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet3 = (uint32_t) ((uint8_t) *(++str));
-        if ((octet3 & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet3 & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet4 = (uint32_t) ((uint8_t) *(++str));
-        if ((octet4 & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet4 & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         *_str += 3;  /* skip to next possible start of codepoint. */
@@ -645,19 +645,19 @@ static uint32_t ForgeAudio_UTF8_CodePoint(const char **_str)
     {
         (*_str)++;  /* advance at least one byte in case of an error */
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         *_str += 4;  /* skip to next possible start of codepoint. */
@@ -668,23 +668,23 @@ static uint32_t ForgeAudio_UTF8_CodePoint(const char **_str)
     {
         (*_str)++;  /* advance at least one byte in case of an error */
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         octet = (uint32_t) ((uint8_t) *(++str));
-        if ((octet & (128+64)) != 128)  /* Format isn't 10xxxxxx? */
+        if ((octet & (128+64)) != 128)  /* format isn't 10xxxxxx? */
             return UNICODE_BOGUS_CHAR_VALUE;
 
         *_str += 6;  /* skip to next possible start of codepoint. */
