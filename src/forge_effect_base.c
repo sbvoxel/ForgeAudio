@@ -42,15 +42,13 @@ void forge_effect_base_init(
     ForgeEffectBase *effect,
     const ForgeEffectInfo *effect_info,
     uint8_t *parameters,
-    uint32_t parameter_block_byte_size,
-    uint8_t producer
+    uint32_t parameter_block_byte_size
 ) {
     forge_effect_base_init_with_allocator(
         effect,
         effect_info,
         parameters,
         parameter_block_byte_size,
-        producer,
         ForgeAudio_malloc,
         ForgeAudio_free,
         ForgeAudio_realloc
@@ -62,7 +60,6 @@ void forge_effect_base_init_with_allocator(
     const ForgeEffectInfo *effect_info,
     uint8_t *parameters,
     uint32_t parameter_block_byte_size,
-    uint8_t producer,
     ForgeMallocFunc custom_malloc,
     ForgeFreeFunc custom_free,
     ForgeReallocFunc custom_realloc
@@ -104,7 +101,6 @@ void forge_effect_base_init_with_allocator(
     effect->parameters = parameters;
     effect->parameter_block_byte_size = parameter_block_byte_size;
     effect->parameters_changed = 0;
-    effect->producer = producer;
 
     /* Allocator Callbacks */
     effect->malloc_func = custom_malloc;
@@ -379,9 +375,8 @@ void forge_effect_base_set_parameters(
     const void* parameters,
     uint32_t parameter_byte_size
 ) {
-    ForgeAudio_assert(!effect->producer);
     ForgeAudio_assert(parameter_byte_size == effect->parameter_block_byte_size);
-    if (effect->producer || parameter_byte_size != effect->parameter_block_byte_size)
+    if (parameter_byte_size != effect->parameter_block_byte_size)
     {
         return;
     }

@@ -91,7 +91,6 @@ struct ForgeEffectBase
     uint8_t *parameters;
     uint32_t parameter_block_byte_size;
     uint8_t parameters_changed;
-    uint8_t producer;
 
     /* Allocator callbacks, NOT part of ForgeEffectBase spec! */
     ForgeMallocFunc malloc_func;
@@ -104,8 +103,7 @@ FORGE_EFFECT_API void forge_effect_base_init(
     ForgeEffectBase *effect,
     const ForgeEffectInfo *effect_info,
     uint8_t *parameters,
-    uint32_t parameter_block_byte_size,
-    uint8_t producer
+    uint32_t parameter_block_byte_size
 );
 
 /* See "extensions/custom allocator.txt" for more information. */
@@ -114,7 +112,6 @@ FORGE_EFFECT_API void forge_effect_base_init_with_allocator(
     const ForgeEffectInfo *effect_info,
     uint8_t *parameters,
     uint32_t parameter_block_byte_size,
-    uint8_t producer,
     ForgeMallocFunc custom_malloc,
     ForgeFreeFunc custom_free,
     ForgeReallocFunc custom_realloc

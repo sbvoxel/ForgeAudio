@@ -1676,7 +1676,6 @@ ForgeResult forge_create_reverb_with_allocator(
         &ReverbInfo,
         params,
         sizeof(ForgeReverbParameters),
-        0,
         custom_malloc,
         custom_free,
         custom_realloc
@@ -1841,7 +1840,6 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
         &ReverbInfo,
         params,
         sizeof(ForgeReverbParameters7Point1),
-        0,
         custom_malloc,
         custom_free,
         custom_realloc
