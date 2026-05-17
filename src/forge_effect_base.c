@@ -41,14 +41,14 @@
 void forge_effect_base_init(
     ForgeEffectBase *effect,
     const ForgeEffectInfo *effect_info,
-    uint8_t *parameter_blocks,
+    uint8_t *parameters,
     uint32_t parameter_block_byte_size,
     uint8_t producer
 ) {
     forge_effect_base_init_with_allocator(
         effect,
         effect_info,
-        parameter_blocks,
+        parameters,
         parameter_block_byte_size,
         producer,
         ForgeAudio_malloc,
@@ -60,7 +60,7 @@ void forge_effect_base_init(
 void forge_effect_base_init_with_allocator(
     ForgeEffectBase *effect,
     const ForgeEffectInfo *effect_info,
-    uint8_t *parameter_blocks,
+    uint8_t *parameters,
     uint32_t parameter_block_byte_size,
     uint8_t producer,
     ForgeMallocFunc custom_malloc,
@@ -101,12 +101,9 @@ void forge_effect_base_init_with_allocator(
     effect->src_format_type = 0; /* FIXME */
     effect->is_scalar_matrix = 0; /* FIXME: */
     effect->is_locked = 0;
-    effect->parameter_blocks = parameter_blocks;
-    effect->current_parameters = parameter_blocks;
-    effect->current_parameters_internal = parameter_blocks;
-    effect->current_parameters_index = 0;
+    effect->parameters = parameters;
     effect->parameter_block_byte_size = parameter_block_byte_size;
-    effect->newer_results_ready = 0;
+    effect->parameters_changed = 0;
     effect->producer = producer;
 
     /* Allocator Callbacks */
@@ -383,6 +380,11 @@ void forge_effect_base_set_parameters(
     uint32_t parameter_byte_size
 ) {
     ForgeAudio_assert(!effect->producer);
+    ForgeAudio_assert(parameter_byte_size == effect->parameter_block_byte_size);
+    if (effect->producer || parameter_byte_size != effect->parameter_block_byte_size)
+    {
+        return;
+    }
 
     /* User callback for validation */
     effect->on_set_parameters(
@@ -391,23 +393,12 @@ void forge_effect_base_set_parameters(
         parameter_byte_size
     );
 
-    /* Increment parameter block index... */
-    effect->current_parameters_index += 1;
-    if (effect->current_parameters_index == 3)
-    {
-        effect->current_parameters_index = 0;
-    }
-    effect->current_parameters_internal = effect->parameter_blocks + (
-        effect->parameter_block_byte_size *
-        effect->current_parameters_index
-    );
-
-    /* Copy to what will eventually be the next parameter update */
     ForgeAudio_memcpy(
-        effect->current_parameters_internal,
+        effect->parameters,
         parameters,
         parameter_byte_size
     );
+    effect->parameters_changed = 1;
 }
 
 void forge_effect_base_get_parameters(
@@ -415,10 +406,15 @@ void forge_effect_base_get_parameters(
     void* parameters,
     uint32_t parameter_byte_size
 ) {
-    /* Copy what's current as of the last process */
+    ForgeAudio_assert(parameter_byte_size == effect->parameter_block_byte_size);
+    if (parameter_byte_size != effect->parameter_block_byte_size)
+    {
+        return;
+    }
+
     ForgeAudio_memcpy(
         parameters,
-        effect->current_parameters,
+        effect->parameters,
         parameter_byte_size
     );
 }
@@ -432,18 +428,15 @@ void forge_effect_base_on_set_parameters(
 
 uint8_t forge_effect_base_parameters_changed(ForgeEffectBase *effect)
 {
-    /* Internal will get updated when set_parameters is called */
-    return effect->current_parameters_internal != effect->current_parameters;
+    return effect->parameters_changed;
 }
 
 uint8_t* forge_effect_base_begin_process(ForgeEffectBase *effect)
 {
-    /* Set the latest block as "current", this is what process will use now */
-    effect->current_parameters = effect->current_parameters_internal;
-    return effect->current_parameters;
+    return effect->parameters;
 }
 
 void forge_effect_base_end_process(ForgeEffectBase *effect)
 {
-    /* I'm 100% sure my parameter block increment is wrong... */
+    effect->parameters_changed = 0;
 }

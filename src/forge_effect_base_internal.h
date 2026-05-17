@@ -88,12 +88,9 @@ struct ForgeEffectBase
     uint32_t src_format_type;
     uint8_t is_scalar_matrix;
     uint8_t is_locked;
-    uint8_t *parameter_blocks;
-    uint8_t *current_parameters;
-    uint8_t *current_parameters_internal;
-    uint32_t current_parameters_index;
+    uint8_t *parameters;
     uint32_t parameter_block_byte_size;
-    uint8_t newer_results_ready;
+    uint8_t parameters_changed;
     uint8_t producer;
 
     /* Allocator callbacks, NOT part of ForgeEffectBase spec! */
@@ -106,7 +103,7 @@ struct ForgeEffectBase
 FORGE_EFFECT_API void forge_effect_base_init(
     ForgeEffectBase *effect,
     const ForgeEffectInfo *effect_info,
-    uint8_t *parameter_blocks,
+    uint8_t *parameters,
     uint32_t parameter_block_byte_size,
     uint8_t producer
 );
@@ -115,7 +112,7 @@ FORGE_EFFECT_API void forge_effect_base_init(
 FORGE_EFFECT_API void forge_effect_base_init_with_allocator(
     ForgeEffectBase *effect,
     const ForgeEffectInfo *effect_info,
-    uint8_t *parameter_blocks,
+    uint8_t *parameters,
     uint32_t parameter_block_byte_size,
     uint8_t producer,
     ForgeMallocFunc custom_malloc,

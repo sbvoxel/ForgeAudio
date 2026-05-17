@@ -1324,16 +1324,14 @@ ForgeResult ForgeReverb_Initialize(
     const void* data,
     uint32_t data_byte_size
 ) {
-    #define INITPARAMS(offset) \
-        ForgeAudio_memcpy( \
-            effect->base.parameter_blocks + data_byte_size * offset, \
-            data, \
-            data_byte_size \
-        );
-    INITPARAMS(0)
-    INITPARAMS(1)
-    INITPARAMS(2)
-    #undef INITPARAMS
+    ForgeAudio_assert(data_byte_size == effect->base.parameter_block_byte_size);
+    if (data == NULL || data_byte_size != effect->base.parameter_block_byte_size)
+    {
+        return ForgeResultInvalidArgument;
+    }
+
+    ForgeAudio_memcpy(effect->base.parameters, data, data_byte_size);
+    effect->base.parameters_changed = 1;
     return 0;
 }
 
@@ -1403,14 +1401,14 @@ ForgeResult ForgeReverb_LockForProcess(
     {
         DspReverb_SetParameters9(
             &effect->reverb,
-            (ForgeReverbParameters7Point1*) effect->base.parameter_blocks
+            (ForgeReverbParameters7Point1*) effect->base.parameters
         );
     }
     else
     {
         DspReverb_SetParameters(
             &effect->reverb,
-            (ForgeReverbParameters*) effect->base.parameter_blocks
+            (ForgeReverbParameters*) effect->base.parameters
         );
     }
 
@@ -1618,7 +1616,7 @@ void ForgeReverb_Free(void* effect)
 {
     ForgeReverb *reverb = (ForgeReverb*) effect;
     DspReverb_Destroy(&reverb->reverb, reverb->base.free_func);
-    reverb->base.free_func(reverb->base.parameter_blocks);
+    reverb->base.free_func(reverb->base.parameters);
     reverb->base.free_func(effect);
 }
 
@@ -1670,9 +1668,7 @@ ForgeResult forge_create_reverb_with_allocator(
 
     /* Allocate... */
     ForgeReverb *result = (ForgeReverb*) custom_malloc(sizeof(ForgeReverb));
-    uint8_t *params = (uint8_t*) custom_malloc(
-        sizeof(ForgeReverbParameters) * 3
-    );
+    uint8_t *params = (uint8_t*) custom_malloc(sizeof(ForgeReverbParameters));
     result->apiVersion = 7;
 
     forge_effect_base_init_with_allocator(
@@ -1837,9 +1833,7 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
 
     /* Allocate... */
     ForgeReverb *result = (ForgeReverb*) custom_malloc(sizeof(ForgeReverb));
-    uint8_t *params = (uint8_t*) custom_malloc(
-        sizeof(ForgeReverbParameters7Point1) * 3
-    );
+    uint8_t *params = (uint8_t*) custom_malloc(sizeof(ForgeReverbParameters7Point1));
     result->apiVersion = 9;
 
     forge_effect_base_init_with_allocator(
