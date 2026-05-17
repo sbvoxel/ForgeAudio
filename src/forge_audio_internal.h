@@ -186,12 +186,23 @@ extern void forge_log_message(char const *msg);
     #define FORGE_INTERNAL_API
 #endif
 
-FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_pcm;
-FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_ieee_float;
-FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_xmaudio2;
-FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_wmaudio2;
-FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_wmaudio3;
-FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_wmaudio_lossless;
+#define FORGE_AUDIO_FORMAT_ID_SIZE 16
+
+FORGE_INTERNAL_API extern const uint8_t forge_audio_format_id_pcm[FORGE_AUDIO_FORMAT_ID_SIZE];
+FORGE_INTERNAL_API extern const uint8_t forge_audio_format_id_ieee_float[FORGE_AUDIO_FORMAT_ID_SIZE];
+FORGE_INTERNAL_API extern const uint8_t forge_audio_format_id_xmaudio2[FORGE_AUDIO_FORMAT_ID_SIZE];
+FORGE_INTERNAL_API extern const uint8_t forge_audio_format_id_wmaudio2[FORGE_AUDIO_FORMAT_ID_SIZE];
+FORGE_INTERNAL_API extern const uint8_t forge_audio_format_id_wmaudio3[FORGE_AUDIO_FORMAT_ID_SIZE];
+FORGE_INTERNAL_API extern const uint8_t forge_audio_format_id_wmaudio_lossless[FORGE_AUDIO_FORMAT_ID_SIZE];
+
+static inline bool forge_audio_format_id_equals(const uint8_t format_id[FORGE_AUDIO_FORMAT_ID_SIZE],
+                                                const uint8_t expected[FORGE_AUDIO_FORMAT_ID_SIZE]) {
+    return forge_memcmp(format_id, expected, FORGE_AUDIO_FORMAT_ID_SIZE) == 0;
+}
+
+static inline uint16_t forge_audio_format_id_tag(const uint8_t format_id[FORGE_AUDIO_FORMAT_ID_SIZE]) {
+    return (uint16_t)(format_id[0] | (format_id[1] << 8));
+}
 
 /* Threading Types */
 
@@ -605,7 +616,7 @@ static inline uint32_t GetMask(uint16_t channels) {
 }
 
 static inline void WriteWaveFormatExtensible(ForgeAudioFormatExtensible *fmt, int channels, int samplerate,
-                                             const ForgeGuid *subformat) {
+                                             const uint8_t format_id[FORGE_AUDIO_FORMAT_ID_SIZE]) {
     forge_assert(fmt != NULL);
     fmt->format.bits_per_sample = 32;
     fmt->format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
@@ -616,7 +627,7 @@ static inline void WriteWaveFormatExtensible(ForgeAudioFormatExtensible *fmt, in
     fmt->format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
     fmt->samples.valid_bits_per_sample = 32;
     fmt->channel_mask = GetMask(fmt->format.channels);
-    forge_memcpy(&fmt->sub_format, subformat, sizeof(ForgeGuid));
+    forge_memcpy(fmt->format_id, format_id, FORGE_AUDIO_FORMAT_ID_SIZE);
 }
 
 /* Resampling */

@@ -70,13 +70,6 @@ typedef enum ForgeFilterType {
 
 #pragma pack(push, 1)
 
-typedef struct ForgeGuid {
-    uint32_t Data1;
-    uint16_t Data2;
-    uint16_t Data3;
-    uint8_t Data4[8];
-} ForgeGuid;
-
 typedef struct ForgeAudioFormat {
     uint16_t format_tag;
     uint16_t channels;
@@ -95,7 +88,7 @@ typedef struct ForgeAudioFormatExtensible {
         uint16_t reserved;
     } samples;
     uint32_t channel_mask;
-    ForgeGuid sub_format;
+    uint8_t format_id[16];
 } ForgeAudioFormatExtensible;
 
 typedef struct ForgeDeviceDetails {

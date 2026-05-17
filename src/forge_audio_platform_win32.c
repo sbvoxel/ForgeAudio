@@ -311,7 +311,7 @@ void forge_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t devic
     if (args->format.format.format_tag == WAVE_FORMAT_EXTENSIBLE) {
         args->format.samples.valid_bits_per_sample = mixFormat->samples.valid_bits_per_sample;
         args->format.channel_mask = mixFormat->channel_mask;
-        forge_memcpy(&args->format.sub_format, &mixFormat->sub_format, sizeof(GUID));
+        forge_memcpy(&args->format.sub_format, mixFormat->format_id, FORGE_AUDIO_FORMAT_ID_SIZE);
     }
 
     audioEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
@@ -351,7 +351,7 @@ void forge_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t devic
         mixFormat->format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
         mixFormat->samples.valid_bits_per_sample = args->format.samples.valid_bits_per_sample;
         mixFormat->channel_mask = args->format.channel_mask;
-        forge_memcpy(&mixFormat->sub_format, &args->format.sub_format, sizeof(GUID));
+        forge_memcpy(mixFormat->format_id, &args->format.sub_format, FORGE_AUDIO_FORMAT_ID_SIZE);
     } else {
         mixFormat->format.extra_size = sizeof(ForgeAudioFormat);
     }
@@ -513,7 +513,7 @@ ForgeResult forge_platform_get_device_details(uint32_t index, ForgeDeviceDetails
     if (format->format_tag == WAVE_FORMAT_EXTENSIBLE) {
         ext = (WAVEFORMATEXTENSIBLE *)format;
         sub = ext->sub_format;
-        forge_memcpy(&ext->sub_format, &forge_audio_format_subtype_pcm, sizeof(GUID));
+        forge_memcpy(&ext->sub_format, forge_audio_format_id_pcm, FORGE_AUDIO_FORMAT_ID_SIZE);
 
         hr = IAudioClient_IsFormatSupported(client, AUDCLNT_SHAREMODE_SHARED, format, &obtained);
         if (FAILED(hr)) {
@@ -536,7 +536,7 @@ ForgeResult forge_platform_get_device_details(uint32_t index, ForgeDeviceDetails
         ext = (WAVEFORMATEXTENSIBLE *)format;
         details->output_format.samples.valid_bits_per_sample = ext->samples.valid_bits_per_sample;
         details->output_format.channel_mask = ext->channel_mask;
-        forge_memcpy(&details->output_format.sub_format, &ext->sub_format, sizeof(GUID));
+        forge_memcpy(details->output_format.format_id, &ext->sub_format, FORGE_AUDIO_FORMAT_ID_SIZE);
     } else {
         details->output_format.channel_mask = GetMask(format->channels);
     }

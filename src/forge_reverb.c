@@ -877,8 +877,8 @@ static inline int8_t forge_reverb_is_float_format(const ForgeAudioFormat *format
     }
 
     if (format->format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE) {
-        if (forge_memcmp(&((ForgeAudioFormatExtensible *)format)->sub_format, &forge_audio_format_subtype_ieee_float,
-                         sizeof(ForgeGuid)) == 0) {
+        if (forge_audio_format_id_equals(((ForgeAudioFormatExtensible *)format)->format_id,
+                                         forge_audio_format_id_ieee_float)) {
             return 1;
         }
     }

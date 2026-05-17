@@ -12,16 +12,30 @@
 
 #include "forge_audio_internal.h"
 
-#define MAKE_FORMAT_SUBTYPE(name, fmt)                                                                                 \
-    const ForgeGuid forge_audio_format_subtype_##name = {                                                              \
-        (uint16_t)(fmt), 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71}}
-MAKE_FORMAT_SUBTYPE(pcm, 1);
-MAKE_FORMAT_SUBTYPE(ieee_float, 3);
-MAKE_FORMAT_SUBTYPE(xmaudio2, FORGE_AUDIO_FORMAT_XMAUDIO2);
-MAKE_FORMAT_SUBTYPE(wmaudio2, FORGE_AUDIO_FORMAT_WMAUDIO2);
-MAKE_FORMAT_SUBTYPE(wmaudio3, FORGE_AUDIO_FORMAT_WMAUDIO3);
-MAKE_FORMAT_SUBTYPE(wmaudio_lossless, FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS);
-#undef MAKE_FORMAT_SUBTYPE
+#define MAKE_FORMAT_ID(name, fmt)                                                                                      \
+    const uint8_t forge_audio_format_id_##name[FORGE_AUDIO_FORMAT_ID_SIZE] = {(uint8_t)((fmt) & 0xFF),                 \
+                                                                              (uint8_t)(((fmt) >> 8) & 0xFF),          \
+                                                                              0x00,                                    \
+                                                                              0x00,                                    \
+                                                                              0x00,                                    \
+                                                                              0x00,                                    \
+                                                                              0x10,                                    \
+                                                                              0x00,                                    \
+                                                                              0x80,                                    \
+                                                                              0x00,                                    \
+                                                                              0x00,                                    \
+                                                                              0xAA,                                    \
+                                                                              0x00,                                    \
+                                                                              0x38,                                    \
+                                                                              0x9B,                                    \
+                                                                              0x71}
+MAKE_FORMAT_ID(pcm, 1);
+MAKE_FORMAT_ID(ieee_float, 3);
+MAKE_FORMAT_ID(xmaudio2, FORGE_AUDIO_FORMAT_XMAUDIO2);
+MAKE_FORMAT_ID(wmaudio2, FORGE_AUDIO_FORMAT_WMAUDIO2);
+MAKE_FORMAT_ID(wmaudio3, FORGE_AUDIO_FORMAT_WMAUDIO3);
+MAKE_FORMAT_ID(wmaudio_lossless, FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS);
+#undef MAKE_FORMAT_ID
 
 #ifdef FORGE_AUDIO_DUMP_VOICES
 static void forge_audio_dump_voice_init(const ForgeSourceVoice *voice);
@@ -39,9 +53,9 @@ static uint8_t forge_audio_validate_uncompressed_format(ForgeAudioEngine *audio,
     if (format->format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE) {
         const ForgeAudioFormatExtensible *ext = (const ForgeAudioFormatExtensible *)format;
 
-        if (forge_memcmp(&ext->sub_format, &forge_audio_format_subtype_pcm, sizeof(ForgeGuid)) == 0) {
+        if (forge_audio_format_id_equals(ext->format_id, forge_audio_format_id_pcm)) {
             isPCM = 1;
-        } else if (forge_memcmp(&ext->sub_format, &forge_audio_format_subtype_ieee_float, sizeof(ForgeGuid)) == 0) {
+        } else if (forge_audio_format_id_equals(ext->format_id, forge_audio_format_id_ieee_float)) {
             isFloat = 1;
         } else {
             return 1;
@@ -266,13 +280,13 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
         fmtex->samples.valid_bits_per_sample = source_format->bits_per_sample;
         fmtex->channel_mask = 0;
         if (source_format->format_tag == FORGE_AUDIO_FORMAT_PCM) {
-            forge_memcpy(&fmtex->sub_format, &forge_audio_format_subtype_pcm, sizeof(ForgeGuid));
+            forge_memcpy(fmtex->format_id, forge_audio_format_id_pcm, FORGE_AUDIO_FORMAT_ID_SIZE);
         } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
-            forge_memcpy(&fmtex->sub_format, &forge_audio_format_subtype_ieee_float, sizeof(ForgeGuid));
+            forge_memcpy(fmtex->format_id, forge_audio_format_id_ieee_float, FORGE_AUDIO_FORMAT_ID_SIZE);
         } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO2) {
-            forge_memcpy(&fmtex->sub_format, &forge_audio_format_subtype_wmaudio2, sizeof(ForgeGuid));
+            forge_memcpy(fmtex->format_id, forge_audio_format_id_wmaudio2, FORGE_AUDIO_FORMAT_ID_SIZE);
         } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO3) {
-            forge_memcpy(&fmtex->sub_format, &forge_audio_format_subtype_wmaudio3, sizeof(ForgeGuid));
+            forge_memcpy(fmtex->format_id, forge_audio_format_id_wmaudio3, FORGE_AUDIO_FORMAT_ID_SIZE);
         }
         (*source_voice)->src.format = &fmtex->format;
     } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
@@ -305,9 +319,8 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     if ((*source_voice)->src.format->format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE) {
         ForgeAudioFormatExtensible *fmtex = (ForgeAudioFormatExtensible *)(*source_voice)->src.format;
 
-#define COMPARE_SUBTYPE(type)                                                                                          \
-    (forge_memcmp(&fmtex->sub_format, &forge_audio_format_subtype_##type, sizeof(ForgeGuid)) == 0)
-        if (COMPARE_SUBTYPE(pcm)) {
+#define COMPARE_FORMAT_ID(type) forge_audio_format_id_equals(fmtex->format_id, forge_audio_format_id_##type)
+        if (COMPARE_FORMAT_ID(pcm)) {
 #define DECODER(bit)                                                                                                   \
     if (fmtex->format.bits_per_sample == bit) {                                                                        \
         (*source_voice)->src.decode = forge_audio_decode_pcm##bit;                                                     \
@@ -318,7 +331,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
                 forge_assert(0 && "Unrecognized bits_per_sample!");
             }
 #undef DECODER
-        } else if (COMPARE_SUBTYPE(ieee_float)) {
+        } else if (COMPARE_FORMAT_ID(ieee_float)) {
             /* FIXME: Weird behavior!
              * Prototype creates a source with the IEEE_FLOAT tag,
              * but it's actually PCM16. It seems to prioritize
@@ -331,11 +344,11 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
             } else {
                 (*source_voice)->src.decode = forge_audio_decode_pcm32f;
             }
-        } else if (COMPARE_SUBTYPE(wmaudio2) || COMPARE_SUBTYPE(wmaudio3) || COMPARE_SUBTYPE(wmaudio_lossless)) {
+        } else if (COMPARE_FORMAT_ID(wmaudio2) || COMPARE_FORMAT_ID(wmaudio3) || COMPARE_FORMAT_ID(wmaudio_lossless)) {
         } else {
-            forge_assert(0 && "Unsupported WAVEFORMATEXTENSIBLE subtype!");
+            forge_assert(0 && "Unsupported extensible audio format identifier!");
         }
-#undef COMPARE_SUBTYPE
+#undef COMPARE_FORMAT_ID
     } else if ((*source_voice)->src.format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
         forge_assert(0 && "XMA2 is not supported!");
         (*source_voice)->src.decode = forge_audio_decode_wma_error;
@@ -574,7 +587,7 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
      * before ultimately copying the final result to the device. ARGH.
      */
     WriteWaveFormatExtensible(&audio->mixFormat, audio->master->outputChannels, audio->master->master.inputSampleRate,
-                              &forge_audio_format_subtype_ieee_float);
+                              forge_audio_format_id_ieee_float);
 
     /* Platform Device */
     forge_platform_init(audio, audio->initFlags, device_index, &audio->mixFormat, &audio->updateSize, &audio->platform);
@@ -1047,7 +1060,7 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
         srcFmt.format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
         srcFmt.samples.valid_bits_per_sample = srcFmt.format.bits_per_sample;
         srcFmt.channel_mask = 0;
-        forge_memcpy(&srcFmt.sub_format, &forge_audio_format_subtype_ieee_float, sizeof(ForgeGuid));
+        forge_memcpy(srcFmt.format_id, forge_audio_format_id_ieee_float, FORGE_AUDIO_FORMAT_ID_SIZE);
         forge_memcpy(&dstFmt, &srcFmt, sizeof(srcFmt));
 
         lockedEffects = 0;
@@ -2151,9 +2164,8 @@ static inline ForgeAudioIOStreamOut *DumpVoices_fopen(const ForgeSourceVoice *vo
     uint16_t format_tag = format->format_tag;
     uint16_t format_ex_tag = 0;
     if (format->format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE) {
-        /* get the GUID of the extended subformat */
         const ForgeAudioFormatExtensible *format_ex = (const ForgeAudioFormatExtensible *)format;
-        format_ex_tag = (uint16_t)(format_ex->sub_format.Data1);
+        format_ex_tag = forge_audio_format_id_tag(format_ex->format_id);
     }
     forge_snprintf(loc, sizeof(loc), "FA_fmt_0x%04X_0x%04X_0x%016lX%s.wav", format_tag, format_ex_tag, (uint64_t)voice,
                    ext);
@@ -2257,7 +2269,7 @@ static void forge_audio_dump_voice_init(const ForgeSourceVoice *voice) {
     /* special handling for WMAUDIO2 */
     if (format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE && extra_size >= 22) {
         const ForgeAudioFormatExtensible *format_ex = (const ForgeAudioFormatExtensible *)format;
-        uint16_t format_ex_tag = (uint16_t)(format_ex->sub_format.Data1);
+        uint16_t format_ex_tag = forge_audio_format_id_tag(format_ex->format_id);
         if (format_ex_tag == FORGE_AUDIO_FORMAT_WMAUDIO2) {
             extra_size = 0;
             formatFourcc = "XWMA";
@@ -2306,11 +2318,7 @@ static void forge_audio_dump_voice_init(const ForgeSourceVoice *voice) {
             const ForgeAudioFormatExtensible *format_ex = (const ForgeAudioFormatExtensible *)format;
             io->write(io->data, &format_ex->samples.valid_bits_per_sample, 2, 1);
             io->write(io->data, &format_ex->channel_mask, 4, 1);
-            /* write ForgeGuid */
-            io->write(io->data, &format_ex->sub_format.Data1, 4, 1);
-            io->write(io->data, &format_ex->sub_format.Data2, 2, 1);
-            io->write(io->data, &format_ex->sub_format.Data3, 2, 1);
-            io->write(io->data, &format_ex->sub_format.Data4, 1, 8);
+            io->write(io->data, format_ex->format_id, 1, FORGE_AUDIO_FORMAT_ID_SIZE);
         }
         if (format->extra_size > 22) {
             /* fill up the remaining extra_size bytes with zeros */

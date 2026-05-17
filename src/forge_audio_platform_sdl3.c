@@ -151,7 +151,7 @@ void forge_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t devic
     result->stream = SDL_OpenAudioDeviceStream(devID, &spec, forge_audio_mix_callback, result);
 
     /* Write up the received format for the engine */
-    WriteWaveFormatExtensible(mixFormat, spec.channels, spec.freq, &forge_audio_format_subtype_ieee_float);
+    WriteWaveFormatExtensible(mixFormat, spec.channels, spec.freq, forge_audio_format_id_ieee_float);
     *updateSize = wantSamples;
 
     /* SDL_AudioDeviceID is a Uint32, anybody using a 16-bit PC still? */
@@ -256,7 +256,7 @@ ForgeResult forge_platform_get_device_details(uint32_t index, ForgeDeviceDetails
     }
 
     /* Write the format, finally. */
-    WriteWaveFormatExtensible(&details->output_format, channels, rate, &forge_audio_format_subtype_pcm);
+    WriteWaveFormatExtensible(&details->output_format, channels, rate, forge_audio_format_id_pcm);
     return 0;
 }
 

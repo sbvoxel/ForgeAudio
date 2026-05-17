@@ -59,16 +59,16 @@ static const char *get_wformattag_string(const ForgeAudioFormat *fmt) {
     return "UNKNOWN!";
 }
 
-static const char *get_subformat_string(const ForgeAudioFormat *fmt) {
+static const char *get_format_id_string(const ForgeAudioFormat *fmt) {
     const ForgeAudioFormatExtensible *fmtex = (const ForgeAudioFormatExtensible *)fmt;
 
     if (fmt->format_tag != FORGE_AUDIO_FORMAT_EXTENSIBLE) {
         return "N/A";
     }
-    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_format_subtype_ieee_float, sizeof(ForgeGuid))) {
+    if (forge_audio_format_id_equals(fmtex->format_id, forge_audio_format_id_ieee_float)) {
         return "IEEE_FLOAT";
     }
-    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_format_subtype_pcm, sizeof(ForgeGuid))) {
+    if (forge_audio_format_id_equals(fmtex->format_id, forge_audio_format_id_pcm)) {
         return "PCM";
     }
     return "UNKNOWN!";
@@ -83,10 +83,10 @@ void forge_audio_debug_fmt(ForgeAudioEngine *audio, const char *file, uint32_t l
                        "sample_rate: %u, "
                        "bits_per_sample: %u, "
                        "block_align: %u, "
-                       "sub_format: %s"
+                       "format_id: %s"
                        "}"),
                       fmt->format_tag, get_wformattag_string(fmt), fmt->channels, fmt->sample_rate,
-                      fmt->bits_per_sample, fmt->block_align, get_subformat_string(fmt));
+                      fmt->bits_per_sample, fmt->block_align, get_format_id_string(fmt));
 }
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
 
