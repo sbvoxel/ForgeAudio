@@ -82,13 +82,13 @@ typedef struct ForgeApoMasteringLimiter
 
 ForgeResult ForgeApoMasteringLimiter_Initialize(
     ForgeApoMasteringLimiter *fapo,
-    const void* pData,
+    const void* data,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            fapo->base.m_pParameterBlocks + DataByteSize * offset, \
-            pData, \
+            fapo->base.parameter_blocks + DataByteSize * offset, \
+            data, \
             DataByteSize \
         );
     INITPARAMS(0)
@@ -101,9 +101,9 @@ ForgeResult ForgeApoMasteringLimiter_Initialize(
 void ForgeApoMasteringLimiter_Process(
     ForgeApoMasteringLimiter *fapo,
     uint32_t InputProcessParameterCount,
-    const ForgeApoProcessBuffer* pInputProcessParameters,
+    const ForgeApoProcessBuffer* input_process_parameters,
     uint32_t OutputProcessParameterCount,
-    ForgeApoProcessBuffer* pOutputProcessParameters,
+    ForgeApoProcessBuffer* output_process_parameters,
     int32_t IsEnabled
 ) {
     forge_apo_base_begin_process(&fapo->base);
@@ -116,15 +116,15 @@ void ForgeApoMasteringLimiter_Process(
 void ForgeApoMasteringLimiter_Free(void* fapo)
 {
     ForgeApoMasteringLimiter *limiter = (ForgeApoMasteringLimiter*) fapo;
-    limiter->base.pFree(limiter->base.m_pParameterBlocks);
-    limiter->base.pFree(fapo);
+    limiter->base.free_func(limiter->base.parameter_blocks);
+    limiter->base.free_func(fapo);
 }
 
 /* Public API */
 
 ForgeResult forge_apo_create_mastering_limiter(
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -143,7 +143,7 @@ ForgeResult forge_apo_create_mastering_limiter(
     uint8_t *params = (uint8_t*) customMalloc(
         sizeof(ForgeApoMasteringLimiterParameters) * 3
     );
-    if (pInitData == NULL)
+    if (init_data == NULL)
     {
         ForgeAudio_zero(params, sizeof(ForgeApoMasteringLimiterParameters) * 3);
         #define INITPARAMS(offset) \
@@ -160,9 +160,9 @@ ForgeResult forge_apo_create_mastering_limiter(
     else
     {
         ForgeAudio_assert(InitDataByteSize == sizeof(ForgeApoMasteringLimiterParameters));
-        ForgeAudio_memcpy(params, pInitData, InitDataByteSize);
-        ForgeAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
-        ForgeAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
+        ForgeAudio_memcpy(params, init_data, InitDataByteSize);
+        ForgeAudio_memcpy(params + InitDataByteSize, init_data, InitDataByteSize);
+        ForgeAudio_memcpy(params + (InitDataByteSize * 2), init_data, InitDataByteSize);
     }
 
     /* Initialize... */
@@ -190,6 +190,6 @@ ForgeResult forge_apo_create_mastering_limiter(
     result->base.Destructor = ForgeApoMasteringLimiter_Free;
 
     /* Finally. */
-    *pEffect = &result->base.base;
+    *effect = &result->base.base;
     return 0;
 }

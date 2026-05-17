@@ -144,24 +144,24 @@ typedef struct ForgeApoEchoParameters
 /* Creates an effect from the pre-made ForgeApoFx effect library.
  *
  * clsid:        A reference to one of the FORGE_APO_FX_ID_* GUIDs
- * pEffect:        Filled with the resulting ForgeApo object
- * pInitData:        Starting parameters, pass NULL to use the default values
- * InitDataByteSize:    Parameter struct size, pass 0 if pInitData is NULL
+ * effect:        Filled with the resulting ForgeApo object
+ * init_data:        Starting parameters, pass NULL to use the default values
+ * InitDataByteSize:    Parameter struct size, pass 0 if init_data is NULL
  *
  * Returns ForgeResultSuccess on success.
  */
 FORGE_APO_FX_API ForgeResult forge_apo_create_effect(
     const ForgeGuid *clsid,
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize
 );
 
 /* See "extensions/custom allocator.txt" for more details. */
 FORGE_APO_FX_API ForgeResult forge_apo_create_effect_with_allocator(
     const ForgeGuid *clsid,
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,

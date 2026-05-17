@@ -163,7 +163,7 @@ typedef struct ForgeSpatialDistanceCurvePoint
 
 typedef struct ForgeSpatialDistanceCurve
 {
-    ForgeSpatialDistanceCurvePoint *pPoints;
+    ForgeSpatialDistanceCurvePoint *points;
     uint32_t PointCount;
 } ForgeSpatialDistanceCurve;
 
@@ -185,12 +185,12 @@ typedef struct ForgeSpatialListener
     ForgeVector3 OrientTop;
     ForgeVector3 Position;
     ForgeVector3 Velocity;
-    ForgeSpatialCone *pCone;
+    ForgeSpatialCone *cone;
 } ForgeSpatialListener;
 
 typedef struct ForgeSpatialEmitter
 {
-    ForgeSpatialCone *pCone;
+    ForgeSpatialCone *cone;
     ForgeVector3 OrientFront;
     ForgeVector3 OrientTop;
     ForgeVector3 Position;
@@ -199,20 +199,20 @@ typedef struct ForgeSpatialEmitter
     float InnerRadiusAngle;
     uint32_t ChannelCount;
     float ChannelRadius;
-    float *pChannelAzimuths;
-    ForgeSpatialDistanceCurve *pVolumeCurve;
-    ForgeSpatialDistanceCurve *pLFECurve;
-    ForgeSpatialDistanceCurve *pLPFDirectCurve;
-    ForgeSpatialDistanceCurve *pLPFReverbCurve;
-    ForgeSpatialDistanceCurve *pReverbCurve;
+    float *channel_azimuths;
+    ForgeSpatialDistanceCurve *volume_curve;
+    ForgeSpatialDistanceCurve *lfe_curve;
+    ForgeSpatialDistanceCurve *lpf_direct_curve;
+    ForgeSpatialDistanceCurve *lpf_reverb_curve;
+    ForgeSpatialDistanceCurve *reverb_curve;
     float CurveDistanceScaler;
     float DopplerScaler;
 } ForgeSpatialEmitter;
 
 typedef struct ForgeSpatialDspSettings
 {
-    float *pMatrixCoefficients;
-    float *pDelayTimes;
+    float *matrix_coefficients;
+    float *delay_times;
     uint32_t SrcChannelCount;
     uint32_t DstChannelCount;
     float LPFDirectCoefficient;
@@ -237,10 +237,10 @@ FORGE_SPATIAL_API bool forge_spatializer_init(
 
 FORGE_SPATIAL_API void forge_spatializer_calculate(
     const ForgeSpatializer *spatializer,
-    const ForgeSpatialListener *pListener,
-    const ForgeSpatialEmitter *pEmitter,
+    const ForgeSpatialListener *listener,
+    const ForgeSpatialEmitter *emitter,
     uint32_t Flags,
-    ForgeSpatialDspSettings *pDSPSettings
+    ForgeSpatialDspSettings *dsp_settings
 );
 
 #ifdef __cplusplus

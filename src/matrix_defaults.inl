@@ -23,20 +23,20 @@ int main(int argc, char **argv)
 
             XAUDIO2_SEND_DESCRIPTOR sendDesc;
             sendDesc.Flags = 0;
-            sendDesc.pOutputVoice = submix;
+            sendDesc.output_voice = submix;
 
             XAUDIO2_VOICE_SENDS sends;
             sends.SendCount = 1;
-            sends.pSends = &sendDesc;
+            sends.sends = &sendDesc;
 
             WAVEFORMATEX fmt;
-            fmt.wFormatTag = 1;
-            fmt.nChannels = srcChans;
-            fmt.nSamplesPerSec = 48000;
-            fmt.wBitsPerSample = 16;
-            fmt.nBlockAlign = srcChans * (fmt.wBitsPerSample / 8);
-            fmt.nAvgBytesPerSec = fmt.nBlockAlign * fmt.nSamplesPerSec;
-            fmt.cbSize = 0;
+            fmt.format_tag = 1;
+            fmt.channels = srcChans;
+            fmt.sample_rate = 48000;
+            fmt.bits_per_sample = 16;
+            fmt.block_align = srcChans * (fmt.bits_per_sample / 8);
+            fmt.average_bytes_per_second = fmt.block_align * fmt.sample_rate;
+            fmt.extra_size = 0;
 
             IXAudio2SourceVoice *source;
             engine->CreateSourceVoice(&source, &fmt, 0, 2.0f, NULL, &sends);

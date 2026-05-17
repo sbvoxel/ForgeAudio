@@ -107,7 +107,7 @@ static uint8_t *songCache;
 
 /* Internal Functions */
 
-static void XNA_SongSubmitBuffer(ForgeVoiceCallback *callback, void *pBufferContext)
+static void XNA_SongSubmitBuffer(ForgeVoiceCallback *callback, void *buffer_context)
 {
     ForgeBuffer buffer;
     uint32_t decoded = 0;
@@ -139,13 +139,13 @@ static void XNA_SongSubmitBuffer(ForgeVoiceCallback *callback, void *pBufferCont
 
 	songOffset += decoded;
 	buffer.Flags = (songOffset >= songLength) ? FORGE_AUDIO_END_OF_STREAM : 0;
-	buffer.pAudioData = songCache;
+	buffer.audio_data = songCache;
 	buffer.PlayBegin = 0;
 	buffer.PlayLength = decoded;
 	buffer.LoopBegin = 0;
 	buffer.LoopLength = 0;
 	buffer.LoopCount = 0;
-	buffer.pContext = NULL;
+	buffer.context = NULL;
 	forge_source_voice_submit_buffer(
 		songVoice,
 		&buffer,
@@ -211,13 +211,13 @@ FORGE_AUDIO_API float XNA_PlaySong(const char *name)
 	if (activeVorbisSong != NULL)
 	{
 		activeVorbisSongInfo = stb_vorbis_get_info(activeVorbisSong);
-		format.wFormatTag = FORGE_AUDIO_FORMAT_IEEE_FLOAT;
-		format.nChannels = activeVorbisSongInfo.channels;
-		format.nSamplesPerSec = activeVorbisSongInfo.sample_rate;
-		format.wBitsPerSample = sizeof(float) * 8;
-		format.nBlockAlign = format.nChannels * format.wBitsPerSample / 8;
-		format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
-		format.cbSize = 0;
+		format.format_tag = FORGE_AUDIO_FORMAT_IEEE_FLOAT;
+		format.channels = activeVorbisSongInfo.channels;
+		format.sample_rate = activeVorbisSongInfo.sample_rate;
+		format.bits_per_sample = sizeof(float) * 8;
+		format.block_align = format.channels * format.bits_per_sample / 8;
+		format.average_bytes_per_second = format.sample_rate * format.block_align;
+		format.extra_size = 0;
 
 		songOffset = 0;
 		songLength = stb_vorbis_stream_length_in_samples(activeVorbisSong);
@@ -234,20 +234,20 @@ FORGE_AUDIO_API float XNA_PlaySong(const char *name)
 
         qoa_attributes(activeQoaSong, &qoaChannels, &qoaSampleRate, &qoaSamplesPerChannelPerFrame, &qoaTotalSamplesPerChannel);
 
-		format.wFormatTag = FORGE_AUDIO_FORMAT_PCM;
-		format.nChannels = qoaChannels;
-		format.nSamplesPerSec = qoaSampleRate;
-		format.wBitsPerSample = 16;
-		format.nBlockAlign = format.nChannels * format.wBitsPerSample / 8;
-		format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
-		format.cbSize = 0;
+		format.format_tag = FORGE_AUDIO_FORMAT_PCM;
+		format.channels = qoaChannels;
+		format.sample_rate = qoaSampleRate;
+		format.bits_per_sample = 16;
+		format.block_align = format.channels * format.bits_per_sample / 8;
+		format.average_bytes_per_second = format.sample_rate * format.block_align;
+		format.extra_size = 0;
 
 		songOffset = 0;
 		songLength = qoaTotalSamplesPerChannel;
 	}
 
     /* Allocate decode cache */
-    songCache = (uint8_t*) ForgeAudio_malloc(format.nAvgBytesPerSec);
+    songCache = (uint8_t*) ForgeAudio_malloc(format.average_bytes_per_second);
 
     /* Init voice */
     ForgeAudio_zero(&callbacks, sizeof(ForgeVoiceCallback));

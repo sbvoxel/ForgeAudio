@@ -29,14 +29,14 @@
 
 ForgeResult forge_apo_create_effect(
     const ForgeGuid *clsid,
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize
 ) {
     return forge_apo_create_effect_with_allocator(
         clsid,
-        pEffect,
-        pInitData,
+        effect,
+        init_data,
         InitDataByteSize,
         ForgeAudio_malloc,
         ForgeAudio_free,
@@ -46,8 +46,8 @@ ForgeResult forge_apo_create_effect(
 
 ForgeResult forge_apo_create_effect_with_allocator(
     const ForgeGuid *clsid,
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -57,8 +57,8 @@ ForgeResult forge_apo_create_effect_with_allocator(
     if (ForgeAudio_memcmp(clsid, &(id), sizeof(ForgeGuid)) == 0) \
     { \
         return create_func( \
-            pEffect, \
-            pInitData, \
+            effect, \
+            init_data, \
             InitDataByteSize, \
             customMalloc, \
             customFree, \

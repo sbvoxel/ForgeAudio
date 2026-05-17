@@ -134,7 +134,7 @@ static HRESULT ForgeAudio_FillAudioClientBuffer(
 
         ForgeAudio_zero(
             buffer,
-            args->updateSize * args->format.Format.nBlockAlign
+            args->updateSize * args->format.Format.block_align
         );
 
         if (args->audio->active)
@@ -375,18 +375,18 @@ void ForgeAudio_PlatformInit(
     ForgeAudio_assert(!!data && "Failed to allocate ForgeAudioEngine platform data!");
     ForgeAudio_zero(data, sizeof(*data));
 
-    args->format.Format.wFormatTag = mixFormat->Format.wFormatTag;
-    args->format.Format.nChannels = mixFormat->Format.nChannels;
-    args->format.Format.nSamplesPerSec = mixFormat->Format.nSamplesPerSec;
-    args->format.Format.nAvgBytesPerSec = mixFormat->Format.nAvgBytesPerSec;
-    args->format.Format.nBlockAlign = mixFormat->Format.nBlockAlign;
-    args->format.Format.wBitsPerSample = mixFormat->Format.wBitsPerSample;
-    args->format.Format.cbSize = mixFormat->Format.cbSize;
+    args->format.Format.format_tag = mixFormat->Format.format_tag;
+    args->format.Format.channels = mixFormat->Format.channels;
+    args->format.Format.sample_rate = mixFormat->Format.sample_rate;
+    args->format.Format.average_bytes_per_second = mixFormat->Format.average_bytes_per_second;
+    args->format.Format.block_align = mixFormat->Format.block_align;
+    args->format.Format.bits_per_sample = mixFormat->Format.bits_per_sample;
+    args->format.Format.extra_size = mixFormat->Format.extra_size;
 
-    if (args->format.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+    if (args->format.Format.format_tag == WAVE_FORMAT_EXTENSIBLE)
     {
-        args->format.Samples.wValidBitsPerSample = mixFormat->Samples.wValidBitsPerSample;
-        args->format.dwChannelMask = mixFormat->dwChannelMask;
+        args->format.Samples.valid_bits_per_sample = mixFormat->Samples.valid_bits_per_sample;
+        args->format.channel_mask = mixFormat->channel_mask;
         ForgeAudio_memcpy(
             &args->format.SubFormat,
             &mixFormat->SubFormat,
@@ -430,18 +430,18 @@ void ForgeAudio_PlatformInit(
     hr = IAudioClient_SetEventHandle(data->client, audioEvent);
     ForgeAudio_assert(!FAILED(hr) && "Failed to set audio client event!");
 
-    mixFormat->Format.wFormatTag = args->format.Format.wFormatTag;
-    mixFormat->Format.nChannels = args->format.Format.nChannels;
-    mixFormat->Format.nSamplesPerSec = args->format.Format.nSamplesPerSec;
-    mixFormat->Format.nAvgBytesPerSec = args->format.Format.nAvgBytesPerSec;
-    mixFormat->Format.nBlockAlign = args->format.Format.nBlockAlign;
-    mixFormat->Format.wBitsPerSample = args->format.Format.wBitsPerSample;
+    mixFormat->Format.format_tag = args->format.Format.format_tag;
+    mixFormat->Format.channels = args->format.Format.channels;
+    mixFormat->Format.sample_rate = args->format.Format.sample_rate;
+    mixFormat->Format.average_bytes_per_second = args->format.Format.average_bytes_per_second;
+    mixFormat->Format.block_align = args->format.Format.block_align;
+    mixFormat->Format.bits_per_sample = args->format.Format.bits_per_sample;
 
-    if (args->format.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+    if (args->format.Format.format_tag == WAVE_FORMAT_EXTENSIBLE)
     {
-        mixFormat->Format.cbSize = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
-        mixFormat->Samples.wValidBitsPerSample = args->format.Samples.wValidBitsPerSample;
-        mixFormat->dwChannelMask = args->format.dwChannelMask;
+        mixFormat->Format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
+        mixFormat->Samples.valid_bits_per_sample = args->format.Samples.valid_bits_per_sample;
+        mixFormat->channel_mask = args->format.channel_mask;
         ForgeAudio_memcpy(
             &mixFormat->SubFormat,
             &args->format.SubFormat,
@@ -450,15 +450,15 @@ void ForgeAudio_PlatformInit(
     }
     else
     {
-        mixFormat->Format.cbSize = sizeof(ForgeAudioFormat);
+        mixFormat->Format.extra_size = sizeof(ForgeAudioFormat);
     }
 
     args->client = data->client;
     args->events[0] = audioEvent;
     args->events[1] = data->stopEvent;
     args->audio = audio;
-    if (flags & FORGE_AUDIO_1024_QUANTUM) args->updateSize = args->format.Format.nSamplesPerSec / (1000.0 / (64.0 / 3.0));
-    else args->updateSize = args->format.Format.nSamplesPerSec / 100;
+    if (flags & FORGE_AUDIO_1024_QUANTUM) args->updateSize = args->format.Format.sample_rate / (1000.0 / (64.0 / 3.0));
+    else args->updateSize = args->format.Format.sample_rate / 100;
 
     data->audioThread = CreateThread(NULL, 0, &ForgeAudio_AudioClientThread, args, 0, NULL);
     ForgeAudio_assert(!!data->audioThread && "Failed to create audio client thread!");
@@ -633,7 +633,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
         return hr;
     }
 
-    if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+    if (format->format_tag == WAVE_FORMAT_EXTENSIBLE)
     {
         ext = (WAVEFORMATEXTENSIBLE *)format;
         sub = ext->SubFormat;
@@ -655,19 +655,19 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
         }
     }
 
-    details->OutputFormat.Format.wFormatTag = format->wFormatTag;
-    details->OutputFormat.Format.nChannels = format->nChannels;
-    details->OutputFormat.Format.nSamplesPerSec = format->nSamplesPerSec;
-    details->OutputFormat.Format.nAvgBytesPerSec = format->nAvgBytesPerSec;
-    details->OutputFormat.Format.nBlockAlign = format->nBlockAlign;
-    details->OutputFormat.Format.wBitsPerSample = format->wBitsPerSample;
-    details->OutputFormat.Format.cbSize = format->cbSize;
+    details->OutputFormat.Format.format_tag = format->format_tag;
+    details->OutputFormat.Format.channels = format->channels;
+    details->OutputFormat.Format.sample_rate = format->sample_rate;
+    details->OutputFormat.Format.average_bytes_per_second = format->average_bytes_per_second;
+    details->OutputFormat.Format.block_align = format->block_align;
+    details->OutputFormat.Format.bits_per_sample = format->bits_per_sample;
+    details->OutputFormat.Format.extra_size = format->extra_size;
 
-    if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+    if (format->format_tag == WAVE_FORMAT_EXTENSIBLE)
     {
         ext = (WAVEFORMATEXTENSIBLE *)format;
-        details->OutputFormat.Samples.wValidBitsPerSample = ext->Samples.wValidBitsPerSample;
-        details->OutputFormat.dwChannelMask = ext->dwChannelMask;
+        details->OutputFormat.Samples.valid_bits_per_sample = ext->Samples.valid_bits_per_sample;
+        details->OutputFormat.channel_mask = ext->channel_mask;
         ForgeAudio_memcpy(
             &details->OutputFormat.SubFormat,
             &ext->SubFormat,
@@ -676,7 +676,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
     }
     else
     {
-        details->OutputFormat.dwChannelMask = GetMask(format->nChannels);
+        details->OutputFormat.channel_mask = GetMask(format->channels);
     }
 
     CoTaskMemFree(format);

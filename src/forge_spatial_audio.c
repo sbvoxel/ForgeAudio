@@ -236,42 +236,42 @@ typedef struct ForgeSpatialBasis
 
 /* CHECK UTILITY FUNCTIONS */
 
-static inline uint8_t CheckCone(ForgeSpatialCone *pCone)
+static inline uint8_t CheckCone(ForgeSpatialCone *cone)
 {
-    if (!pCone)
+    if (!cone)
     {
         return PARAM_CHECK_OK;
     }
 
-    FLOAT_BETWEEN_CHECK(pCone->InnerAngle, 0.0f, FORGE_SPATIAL_2PI);
-    FLOAT_BETWEEN_CHECK(pCone->OuterAngle, pCone->InnerAngle, FORGE_SPATIAL_2PI);
+    FLOAT_BETWEEN_CHECK(cone->InnerAngle, 0.0f, FORGE_SPATIAL_2PI);
+    FLOAT_BETWEEN_CHECK(cone->OuterAngle, cone->InnerAngle, FORGE_SPATIAL_2PI);
 
-    FLOAT_BETWEEN_CHECK(pCone->InnerVolume, 0.0f, 2.0f);
-    FLOAT_BETWEEN_CHECK(pCone->OuterVolume, 0.0f, 2.0f);
+    FLOAT_BETWEEN_CHECK(cone->InnerVolume, 0.0f, 2.0f);
+    FLOAT_BETWEEN_CHECK(cone->OuterVolume, 0.0f, 2.0f);
 
-    FLOAT_BETWEEN_CHECK(pCone->InnerLPF, 0.0f, 1.0f);
-    FLOAT_BETWEEN_CHECK(pCone->OuterLPF, 0.0f, 1.0f);
+    FLOAT_BETWEEN_CHECK(cone->InnerLPF, 0.0f, 1.0f);
+    FLOAT_BETWEEN_CHECK(cone->OuterLPF, 0.0f, 1.0f);
 
-    FLOAT_BETWEEN_CHECK(pCone->InnerReverb, 0.0f, 2.0f);
-    FLOAT_BETWEEN_CHECK(pCone->OuterReverb, 0.0f, 2.0f);
+    FLOAT_BETWEEN_CHECK(cone->InnerReverb, 0.0f, 2.0f);
+    FLOAT_BETWEEN_CHECK(cone->OuterReverb, 0.0f, 2.0f);
 
     return PARAM_CHECK_OK;
 }
 
-static inline uint8_t CheckCurve(ForgeSpatialDistanceCurve *pCurve)
+static inline uint8_t CheckCurve(ForgeSpatialDistanceCurve *curve)
 {
     ForgeSpatialDistanceCurvePoint *points;
     uint32_t i;
-    if (!pCurve)
+    if (!curve)
     {
         return PARAM_CHECK_OK;
     }
 
-    points = pCurve->pPoints;
+    points = curve->points;
     POINTER_CHECK(points);
-    PARAM_CHECK(pCurve->PointCount >= 2, "Invalid number of points for curve");
+    PARAM_CHECK(curve->PointCount >= 2, "Invalid number of points for curve");
 
-    for (i = 0; i < pCurve->PointCount; i += 1)
+    for (i = 0; i < curve->PointCount; i += 1)
     {
         FLOAT_BETWEEN_CHECK(points[i].Distance, 0.0f, 1.0f);
     }
@@ -281,11 +281,11 @@ static inline uint8_t CheckCurve(ForgeSpatialDistanceCurve *pCurve)
         "First point in the curve must be at distance 0.0f"
     );
     PARAM_CHECK(
-        points[pCurve->PointCount - 1].Distance == 1.0f,
+        points[curve->PointCount - 1].Distance == 1.0f,
         "Last point in the curve must be at distance 1.0f"
     );
 
-    for (i = 0; i < (pCurve->PointCount - 1); i += 1)
+    for (i = 0; i < (curve->PointCount - 1); i += 1)
     {
         PARAM_CHECK(
             points[i].Distance < points[i + 1].Distance,
@@ -298,21 +298,21 @@ static inline uint8_t CheckCurve(ForgeSpatialDistanceCurve *pCurve)
 
 static uint8_t forge_spatializer_check_calculate_params(
     const ForgeSpatializer *spatializer,
-    const ForgeSpatialListener *pListener,
-    const ForgeSpatialEmitter *pEmitter,
+    const ForgeSpatialListener *listener,
+    const ForgeSpatialEmitter *emitter,
     uint32_t Flags,
-    ForgeSpatialDspSettings *pDSPSettings
+    ForgeSpatialDspSettings *dsp_settings
 ) {
     uint32_t i, ChannelCount;
 
     POINTER_CHECK(spatializer);
-    POINTER_CHECK(pListener);
-    POINTER_CHECK(pEmitter);
-    POINTER_CHECK(pDSPSettings);
+    POINTER_CHECK(listener);
+    POINTER_CHECK(emitter);
+    POINTER_CHECK(dsp_settings);
 
     if (Flags & FORGE_SPATIAL_CALCULATE_MATRIX)
     {
-        POINTER_CHECK(pDSPSettings->pMatrixCoefficients);
+        POINTER_CHECK(dsp_settings->matrix_coefficients);
     }
     if (Flags & FORGE_SPATIAL_CALCULATE_ZERO_CENTER)
     {
@@ -339,65 +339,65 @@ static uint8_t forge_spatializer_check_calculate_params(
 
     ChannelCount = SPEAKERCOUNT(spatializer);
     PARAM_CHECK(
-        pDSPSettings->DstChannelCount == ChannelCount,
+        dsp_settings->DstChannelCount == ChannelCount,
         "Invalid channel count, DSP settings and speaker configuration must agree"
     );
     PARAM_CHECK(
-        pDSPSettings->SrcChannelCount == pEmitter->ChannelCount,
+        dsp_settings->SrcChannelCount == emitter->ChannelCount,
         "Invalid channel count, DSP settings and emitter must agree"
     );
 
-    if (pListener->pCone)
+    if (listener->cone)
     {
         PARAM_CHECK(
-            CheckCone(pListener->pCone) == PARAM_CHECK_OK,
+            CheckCone(listener->cone) == PARAM_CHECK_OK,
             "Invalid listener cone"
         );
     }
-    VECTOR_NORMAL_CHECK(pListener->OrientFront);
-    VECTOR_NORMAL_CHECK(pListener->OrientTop);
-    VECTOR_BASE_CHECK(pListener->OrientFront, pListener->OrientTop);
+    VECTOR_NORMAL_CHECK(listener->OrientFront);
+    VECTOR_NORMAL_CHECK(listener->OrientTop);
+    VECTOR_BASE_CHECK(listener->OrientFront, listener->OrientTop);
 
-    if (pEmitter->pCone)
+    if (emitter->cone)
     {
-        VECTOR_NORMAL_CHECK(pEmitter->OrientFront);
+        VECTOR_NORMAL_CHECK(emitter->OrientFront);
         PARAM_CHECK(
-            CheckCone(pEmitter->pCone) == PARAM_CHECK_OK,
+            CheckCone(emitter->cone) == PARAM_CHECK_OK,
             "Invalid emitter cone"
         );
     }
     else if (Flags & FORGE_SPATIAL_CALCULATE_EMITTER_ANGLE)
     {
-        VECTOR_NORMAL_CHECK(pEmitter->OrientFront);
+        VECTOR_NORMAL_CHECK(emitter->OrientFront);
     }
-    if (pEmitter->ChannelCount > 1)
+    if (emitter->ChannelCount > 1)
     {
         /* Only used for multi-channel emitters */
-        VECTOR_NORMAL_CHECK(pEmitter->OrientFront);
-        VECTOR_NORMAL_CHECK(pEmitter->OrientTop);
-        VECTOR_BASE_CHECK(pEmitter->OrientFront, pEmitter->OrientTop);
+        VECTOR_NORMAL_CHECK(emitter->OrientFront);
+        VECTOR_NORMAL_CHECK(emitter->OrientTop);
+        VECTOR_BASE_CHECK(emitter->OrientFront, emitter->OrientTop);
     }
-    FLOAT_BETWEEN_CHECK(pEmitter->InnerRadius, 0.0f, FLT_MAX);
-    FLOAT_BETWEEN_CHECK(pEmitter->InnerRadiusAngle, 0.0f, FORGE_SPATIAL_2PI / 4.0f);
+    FLOAT_BETWEEN_CHECK(emitter->InnerRadius, 0.0f, FLT_MAX);
+    FLOAT_BETWEEN_CHECK(emitter->InnerRadiusAngle, 0.0f, FORGE_SPATIAL_2PI / 4.0f);
     PARAM_CHECK(
-        pEmitter->ChannelCount > 0,
+        emitter->ChannelCount > 0,
         "Invalid channel count for emitter"
     );
     PARAM_CHECK(
-        pEmitter->ChannelRadius >= 0.0f,
+        emitter->ChannelRadius >= 0.0f,
         "Invalid channel radius for emitter"
     );
-    if (pEmitter->ChannelCount > 1)
+    if (emitter->ChannelCount > 1)
     {
         PARAM_CHECK(
-            pEmitter->pChannelAzimuths != NULL,
+            emitter->channel_azimuths != NULL,
             "Invalid channel azimuths for multi-channel emitter"
         );
-        if (pEmitter->pChannelAzimuths)
+        if (emitter->channel_azimuths)
         {
-            for (i = 0; i < pEmitter->ChannelCount; i += 1)
+            for (i = 0; i < emitter->ChannelCount; i += 1)
             {
-                float currentAzimuth = pEmitter->pChannelAzimuths[i];
+                float currentAzimuth = emitter->channel_azimuths[i];
                 FLOAT_BETWEEN_CHECK(currentAzimuth, 0.0f, FORGE_SPATIAL_2PI);
                 if (currentAzimuth == FORGE_SPATIAL_2PI)
                 {
@@ -411,27 +411,27 @@ static uint8_t forge_spatializer_check_calculate_params(
             }
         }
     }
-    FLOAT_BETWEEN_CHECK(pEmitter->CurveDistanceScaler, FLT_MIN, FLT_MAX);
-    FLOAT_BETWEEN_CHECK(pEmitter->DopplerScaler, 0.0f, FLT_MAX);
+    FLOAT_BETWEEN_CHECK(emitter->CurveDistanceScaler, FLT_MIN, FLT_MAX);
+    FLOAT_BETWEEN_CHECK(emitter->DopplerScaler, 0.0f, FLT_MAX);
 
     PARAM_CHECK(
-        CheckCurve(pEmitter->pVolumeCurve) == PARAM_CHECK_OK,
+        CheckCurve(emitter->volume_curve) == PARAM_CHECK_OK,
         "Invalid Volume curve"
     );
     PARAM_CHECK(
-        CheckCurve(pEmitter->pLFECurve) == PARAM_CHECK_OK,
+        CheckCurve(emitter->lfe_curve) == PARAM_CHECK_OK,
         "Invalid LFE curve"
     );
     PARAM_CHECK(
-        CheckCurve(pEmitter->pLPFDirectCurve) == PARAM_CHECK_OK,
+        CheckCurve(emitter->lpf_direct_curve) == PARAM_CHECK_OK,
         "Invalid LPFDirect curve"
     );
     PARAM_CHECK(
-        CheckCurve(pEmitter->pLPFReverbCurve) == PARAM_CHECK_OK,
+        CheckCurve(emitter->lpf_reverb_curve) == PARAM_CHECK_OK,
         "Invalid LPFReverb curve"
     );
     PARAM_CHECK(
-        CheckCurve(pEmitter->pReverbCurve) == PARAM_CHECK_OK,
+        CheckCurve(emitter->reverb_curve) == PARAM_CHECK_OK,
         "Invalid Reverb curve"
     );
 
@@ -442,21 +442,21 @@ static uint8_t forge_spatializer_check_calculate_params(
  * MATRIX CALCULATION
  */
 
-/* This function computes the distance either according to a curve if pCurve
+/* This function computes the distance either according to a curve if curve
  * isn't NULL, or according to the inverse distance law 1/d otherwise.
  */
 static inline float ComputeDistanceAttenuation(
     float normalizedDistance,
-    ForgeSpatialDistanceCurve *pCurve
+    ForgeSpatialDistanceCurve *curve
 ) {
     float res;
     float alpha;
     uint32_t n_points;
     size_t i;
-    if (pCurve)
+    if (curve)
     {
-        ForgeSpatialDistanceCurvePoint* points = pCurve->pPoints;
-        n_points = pCurve->PointCount;
+        ForgeSpatialDistanceCurvePoint* points = curve->points;
+        n_points = curve->PointCount;
 
         /* By definition, the first point in the curve must be 0.0f
          * -Adrien
@@ -919,7 +919,7 @@ static inline void ComputeEmitterChannelCoefficients(
     uint32_t flags,
     uint32_t currentChannel,
     uint32_t numSrcChannels,
-    float *pMatrixCoefficients
+    float *matrix_coefficients
 ) {
     float elevation, radialDistance;
     ForgeVector3 projTopVec, projPlane;
@@ -930,7 +930,7 @@ static inline void ComputeEmitterChannelCoefficients(
     float emitterAzimuth;
     float energyPerChannel;
     float totalEnergy;
-    uint32_t nChannelsToDiffuseTo;
+    uint32_t channels_to_diffuse_to;
     uint32_t iS, centerChannelIdx = -1;
     const SpeakerInfo* infos[2];
     float a0, a1, val;
@@ -961,17 +961,17 @@ static inline void ComputeEmitterChannelCoefficients(
      * diffusionFactors[DIFFUSION_SPEAKERS_ALL]. */
     if (diffusionFactors[DIFFUSION_SPEAKERS_ALL] > 0.0f)
     {
-        nChannelsToDiffuseTo = curConfig->numNonLFSpeakers;
+        channels_to_diffuse_to = curConfig->numNonLFSpeakers;
         totalEnergy = diffusionFactors[DIFFUSION_SPEAKERS_ALL] * attenuation;
 
         if (skipCenter)
         {
-            nChannelsToDiffuseTo -= 1;
+            channels_to_diffuse_to -= 1;
             ForgeAudio_assert(curConfig->speakers[0].azimuth == FORGE_SPEAKER_AZIMUTH_CENTER);
             centerChannelIdx = curConfig->speakers[0].matrixIdx;
         }
 
-        energyPerChannel = totalEnergy / nChannelsToDiffuseTo;
+        energyPerChannel = totalEnergy / channels_to_diffuse_to;
 
         for (iS = 0; iS < curConfig->numNonLFSpeakers; iS += 1)
         {
@@ -981,7 +981,7 @@ static inline void ComputeEmitterChannelCoefficients(
                 continue;
             }
 
-            pMatrixCoefficients[curSpeakerIdx * numSrcChannels + currentChannel] += energyPerChannel;
+            matrix_coefficients[curSpeakerIdx * numSrcChannels + currentChannel] += energyPerChannel;
         }
     }
 
@@ -1032,8 +1032,8 @@ static inline void ComputeEmitterChannelCoefficients(
         i0 = infos[0]->matrixIdx;
         i1 = infos[1]->matrixIdx;
 
-        pMatrixCoefficients[i0 * numSrcChannels + currentChannel] += (1.0f - val) * totalEnergy;
-        pMatrixCoefficients[i1 * numSrcChannels + currentChannel] += (       val) * totalEnergy;
+        matrix_coefficients[i0 * numSrcChannels + currentChannel] += (1.0f - val) * totalEnergy;
+        matrix_coefficients[i1 * numSrcChannels + currentChannel] += (       val) * totalEnergy;
     }
 
     /* DIFFUSION_SPEAKERS_OPPOSITE corresponds to sending part of the sound to the speakers
@@ -1086,14 +1086,14 @@ static inline void ComputeEmitterChannelCoefficients(
         i0 = infos[0]->matrixIdx;
         i1 = infos[1]->matrixIdx;
 
-        pMatrixCoefficients[i0 * numSrcChannels + currentChannel] += (1.0f - val) * totalEnergy;
-        pMatrixCoefficients[i1 * numSrcChannels + currentChannel] += (       val) * totalEnergy;
+        matrix_coefficients[i0 * numSrcChannels + currentChannel] += (1.0f - val) * totalEnergy;
+        matrix_coefficients[i1 * numSrcChannels + currentChannel] += (       val) * totalEnergy;
     }
 
     if (flags & FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE)
     {
         ForgeAudio_assert(curConfig->LFSpeakerIdx != -1);
-        pMatrixCoefficients[curConfig->LFSpeakerIdx * numSrcChannels + currentChannel] += LFEattenuation / numSrcChannels;
+        matrix_coefficients[curConfig->LFSpeakerIdx * numSrcChannels + currentChannel] += LFEattenuation / numSrcChannels;
     }
 }
 
@@ -1136,8 +1136,8 @@ static inline void ComputeEmitterChannelCoefficients(
 static inline void CalculateMatrix(
     uint32_t ChannelMask,
     uint32_t Flags,
-    const ForgeSpatialListener *pListener,
-    const ForgeSpatialEmitter *pEmitter,
+    const ForgeSpatialListener *listener,
+    const ForgeSpatialEmitter *emitter,
     uint32_t SrcChannelCount,
     uint32_t DstChannelCount,
     ForgeVector3 emitterToListener,
@@ -1150,12 +1150,12 @@ static inline void CalculateMatrix(
     const ConfigInfo* curConfig = GetConfigInfo(ChannelMask);
     float attenuation = ComputeDistanceAttenuation(
         normalizedDistance,
-        pEmitter->pVolumeCurve
+        emitter->volume_curve
     );
     /* TODO: this could be skipped if the destination has no LFE */
     float LFEattenuation = ComputeDistanceAttenuation(
         normalizedDistance,
-        pEmitter->pLFECurve
+        emitter->lfe_curve
     );
 
     ForgeVector3 listenerToEmitter;
@@ -1169,44 +1169,44 @@ static inline void CalculateMatrix(
      * give either InnerVolume or OuterVolume.
      * -Adrien
      */
-    if (pListener->pCone)
+    if (listener->cone)
     {
         /* Negate the dot product because we need listenerToEmitter in
          * this case
          * -Adrien
          */
         const float angle = -ForgeAudio_acosf(
-            VectorDot(pListener->OrientFront, emitterToListener) /
+            VectorDot(listener->OrientFront, emitterToListener) /
             eToLDistance
         );
 
         const float listenerConeParam = ComputeConeParameter(
             eToLDistance,
             angle,
-            pListener->pCone->InnerAngle,
-            pListener->pCone->OuterAngle,
-            pListener->pCone->InnerVolume,
-            pListener->pCone->OuterVolume
+            listener->cone->InnerAngle,
+            listener->cone->OuterAngle,
+            listener->cone->InnerVolume,
+            listener->cone->OuterVolume
         );
         attenuation *= listenerConeParam;
         LFEattenuation *= listenerConeParam;
     }
 
     /* See note above. */
-    if (pEmitter->pCone && pEmitter->ChannelCount == 1)
+    if (emitter->cone && emitter->ChannelCount == 1)
     {
         const float angle = ForgeAudio_acosf(
-            VectorDot(pEmitter->OrientFront, emitterToListener) /
+            VectorDot(emitter->OrientFront, emitterToListener) /
             eToLDistance
         );
 
         const float emitterConeParam = ComputeConeParameter(
             eToLDistance,
             angle,
-            pEmitter->pCone->InnerAngle,
-            pEmitter->pCone->OuterAngle,
-            pEmitter->pCone->InnerVolume,
-            pEmitter->pCone->OuterVolume
+            emitter->cone->InnerAngle,
+            emitter->cone->OuterAngle,
+            emitter->cone->InnerVolume,
+            emitter->cone->OuterVolume
         );
         attenuation *= emitterConeParam;
     }
@@ -1216,12 +1216,12 @@ static inline void CalculateMatrix(
     /* In the FORGE_SPEAKER_MONO case, we can skip all energy diffusion calculation. */
     if (DstChannelCount == 1)
     {
-        for (iEC = 0; iEC < pEmitter->ChannelCount; iEC += 1)
+        for (iEC = 0; iEC < emitter->ChannelCount; iEC += 1)
         {
             curEmAzimuth = 0.0f;
-            if (pEmitter->pChannelAzimuths)
+            if (emitter->channel_azimuths)
             {
-                curEmAzimuth = pEmitter->pChannelAzimuths[iEC];
+                curEmAzimuth = emitter->channel_azimuths[iEC];
             }
 
             /* The MONO setup doesn't have an LFE speaker. */
@@ -1236,9 +1236,9 @@ static inline void CalculateMatrix(
         listenerToEmitter = VectorScale(emitterToListener, -1.0f);
 
         /* Remember here that the coordinate system is Left-Handed. */
-        listenerBasis.front = pListener->OrientFront;
-        listenerBasis.right = VectorCross(pListener->OrientTop, pListener->OrientFront);
-        listenerBasis.top = pListener->OrientTop;
+        listenerBasis.front = listener->OrientFront;
+        listenerBasis.right = VectorCross(listener->OrientTop, listener->OrientFront);
+        listenerBasis.top = listener->OrientTop;
 
 
         /* Handling the mono-channel emitter case separately is easier
@@ -1246,14 +1246,14 @@ static inline void CalculateMatrix(
          * this case, we need to ignore the non-relevant values from the
          * emitter, _even if they're set_.
          */
-        if (pEmitter->ChannelCount == 1)
+        if (emitter->ChannelCount == 1)
         {
             listenerToEmChannel = listenerToEmitter;
 
             ComputeEmitterChannelCoefficients(
                 curConfig,
                 &listenerBasis,
-                pEmitter->InnerRadius,
+                emitter->InnerRadius,
                 listenerToEmChannel,
                 attenuation,
                 LFEattenuation,
@@ -1265,18 +1265,18 @@ static inline void CalculateMatrix(
         }
         else /* Multi-channel emitter case. */
         {
-            const ForgeVector3 emitterRight = VectorCross(pEmitter->OrientTop, pEmitter->OrientFront);
+            const ForgeVector3 emitterRight = VectorCross(emitter->OrientTop, emitter->OrientFront);
 
-            for (iEC = 0; iEC < pEmitter->ChannelCount; iEC += 1)
+            for (iEC = 0; iEC < emitter->ChannelCount; iEC += 1)
             {
-                const float emChAzimuth = pEmitter->pChannelAzimuths[iEC];
+                const float emChAzimuth = emitter->channel_azimuths[iEC];
 
                 /* LFEs are easy enough to deal with; we can
                  * just do them separately.
                  */
                 if (emChAzimuth == FORGE_SPATIAL_2PI)
                 {
-                    MatrixCoefficients[curConfig->LFSpeakerIdx * pEmitter->ChannelCount + iEC] = LFEattenuation;
+                    MatrixCoefficients[curConfig->LFSpeakerIdx * emitter->ChannelCount + iEC] = LFEattenuation;
                 }
                 else
                 {
@@ -1284,8 +1284,8 @@ static inline void CalculateMatrix(
                      * vector relative to the emitter base...
                      */
                     const ForgeVector3 emitterBaseToChannel = VectorAdd(
-                        VectorScale(pEmitter->OrientFront, pEmitter->ChannelRadius * ForgeAudio_cosf(emChAzimuth)),
-                        VectorScale(emitterRight, pEmitter->ChannelRadius * ForgeAudio_sinf(emChAzimuth))
+                        VectorScale(emitter->OrientFront, emitter->ChannelRadius * ForgeAudio_cosf(emChAzimuth)),
+                        VectorScale(emitterRight, emitter->ChannelRadius * ForgeAudio_sinf(emChAzimuth))
                     );
                     /* ... then translate. */
                     listenerToEmChannel = VectorAdd(
@@ -1296,13 +1296,13 @@ static inline void CalculateMatrix(
                     ComputeEmitterChannelCoefficients(
                         curConfig,
                         &listenerBasis,
-                        pEmitter->InnerRadius,
+                        emitter->InnerRadius,
                         listenerToEmChannel,
                         attenuation,
                         LFEattenuation,
                         Flags,
                         iEC,
-                        pEmitter->ChannelCount,
+                        emitter->ChannelCount,
                         MatrixCoefficients
                     );
                 }
@@ -1332,8 +1332,8 @@ static inline void CalculateMatrix(
  */
 static inline void CalculateDoppler(
     float SpeedOfSound,
-    const ForgeSpatialListener* pListener,
-    const ForgeSpatialEmitter* pEmitter,
+    const ForgeSpatialListener* listener,
+    const ForgeSpatialEmitter* emitter,
     ForgeVector3 emitterToListener,
     float eToLDistance,
     float* listenerVelocityComponent,
@@ -1347,9 +1347,9 @@ static inline void CalculateDoppler(
     if (eToLDistance != 0.0f)
     {
         *listenerVelocityComponent =
-            VectorDot(emitterToListener, pListener->Velocity) / eToLDistance;
+            VectorDot(emitterToListener, listener->Velocity) / eToLDistance;
         *emitterVelocityComponent =
-            VectorDot(emitterToListener, pEmitter->Velocity) / eToLDistance;
+            VectorDot(emitterToListener, emitter->Velocity) / eToLDistance;
     }
     else
     {
@@ -1357,9 +1357,9 @@ static inline void CalculateDoppler(
         *emitterVelocityComponent = 0.0f;
     }
 
-    if (pEmitter->DopplerScaler > 0.0f)
+    if (emitter->DopplerScaler > 0.0f)
     {
-        scaledSpeedOfSound = SpeedOfSound / pEmitter->DopplerScaler;
+        scaledSpeedOfSound = SpeedOfSound / emitter->DopplerScaler;
 
         /* Clamp... */
         *listenerVelocityComponent = ForgeAudio_min(
@@ -1373,9 +1373,9 @@ static inline void CalculateDoppler(
 
         /* ... then Multiply. */
         *DopplerFactor = (
-            SpeedOfSound - pEmitter->DopplerScaler * *listenerVelocityComponent
+            SpeedOfSound - emitter->DopplerScaler * *listenerVelocityComponent
         ) / (
-            SpeedOfSound - pEmitter->DopplerScaler * *emitterVelocityComponent
+            SpeedOfSound - emitter->DopplerScaler * *emitterVelocityComponent
         );
         if (isnan(*DopplerFactor)) /* If emitter/listener are at the same pos... */
         {
@@ -1393,10 +1393,10 @@ static inline void CalculateDoppler(
 
 void forge_spatializer_calculate(
     const ForgeSpatializer *spatializer,
-    const ForgeSpatialListener *pListener,
-    const ForgeSpatialEmitter *pEmitter,
+    const ForgeSpatialListener *listener,
+    const ForgeSpatialEmitter *emitter,
     uint32_t Flags,
-    ForgeSpatialDspSettings *pDSPSettings
+    ForgeSpatialDspSettings *dsp_settings
 ) {
     uint32_t i;
     ForgeVector3 emitterToListener;
@@ -1418,57 +1418,57 @@ void forge_spatializer_calculate(
     #undef DEFAULT_POINTS
 
     /* For XACT, this calculates "Distance" */
-    emitterToListener = VectorSub(pListener->Position, pEmitter->Position);
+    emitterToListener = VectorSub(listener->Position, emitter->Position);
     eToLDistance = VectorLength(emitterToListener);
-    pDSPSettings->EmitterToListenerDistance = eToLDistance;
+    dsp_settings->EmitterToListenerDistance = eToLDistance;
 
-    forge_spatializer_check_calculate_params(spatializer, pListener, pEmitter, Flags, pDSPSettings);
+    forge_spatializer_check_calculate_params(spatializer, listener, emitter, Flags, dsp_settings);
 
     /* This is used by MATRIX, LPF, and REVERB */
-    normalizedDistance = eToLDistance / pEmitter->CurveDistanceScaler;
+    normalizedDistance = eToLDistance / emitter->CurveDistanceScaler;
 
     if (Flags & FORGE_SPATIAL_CALCULATE_MATRIX)
     {
         CalculateMatrix(
             SPEAKERMASK(spatializer),
             Flags,
-            pListener,
-            pEmitter,
-            pDSPSettings->SrcChannelCount,
-            pDSPSettings->DstChannelCount,
+            listener,
+            emitter,
+            dsp_settings->SrcChannelCount,
+            dsp_settings->DstChannelCount,
             emitterToListener,
             eToLDistance,
             normalizedDistance,
-            pDSPSettings->pMatrixCoefficients
+            dsp_settings->matrix_coefficients
         );
     }
 
     if (Flags & FORGE_SPATIAL_CALCULATE_LPF_DIRECT)
     {
-        pDSPSettings->LPFDirectCoefficient = ComputeDistanceAttenuation(
+        dsp_settings->LPFDirectCoefficient = ComputeDistanceAttenuation(
             normalizedDistance,
-            (pEmitter->pLPFDirectCurve != NULL) ?
-                pEmitter->pLPFDirectCurve :
+            (emitter->lpf_direct_curve != NULL) ?
+                emitter->lpf_direct_curve :
                 &lpfDirectDefault
         );
     }
 
     if (Flags & FORGE_SPATIAL_CALCULATE_LPF_REVERB)
     {
-        pDSPSettings->LPFReverbCoefficient = ComputeDistanceAttenuation(
+        dsp_settings->LPFReverbCoefficient = ComputeDistanceAttenuation(
             normalizedDistance,
-            (pEmitter->pLPFReverbCurve != NULL) ?
-                pEmitter->pLPFReverbCurve :
+            (emitter->lpf_reverb_curve != NULL) ?
+                emitter->lpf_reverb_curve :
                 &lpfReverbDefault
         );
     }
 
     if (Flags & FORGE_SPATIAL_CALCULATE_REVERB)
     {
-        pDSPSettings->ReverbLevel = ComputeDistanceAttenuation(
+        dsp_settings->ReverbLevel = ComputeDistanceAttenuation(
             normalizedDistance,
-            (pEmitter->pReverbCurve != NULL) ?
-                pEmitter->pReverbCurve :
+            (emitter->reverb_curve != NULL) ?
+                emitter->reverb_curve :
                 &reverbDefault
         );
     }
@@ -1478,13 +1478,13 @@ void forge_spatializer_calculate(
     {
         CalculateDoppler(
             SPEEDOFSOUND(spatializer),
-            pListener,
-            pEmitter,
+            listener,
+            emitter,
             emitterToListener,
             eToLDistance,
-            &pDSPSettings->ListenerVelocityComponent,
-            &pDSPSettings->EmitterVelocityComponent,
-            &pDSPSettings->DopplerFactor
+            &dsp_settings->ListenerVelocityComponent,
+            &dsp_settings->EmitterVelocityComponent,
+            &dsp_settings->DopplerFactor
         );
     }
 
@@ -1497,13 +1497,13 @@ void forge_spatializer_calculate(
         #define EMITTER_ANGLE_NULL_DISTANCE 1.2e-7
         if (eToLDistance < EMITTER_ANGLE_NULL_DISTANCE)
         {
-            pDSPSettings->EmitterToListenerAngle = FORGE_SPATIAL_PI / 2.0f;
+            dsp_settings->EmitterToListenerAngle = FORGE_SPATIAL_PI / 2.0f;
         }
         else
         {
-            /* Note: pEmitter->OrientFront is normalized. */
-            dp = VectorDot(emitterToListener, pEmitter->OrientFront) / eToLDistance;
-            pDSPSettings->EmitterToListenerAngle = ForgeAudio_acosf(dp);
+            /* Note: emitter->OrientFront is normalized. */
+            dp = VectorDot(emitterToListener, emitter->OrientFront) / eToLDistance;
+            dsp_settings->EmitterToListenerAngle = ForgeAudio_acosf(dp);
         }
     }
 
@@ -1511,9 +1511,9 @@ void forge_spatializer_calculate(
     if (    (Flags & FORGE_SPATIAL_CALCULATE_DELAY) &&
         SPEAKERMASK(spatializer) == FORGE_SPEAKER_STEREO    )
     {
-        for (i = 0; i < pDSPSettings->DstChannelCount; i += 1)
+        for (i = 0; i < dsp_settings->DstChannelCount; i += 1)
         {
-            pDSPSettings->pDelayTimes[i] = 0.0f;
+            dsp_settings->delay_times[i] = 0.0f;
         }
         ForgeAudio_assert(0 && "DELAY not implemented!");
     }

@@ -73,45 +73,45 @@ struct ForgeApoBase
     OnSetParametersFunc OnSetParameters;
 
     /* Private Variables */
-    const ForgeApoProperties *m_pRegistrationProperties;
-    void* m_pfnMatrixMixFunction;
-    float *m_pfl32MatrixCoefficients;
-    uint32_t m_nSrcFormatType;
-    uint8_t m_fIsScalarMatrix;
-    uint8_t m_fIsLocked;
-    uint8_t *m_pParameterBlocks;
-    uint8_t *m_pCurrentParameters;
-    uint8_t *m_pCurrentParametersInternal;
-    uint32_t m_uCurrentParametersIndex;
-    uint32_t m_uParameterBlockByteSize;
-    uint8_t m_fNewerResultsReady;
-    uint8_t m_fProducer;
+    const ForgeApoProperties *registration_properties;
+    void* matrix_mix_function;
+    float *matrix_coefficients;
+    uint32_t src_format_type;
+    uint8_t is_scalar_matrix;
+    uint8_t is_locked;
+    uint8_t *parameter_blocks;
+    uint8_t *current_parameters;
+    uint8_t *current_parameters_internal;
+    uint32_t current_parameters_index;
+    uint32_t parameter_block_byte_size;
+    uint8_t newer_results_ready;
+    uint8_t producer;
 
     /* Protected Variables */
-    int32_t m_lReferenceCount; /* LONG */
+    int32_t reference_count; /* LONG */
 
     /* Allocator callbacks, NOT part of ForgeApoBase spec! */
-    ForgeMallocFunc pMalloc;
-    ForgeFreeFunc pFree;
-    ForgeReallocFunc pRealloc;
+    ForgeMallocFunc malloc_func;
+    ForgeFreeFunc free_func;
+    ForgeReallocFunc realloc_func;
 };
 #pragma pack(pop)
 
 FORGE_APO_API void forge_apo_base_init(
     ForgeApoBase *fapo,
-    const ForgeApoProperties *pRegistrationProperties,
-    uint8_t *pParameterBlocks,
-    uint32_t uParameterBlockByteSize,
-    uint8_t fProducer
+    const ForgeApoProperties *registration_properties,
+    uint8_t *parameter_blocks,
+    uint32_t parameter_block_byte_size,
+    uint8_t producer
 );
 
 /* See "extensions/custom allocator.txt" for more information. */
 FORGE_APO_API void forge_apo_base_init_with_allocator(
     ForgeApoBase *fapo,
-    const ForgeApoProperties *pRegistrationProperties,
-    uint8_t *pParameterBlocks,
-    uint32_t uParameterBlockByteSize,
-    uint8_t fProducer,
+    const ForgeApoProperties *registration_properties,
+    uint8_t *parameter_blocks,
+    uint32_t parameter_block_byte_size,
+    uint8_t producer,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
@@ -123,26 +123,26 @@ FORGE_APO_API int32_t forge_apo_base_release(ForgeApoBase *fapo);
 
 FORGE_APO_API ForgeResult forge_apo_base_get_properties(
     ForgeApoBase *fapo,
-    ForgeApoProperties **ppRegistrationProperties
+    ForgeApoProperties **registration_properties
 );
 
 FORGE_APO_API ForgeResult forge_apo_base_is_input_format_supported(
     ForgeApoBase *fapo,
-    const ForgeAudioFormat *pOutputFormat,
-    const ForgeAudioFormat *pRequestedInputFormat,
-    ForgeAudioFormat **ppSupportedInputFormat
+    const ForgeAudioFormat *output_format,
+    const ForgeAudioFormat *requested_input_format,
+    ForgeAudioFormat **supported_input_format
 );
 
 FORGE_APO_API ForgeResult forge_apo_base_is_output_format_supported(
     ForgeApoBase *fapo,
-    const ForgeAudioFormat *pInputFormat,
-    const ForgeAudioFormat *pRequestedOutputFormat,
-    ForgeAudioFormat **ppSupportedOutputFormat
+    const ForgeAudioFormat *input_format,
+    const ForgeAudioFormat *requested_output_format,
+    ForgeAudioFormat **supported_output_format
 );
 
 FORGE_APO_API ForgeResult forge_apo_base_initialize(
     ForgeApoBase *fapo,
-    const void* pData,
+    const void* data,
     uint32_t DataByteSize
 );
 
@@ -151,9 +151,9 @@ FORGE_APO_API void forge_apo_base_reset(ForgeApoBase *fapo);
 FORGE_APO_API ForgeResult forge_apo_base_lock_for_process(
     ForgeApoBase *fapo,
     uint32_t InputLockedParameterCount,
-    const ForgeApoLockBuffer *pInputLockedParameters,
+    const ForgeApoLockBuffer *input_locked_parameters,
     uint32_t OutputLockedParameterCount,
-    const ForgeApoLockBuffer *pOutputLockedParameters
+    const ForgeApoLockBuffer *output_locked_parameters
 );
 
 FORGE_APO_API void forge_apo_base_unlock_for_process(ForgeApoBase *fapo);
@@ -170,21 +170,21 @@ FORGE_APO_API uint32_t forge_apo_base_calc_output_frames(
 
 FORGE_APO_API ForgeResult forge_apo_base_validate_default_format(
     ForgeApoBase *fapo,
-    ForgeAudioFormat *pFormat,
-    uint8_t fOverwrite
+    ForgeAudioFormat *format,
+    uint8_t overwrite
 );
 
 FORGE_APO_API ForgeResult forge_apo_base_validate_format_pair(
     ForgeApoBase *fapo,
-    const ForgeAudioFormat *pSupportedFormat,
-    ForgeAudioFormat *pRequestedFormat,
-    uint8_t fOverwrite
+    const ForgeAudioFormat *supported_format,
+    ForgeAudioFormat *requested_format,
+    uint8_t overwrite
 );
 
 FORGE_APO_API void forge_apo_base_process_through(
     ForgeApoBase *fapo,
-    void* pInputBuffer,
-    float *pOutputBuffer,
+    void* input_buffer,
+    float *output_buffer,
     uint32_t FrameCount,
     uint16_t InputChannelCount,
     uint16_t OutputChannelCount,
@@ -193,13 +193,13 @@ FORGE_APO_API void forge_apo_base_process_through(
 
 FORGE_APO_API void forge_apo_base_set_parameters(
     ForgeApoBase *fapo,
-    const void* pParameters,
+    const void* parameters,
     uint32_t ParameterByteSize
 );
 
 FORGE_APO_API void forge_apo_base_get_parameters(
     ForgeApoBase *fapo,
-    void* pParameters,
+    void* parameters,
     uint32_t ParameterByteSize
 );
 

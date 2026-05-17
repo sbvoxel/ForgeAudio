@@ -44,8 +44,8 @@ extern const ForgeGuid FORGE_AUDIO_FX_ID_REVERB;
 
 typedef struct ForgeAudioFxVolumeMeterLevels
 {
-    float *pPeakLevels;
-    float *pRMSLevels;
+    float *peak_levels;
+    float *rms_levels;
     uint32_t ChannelCount;
 } ForgeAudioFxVolumeMeterLevels;
 
@@ -255,27 +255,27 @@ typedef struct ForgeAudioReverbI3DL2Parameters
 
 /* Functions */
 
-FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags);
-FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeApo** ppApo, uint32_t Flags);
-FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeApo** ppApo, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeApo** apo, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeApo** apo, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeApo** apo, uint32_t Flags);
 
 /* See "extensions/custom allocator.txt" for more information. */
 FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter_with_allocator(
-    ForgeApo** ppApo,
+    ForgeApo** apo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_with_allocator(
-    ForgeApo** ppApo,
+    ForgeApo** apo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1_with_allocator(
-    ForgeApo** ppApo,
+    ForgeApo** apo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -283,12 +283,12 @@ FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1_with_allocator(
 );
 
 FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2(
-    const ForgeAudioReverbI3DL2Parameters *pI3DL2,
-    ForgeAudioReverbParameters *pNative
+    const ForgeAudioReverbI3DL2Parameters *i3dl2,
+    ForgeAudioReverbParameters *native
 );
 FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2_7point1(
-    const ForgeAudioReverbI3DL2Parameters *pI3DL2,
-    ForgeAudioReverbParameters7Point1 *pNative,
+    const ForgeAudioReverbI3DL2Parameters *i3dl2,
+    ForgeAudioReverbParameters7Point1 *native,
     int32_t sevenDotOneReverb
 );
 

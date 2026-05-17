@@ -65,7 +65,7 @@ struct ForgeAudio_OperationSet_Operation
         struct
         {
             uint32_t EffectIndex;
-            void *pParameters;
+            void *parameters;
             uint32_t ParametersByteSize;
         } SetEffectParameters;
         struct
@@ -74,7 +74,7 @@ struct ForgeAudio_OperationSet_Operation
         } SetFilterParameters;
         struct
         {
-            ForgeVoice *pDestinationVoice;
+            ForgeVoice *destination_voice;
             ForgeFilterParameters Parameters;
         } SetOutputFilterParameters;
         struct
@@ -84,14 +84,14 @@ struct ForgeAudio_OperationSet_Operation
         struct
         {
             uint32_t Channels;
-            float *pVolumes;
+            float *volumes;
         } SetChannelVolumes;
         struct
         {
-            ForgeVoice *pDestinationVoice;
+            ForgeVoice *destination_voice;
             uint32_t SourceChannels;
             uint32_t DestinationChannels;
-            float *pLevelMatrix;
+            float *level_matrix;
         } SetOutputMatrix;
         struct
         {
@@ -119,21 +119,21 @@ struct ForgeAudio_OperationSet_Operation
 
 static inline void DeleteOperation(
     ForgeAudio_OperationSet_Operation *op,
-    ForgeFreeFunc pFree
+    ForgeFreeFunc free_func
 ) {
     if (op->Type == FORGE_AUDIO_OP_SETEFFECTPARAMETERS)
     {
-        pFree(op->Data.SetEffectParameters.pParameters);
+        free_func(op->Data.SetEffectParameters.parameters);
     }
     else if (op->Type == FORGE_AUDIO_OP_SETCHANNELVOLUMES)
     {
-        pFree(op->Data.SetChannelVolumes.pVolumes);
+        free_func(op->Data.SetChannelVolumes.volumes);
     }
     else if (op->Type == FORGE_AUDIO_OP_SETOUTPUTMATRIX)
     {
-        pFree(op->Data.SetOutputMatrix.pLevelMatrix);
+        free_func(op->Data.SetOutputMatrix.level_matrix);
     }
-    pFree(op);
+    free_func(op);
 }
 
 /* OperationSet Execution */
@@ -162,7 +162,7 @@ static inline void ExecuteOperation(ForgeAudio_OperationSet_Operation *op)
         forge_voice_set_effect_parameters(
             op->Voice,
             op->Data.SetEffectParameters.EffectIndex,
-            op->Data.SetEffectParameters.pParameters,
+            op->Data.SetEffectParameters.parameters,
             op->Data.SetEffectParameters.ParametersByteSize,
             FORGE_AUDIO_COMMIT_NOW
         );
@@ -179,7 +179,7 @@ static inline void ExecuteOperation(ForgeAudio_OperationSet_Operation *op)
     case FORGE_AUDIO_OP_SETOUTPUTFILTERPARAMETERS:
         forge_voice_set_output_filter_parameters(
             op->Voice,
-            op->Data.SetOutputFilterParameters.pDestinationVoice,
+            op->Data.SetOutputFilterParameters.destination_voice,
             &op->Data.SetOutputFilterParameters.Parameters,
             FORGE_AUDIO_COMMIT_NOW
         );
@@ -197,7 +197,7 @@ static inline void ExecuteOperation(ForgeAudio_OperationSet_Operation *op)
         forge_voice_set_channel_volumes(
             op->Voice,
             op->Data.SetChannelVolumes.Channels,
-            op->Data.SetChannelVolumes.pVolumes,
+            op->Data.SetChannelVolumes.volumes,
             FORGE_AUDIO_COMMIT_NOW
         );
     break;
@@ -205,10 +205,10 @@ static inline void ExecuteOperation(ForgeAudio_OperationSet_Operation *op)
     case FORGE_AUDIO_OP_SETOUTPUTMATRIX:
         forge_voice_set_output_matrix(
             op->Voice,
-            op->Data.SetOutputMatrix.pDestinationVoice,
+            op->Data.SetOutputMatrix.destination_voice,
             op->Data.SetOutputMatrix.SourceChannels,
             op->Data.SetOutputMatrix.DestinationChannels,
-            op->Data.SetOutputMatrix.pLevelMatrix,
+            op->Data.SetOutputMatrix.level_matrix,
             FORGE_AUDIO_COMMIT_NOW
         );
     break;
@@ -350,7 +350,7 @@ void ForgeAudio_OperationSet_Execute(ForgeAudioEngine *audio)
     {
         next = op->next;
         ExecuteOperation(op);
-        DeleteOperation(op, audio->pFree);
+        DeleteOperation(op, audio->free_func);
         op = next;
     }
     audio->committedOperations = NULL;
@@ -367,7 +367,7 @@ static inline ForgeAudio_OperationSet_Operation* QueueOperation(
     uint32_t operationSet
 ) {
     ForgeAudio_OperationSet_Operation *latest;
-    ForgeAudio_OperationSet_Operation *newop = voice->audio->pMalloc(
+    ForgeAudio_OperationSet_Operation *newop = voice->audio->malloc_func(
         sizeof(ForgeAudio_OperationSet_Operation)
     );
 
@@ -440,7 +440,7 @@ void ForgeAudio_OperationSet_QueueDisableEffect(
 void ForgeAudio_OperationSet_QueueSetEffectParameters(
     ForgeVoice *voice,
     uint32_t EffectIndex,
-    const void *pParameters,
+    const void *parameters,
     uint32_t ParametersByteSize,
     uint32_t OperationSet
 ) {
@@ -456,12 +456,12 @@ void ForgeAudio_OperationSet_QueueSetEffectParameters(
     );
 
     op->Data.SetEffectParameters.EffectIndex = EffectIndex;
-    op->Data.SetEffectParameters.pParameters = voice->audio->pMalloc(
+    op->Data.SetEffectParameters.parameters = voice->audio->malloc_func(
         ParametersByteSize
     );
     ForgeAudio_memcpy(
-        op->Data.SetEffectParameters.pParameters,
-        pParameters,
+        op->Data.SetEffectParameters.parameters,
+        parameters,
         ParametersByteSize
     );
     op->Data.SetEffectParameters.ParametersByteSize = ParametersByteSize;
@@ -472,7 +472,7 @@ void ForgeAudio_OperationSet_QueueSetEffectParameters(
 
 void ForgeAudio_OperationSet_QueueSetFilterParameters(
     ForgeVoice *voice,
-    const ForgeFilterParameters *pParameters,
+    const ForgeFilterParameters *parameters,
     uint32_t OperationSet
 ) {
     ForgeAudio_OperationSet_Operation *op;
@@ -488,7 +488,7 @@ void ForgeAudio_OperationSet_QueueSetFilterParameters(
 
     ForgeAudio_memcpy(
         &op->Data.SetFilterParameters.Parameters,
-        pParameters,
+        parameters,
         sizeof(ForgeFilterParameters)
     );
 
@@ -498,8 +498,8 @@ void ForgeAudio_OperationSet_QueueSetFilterParameters(
 
 void ForgeAudio_OperationSet_QueueSetOutputFilterParameters(
     ForgeVoice *voice,
-    ForgeVoice *pDestinationVoice,
-    const ForgeFilterParameters *pParameters,
+    ForgeVoice *destination_voice,
+    const ForgeFilterParameters *parameters,
     uint32_t OperationSet
 ) {
     ForgeAudio_OperationSet_Operation *op;
@@ -513,10 +513,10 @@ void ForgeAudio_OperationSet_QueueSetOutputFilterParameters(
         OperationSet
     );
 
-    op->Data.SetOutputFilterParameters.pDestinationVoice = pDestinationVoice;
+    op->Data.SetOutputFilterParameters.destination_voice = destination_voice;
     ForgeAudio_memcpy(
         &op->Data.SetOutputFilterParameters.Parameters,
-        pParameters,
+        parameters,
         sizeof(ForgeFilterParameters)
     );
 
@@ -549,7 +549,7 @@ void ForgeAudio_OperationSet_QueueSetVolume(
 void ForgeAudio_OperationSet_QueueSetChannelVolumes(
     ForgeVoice *voice,
     uint32_t Channels,
-    const float *pVolumes,
+    const float *volumes,
     uint32_t OperationSet
 ) {
     ForgeAudio_OperationSet_Operation *op;
@@ -564,12 +564,12 @@ void ForgeAudio_OperationSet_QueueSetChannelVolumes(
     );
 
     op->Data.SetChannelVolumes.Channels = Channels;
-    op->Data.SetChannelVolumes.pVolumes = voice->audio->pMalloc(
+    op->Data.SetChannelVolumes.volumes = voice->audio->malloc_func(
         sizeof(float) * Channels
     );
     ForgeAudio_memcpy(
-        op->Data.SetChannelVolumes.pVolumes,
-        pVolumes,
+        op->Data.SetChannelVolumes.volumes,
+        volumes,
         sizeof(float) * Channels
     );
 
@@ -579,10 +579,10 @@ void ForgeAudio_OperationSet_QueueSetChannelVolumes(
 
 void ForgeAudio_OperationSet_QueueSetOutputMatrix(
     ForgeVoice *voice,
-    ForgeVoice *pDestinationVoice,
+    ForgeVoice *destination_voice,
     uint32_t SourceChannels,
     uint32_t DestinationChannels,
-    const float *pLevelMatrix,
+    const float *level_matrix,
     uint32_t OperationSet
 ) {
     ForgeAudio_OperationSet_Operation *op;
@@ -596,15 +596,15 @@ void ForgeAudio_OperationSet_QueueSetOutputMatrix(
         OperationSet
     );
 
-    op->Data.SetOutputMatrix.pDestinationVoice = pDestinationVoice;
+    op->Data.SetOutputMatrix.destination_voice = destination_voice;
     op->Data.SetOutputMatrix.SourceChannels = SourceChannels;
     op->Data.SetOutputMatrix.DestinationChannels = DestinationChannels;
-    op->Data.SetOutputMatrix.pLevelMatrix = voice->audio->pMalloc(
+    op->Data.SetOutputMatrix.level_matrix = voice->audio->malloc_func(
         sizeof(float) * SourceChannels * DestinationChannels
     );
     ForgeAudio_memcpy(
-        op->Data.SetOutputMatrix.pLevelMatrix,
-        pLevelMatrix,
+        op->Data.SetOutputMatrix.level_matrix,
+        level_matrix,
         sizeof(float) * SourceChannels * DestinationChannels
     );
 
@@ -710,7 +710,7 @@ void ForgeAudio_OperationSet_ClearAll(ForgeAudioEngine *audio)
     while (current != NULL)
     {
         next = current->next;
-        DeleteOperation(current, audio->pFree);
+        DeleteOperation(current, audio->free_func);
         current = next;
     }
     audio->queuedOperations = NULL;
@@ -734,10 +734,10 @@ static inline void RemoveFromList(
         const uint8_t baseVoice = (voice == current->Voice);
         const uint8_t dstVoice = (
             current->Type == FORGE_AUDIO_OP_SETOUTPUTFILTERPARAMETERS &&
-            voice == current->Data.SetOutputFilterParameters.pDestinationVoice
+            voice == current->Data.SetOutputFilterParameters.destination_voice
         ) || (
             current->Type == FORGE_AUDIO_OP_SETOUTPUTMATRIX &&
-            voice == current->Data.SetOutputMatrix.pDestinationVoice
+            voice == current->Data.SetOutputMatrix.destination_voice
         );
 
         next = current->next;
@@ -752,7 +752,7 @@ static inline void RemoveFromList(
                 prev->next = next;
             }
 
-            DeleteOperation(current, voice->audio->pFree);
+            DeleteOperation(current, voice->audio->free_func);
         }
         else
         {

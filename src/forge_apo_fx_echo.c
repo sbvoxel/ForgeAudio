@@ -82,13 +82,13 @@ typedef struct ForgeApoEcho
 
 ForgeResult ForgeApoEcho_Initialize(
     ForgeApoEcho *fapo,
-    const void* pData,
+    const void* data,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            fapo->base.m_pParameterBlocks + DataByteSize * offset, \
-            pData, \
+            fapo->base.parameter_blocks + DataByteSize * offset, \
+            data, \
             DataByteSize \
         );
     INITPARAMS(0)
@@ -101,9 +101,9 @@ ForgeResult ForgeApoEcho_Initialize(
 void ForgeApoEcho_Process(
     ForgeApoEcho *fapo,
     uint32_t InputProcessParameterCount,
-    const ForgeApoProcessBuffer* pInputProcessParameters,
+    const ForgeApoProcessBuffer* input_process_parameters,
     uint32_t OutputProcessParameterCount,
-    ForgeApoProcessBuffer* pOutputProcessParameters,
+    ForgeApoProcessBuffer* output_process_parameters,
     int32_t IsEnabled
 ) {
     forge_apo_base_begin_process(&fapo->base);
@@ -116,15 +116,15 @@ void ForgeApoEcho_Process(
 void ForgeApoEcho_Free(void* fapo)
 {
     ForgeApoEcho *echo = (ForgeApoEcho*) fapo;
-    echo->base.pFree(echo->base.m_pParameterBlocks);
-    echo->base.pFree(fapo);
+    echo->base.free_func(echo->base.parameter_blocks);
+    echo->base.free_func(fapo);
 }
 
 /* Public API */
 
 ForgeResult forge_apo_create_echo(
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -144,7 +144,7 @@ ForgeResult forge_apo_create_echo(
     uint8_t *params = (uint8_t*) customMalloc(
         sizeof(ForgeApoEchoParameters) * 3
     );
-    if (pInitData == NULL)
+    if (init_data == NULL)
     {
         ForgeAudio_zero(params, sizeof(ForgeApoEchoParameters) * 3);
         #define INITPARAMS(offset) \
@@ -161,9 +161,9 @@ ForgeResult forge_apo_create_echo(
     else
     {
         ForgeAudio_assert(InitDataByteSize == sizeof(ForgeApoEchoParameters));
-        ForgeAudio_memcpy(params, pInitData, InitDataByteSize);
-        ForgeAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
-        ForgeAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
+        ForgeAudio_memcpy(params, init_data, InitDataByteSize);
+        ForgeAudio_memcpy(params + InitDataByteSize, init_data, InitDataByteSize);
+        ForgeAudio_memcpy(params + (InitDataByteSize * 2), init_data, InitDataByteSize);
     }
 
     /* Initialize... */
@@ -191,6 +191,6 @@ ForgeResult forge_apo_create_echo(
     result->base.Destructor = ForgeApoEcho_Free;
 
     /* Finally. */
-    *pEffect = &result->base.base;
+    *effect = &result->base.base;
     return 0;
 }

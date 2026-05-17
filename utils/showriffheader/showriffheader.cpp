@@ -112,50 +112,50 @@ const char* audio_format_str(const uint16_t format)
 #define fourccXWMA *((uint32_t *) "XWMA")
 #define fourccDPDS *((uint32_t *) "dpds")
 
-void print_sub_chunk(FILE *hFile, uint32_t &chunkID, uint32_t &dwChunkPosition)
+void print_sub_chunk(FILE *hFile, uint32_t &chunkID, uint32_t &chunk_position)
 { /* data sub-chunk - 8 bytes + data */
     uint32_t chunkSize;
     if (fread(&chunkID, sizeof(uint32_t), 1, hFile) < 1)
     {
         if (feof(hFile))
         {
-            std::cout << "reached end of file at: " << dwChunkPosition << std::endl;
+            std::cout << "reached end of file at: " << chunk_position << std::endl;
             return;
         }
         throw std::runtime_error("can't read chunkID");
     }
-    dwChunkPosition += sizeof (uint32_t);
+    chunk_position += sizeof (uint32_t);
     if (chunkID == fourccDATA)
     {
-        std::cout << "data chunk position: " << dwChunkPosition - sizeof(uint32_t) << std::endl;
+        std::cout << "data chunk position: " << chunk_position - sizeof(uint32_t) << std::endl;
         std::cout << "data:             "
                   << uint32_to_charstr(chunkID) << std::endl;
         if (fread(&chunkSize, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read chunkSize");
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         std::cout << "data chunkSize:   "
                   << uint32_to_charstr(chunkSize) << std::endl;
         // skip the rest
         fseek(hFile, chunkSize, SEEK_CUR);
-        dwChunkPosition += chunkSize;
+        chunk_position += chunkSize;
     }
     else if (chunkID == fourccDPDS)
     {
-        std::cout << "dpds chunk position: " << dwChunkPosition - sizeof(uint32_t) << std::endl;
+        std::cout << "dpds chunk position: " << chunk_position - sizeof(uint32_t) << std::endl;
         std::cout << "dpds:             "
                   << uint32_to_charstr(chunkID) << std::endl;
         if (fread(&chunkSize, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read chunkSize");
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         std::cout << "dpds chunkSize:   "
                   << uint32_to_charstr(chunkSize) << std::endl;
         // skip the rest
         fseek(hFile, chunkSize, SEEK_CUR);
-        dwChunkPosition += chunkSize;
+        chunk_position += chunkSize;
     }
     else
     {
-        std::cout << "unknown chunkID at position: " << dwChunkPosition - sizeof(uint32_t) << std::endl;
+        std::cout << "unknown chunkID at position: " << chunk_position - sizeof(uint32_t) << std::endl;
         std::cout << "unhandled chunk:  "
                   << uint32_to_charstr(chunkID) << std::endl;
     }
@@ -171,17 +171,17 @@ uint32_t load_data(const char *filename)
     fseek(hFile, 0, SEEK_SET);
 
     uint32_t chunkID;
-    uint32_t dwChunkPosition = 0;
+    uint32_t chunk_position = 0;
 
     // search for 'RIFF' chunk
     bool foundRIFF = false;
     while (fread(&chunkID, sizeof(uint32_t), 1, hFile) > 0)
     {
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         if (chunkID == fourccRIFF)
         {
             foundRIFF = true;
-            std::cout << "found 'RIFF' at: " << dwChunkPosition - sizeof(uint32_t) << std::endl;
+            std::cout << "found 'RIFF' at: " << chunk_position - sizeof(uint32_t) << std::endl;
             break;
         }
     }
@@ -198,21 +198,21 @@ uint32_t load_data(const char *filename)
         uint32_t format;
         if (fread(&filesize, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read RIFF filesize");
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         std::cout << "ChunkSize:        "
                   << uint32_to_charstr(filesize) << std::endl;
         if (fread(&format, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read RIFF format");
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         std::cout << "Format:           "
                   << uint32_to_charstr(format) << std::endl;
     }
-    uint32_t fmt_chunk_start = dwChunkPosition;
+    uint32_t fmt_chunk_start = chunk_position;
     uint32_t fmt_chunk_size  = 0;
     { /* fmt sub-chunk 24 */
         if (fread(&chunkID, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read fmt chunkID");
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         std::cout << "fmt:              "
                   << uint32_to_charstr(chunkID) << std::endl;
         if (chunkID != fourccFMT)
@@ -222,20 +222,20 @@ uint32_t load_data(const char *filename)
         }
         if (fread(&fmt_chunk_size, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read fmt  chunkSize");
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         std::cout << "ChunkSize:        "
                   << uint32_to_charstr(fmt_chunk_size) << std::endl;
         uint16_t audio_format;
         if (fread(&audio_format, sizeof(uint16_t), 1, hFile) < 1)
             throw std::runtime_error("can't read fmt  AudioFormat");
-        dwChunkPosition += sizeof (uint16_t);
+        chunk_position += sizeof (uint16_t);
         std::cout << "fmt AudioFormat:  "
                   << uint16_to_charstr(audio_format)
                   << " " << audio_format_str(audio_format) << std::endl;
         uint16_t NumChannels;
         if (fread(&NumChannels, sizeof(uint16_t), 1, hFile) < 1)
             throw std::runtime_error("can't read fmt  NumChannels");
-        dwChunkPosition += sizeof (uint16_t);
+        chunk_position += sizeof (uint16_t);
         std::cout << "fmt NumChannels:  "
                   << uint16_to_charstr(NumChannels) << std::endl;
         uint32_t SampleRate;
@@ -246,68 +246,68 @@ uint32_t load_data(const char *filename)
         uint32_t ByteRate;
         if (fread(&ByteRate, sizeof(uint32_t), 1, hFile) < 1)
             throw std::runtime_error("can't read fmt  ByteRate");
-        dwChunkPosition += sizeof (uint32_t);
+        chunk_position += sizeof (uint32_t);
         std::cout << "fmt ByteRate:     "
                   << uint32_to_charstr(ByteRate) << std::endl;
         uint16_t BloackAlign;
         if (fread(&BloackAlign, sizeof(uint16_t), 1, hFile) < 1)
             throw std::runtime_error("can't read fmt  BloackAlign");
-        dwChunkPosition += sizeof (uint16_t);
+        chunk_position += sizeof (uint16_t);
         std::cout << "fmt BloackAlign:  "
                   << uint16_to_charstr(BloackAlign) << std::endl;
         uint16_t BitsPerSample;
         if (fread(&BitsPerSample, sizeof(uint16_t), 1, hFile) < 1)
             throw std::runtime_error("can't read fmt  BitsPerSample");
-        dwChunkPosition += sizeof (uint16_t);
+        chunk_position += sizeof (uint16_t);
         std::cout << "fmt BitsPerSample:"
                   << uint16_to_charstr(BitsPerSample) << std::endl;
     }
     /* in case of extensible audio format write the additional data to the file */
     if (fmt_chunk_size > 16)
     {
-        std::cout << "fmt chunk position: " << dwChunkPosition - fmt_chunk_start << std::endl;
+        std::cout << "fmt chunk position: " << chunk_position - fmt_chunk_start << std::endl;
         uint16_t cb_size;
         if (fread(&cb_size, sizeof(uint16_t), 1, hFile) < 1)
-            throw std::runtime_error("can't read fmt cbSize");
-        dwChunkPosition += sizeof (uint16_t);
-        std::cout << "fmt cbSize:       "
+            throw std::runtime_error("can't read fmt extra_size");
+        chunk_position += sizeof (uint16_t);
+        std::cout << "fmt extra_size:       "
                   << uint32_to_charstr(cb_size) << std::endl;
         if (cb_size >= 22)
         {
             uint16_t ValidBitsPerSample;
             if (fread(&ValidBitsPerSample, sizeof(uint16_t), 1, hFile) < 1)
                 throw std::runtime_error("can't read fmt ex ValidBitsPerSample");
-            dwChunkPosition += sizeof (uint16_t);
+            chunk_position += sizeof (uint16_t);
             std::cout << "fmt ValidBitsPerS:"
                       << uint16_to_charstr(ValidBitsPerSample) << std::endl;
-            uint32_t dwChannelMask;
-            if (fread(&dwChannelMask, sizeof(uint32_t), 1, hFile) < 1)
-                throw std::runtime_error("can't read fmt ex dwChannelMask");
-            dwChunkPosition += sizeof (uint32_t);
-            std::cout << "fmt dwChannelMask:"
-                      << uint32_to_charstr(dwChannelMask) << std::endl;
+            uint32_t channel_mask;
+            if (fread(&channel_mask, sizeof(uint32_t), 1, hFile) < 1)
+                throw std::runtime_error("can't read fmt ex channel_mask");
+            chunk_position += sizeof (uint32_t);
+            std::cout << "fmt channel_mask:"
+                      << uint32_to_charstr(channel_mask) << std::endl;
             uint32_t Data1;
             if (fread(&Data1, sizeof(uint32_t), 1, hFile) < 1)
                 throw std::runtime_error("can't read fmt ex Data1");
-            dwChunkPosition += sizeof (uint32_t);
+            chunk_position += sizeof (uint32_t);
             std::cout << "fmt Data1:        "
                       << uint32_to_charstr(Data1) << std::endl;
             uint16_t Data2;
             if (fread(&Data2, sizeof(uint16_t), 1, hFile) < 1)
                 throw std::runtime_error("can't read fmt ex Data2");
-            dwChunkPosition += sizeof (uint16_t);
+            chunk_position += sizeof (uint16_t);
             std::cout << "fmt Data2:        "
                       << uint16_to_charstr(Data2) << std::endl;
             uint16_t Data3;
             if (fread(&Data3, sizeof(uint16_t), 1, hFile) < 1)
                 throw std::runtime_error("can't read fmt ex Data3");
-            dwChunkPosition += sizeof (uint16_t);
+            chunk_position += sizeof (uint16_t);
             std::cout << "fmt Data3:        "
                       << uint16_to_charstr(Data3) << std::endl;
             uint8_t Data4[8];
             if (fread(&Data4, sizeof(uint8_t), 8, hFile) < 1)
                 throw std::runtime_error("can't read fmt ex Data4");
-            dwChunkPosition += sizeof (uint8_t)*8;
+            chunk_position += sizeof (uint8_t)*8;
             for (uint8_t i=0; i<8; i++)
             {
                 std::cout << "fmt Data4["<<static_cast<uint16_t>(i)<<"]:     "
@@ -320,20 +320,20 @@ uint32_t load_data(const char *filename)
             {
                 if (fread(&dummy, sizeof(uint8_t), 1, hFile) < 1)
                     throw std::runtime_error("can't read fmt ex padding");
-                dwChunkPosition += sizeof (uint8_t);
+                chunk_position += sizeof (uint8_t);
                 std::cout << "fmt dummy["<<i<<"]:     "
                           << uint8_to_charstr(dummy) << std::endl;
 
             }
-        } // end if cbSize > 22
-        std::cout << "fmt chunk position: " << dwChunkPosition - fmt_chunk_start << std::endl;
+        } // end if extra_size > 22
+        std::cout << "fmt chunk position: " << chunk_position - fmt_chunk_start << std::endl;
     }
     // ignore data until we find sub-chunk data
 
     if (!feof(hFile))
-        print_sub_chunk(hFile, chunkID, dwChunkPosition);
+        print_sub_chunk(hFile, chunkID, chunk_position);
     if (!feof(hFile))
-        print_sub_chunk(hFile, chunkID, dwChunkPosition);
+        print_sub_chunk(hFile, chunkID, chunk_position);
 
     return 0;
 }

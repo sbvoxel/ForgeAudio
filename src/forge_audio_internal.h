@@ -232,19 +232,19 @@ void LinkedList_AddEntry(
     LinkedList **start,
     void* toAdd,
     ForgeAudioMutex lock,
-    ForgeMallocFunc pMalloc
+    ForgeMallocFunc malloc_func
 );
 void LinkedList_PrependEntry(
     LinkedList **start,
     void* toAdd,
     ForgeAudioMutex lock,
-    ForgeMallocFunc pMalloc
+    ForgeMallocFunc malloc_func
 );
 void LinkedList_RemoveEntry(
     LinkedList **start,
     void* toRemove,
     ForgeAudioMutex lock,
-    ForgeFreeFunc pFree
+    ForgeFreeFunc free_func
 );
 
 /* Internal ForgeAudioEngine Types */
@@ -315,19 +315,19 @@ void ForgeAudio_OperationSet_QueueDisableEffect(
 void ForgeAudio_OperationSet_QueueSetEffectParameters(
     ForgeVoice *voice,
     uint32_t EffectIndex,
-    const void *pParameters,
+    const void *parameters,
     uint32_t ParametersByteSize,
     uint32_t OperationSet
 );
 void ForgeAudio_OperationSet_QueueSetFilterParameters(
     ForgeVoice *voice,
-    const ForgeFilterParameters *pParameters,
+    const ForgeFilterParameters *parameters,
     uint32_t OperationSet
 );
 void ForgeAudio_OperationSet_QueueSetOutputFilterParameters(
     ForgeVoice *voice,
-    ForgeVoice *pDestinationVoice,
-    const ForgeFilterParameters *pParameters,
+    ForgeVoice *destination_voice,
+    const ForgeFilterParameters *parameters,
     uint32_t OperationSet
 );
 void ForgeAudio_OperationSet_QueueSetVolume(
@@ -338,15 +338,15 @@ void ForgeAudio_OperationSet_QueueSetVolume(
 void ForgeAudio_OperationSet_QueueSetChannelVolumes(
     ForgeVoice *voice,
     uint32_t Channels,
-    const float *pVolumes,
+    const float *volumes,
     uint32_t OperationSet
 );
 void ForgeAudio_OperationSet_QueueSetOutputMatrix(
     ForgeVoice *voice,
-    ForgeVoice *pDestinationVoice,
+    ForgeVoice *destination_voice,
     uint32_t SourceChannels,
     uint32_t DestinationChannels,
-    const float *pLevelMatrix,
+    const float *level_matrix,
     uint32_t OperationSet
 );
 void ForgeAudio_OperationSet_QueueStart(
@@ -404,13 +404,13 @@ struct ForgeAudioEngine
     float *effectChainCache;
 
     /* Allocator callbacks */
-    ForgeMallocFunc pMalloc;
-    ForgeFreeFunc pFree;
-    ForgeReallocFunc pRealloc;
+    ForgeMallocFunc malloc_func;
+    ForgeFreeFunc free_func;
+    ForgeReallocFunc realloc_func;
 
     /* EngineProcedureEXT */
     void *clientEngineUser;
-    ForgeEngineProcedure pClientEngineProc;
+    ForgeEngineProcedure client_engine_proc;
 
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
     /* Debug Information */
@@ -521,18 +521,18 @@ void ForgeAudio_Internal_InsertSubmixSorted(
     LinkedList **start,
     ForgeSubmixVoice *toAdd,
     ForgeAudioMutex lock,
-    ForgeMallocFunc pMalloc
+    ForgeMallocFunc malloc_func
 );
 void ForgeAudio_Internal_UpdateEngine(ForgeAudioEngine *audio, float *output);
 void ForgeAudio_Internal_ResizeDecodeCache(ForgeAudioEngine *audio, uint32_t size);
 void ForgeAudio_Internal_AllocEffectChain(
     ForgeVoice *voice,
-    const ForgeEffectChain *pEffectChain
+    const ForgeEffectChain *effect_chain
 );
 void ForgeAudio_Internal_FreeEffectChain(ForgeVoice *voice);
 ForgeResult ForgeAudio_Internal_VoiceOutputFrequency(
     ForgeVoice *voice,
-    const ForgeSendList *pSendList
+    const ForgeSendList *send_list
 );
 extern const float FORGE_AUDIO_INTERNAL_MATRIX_DEFAULTS[8][8][64];
 
@@ -638,32 +638,32 @@ void ForgeAudio_Internal_debug_fmt(
 /* ForgeApoFx Creators */
 
 extern ForgeResult forge_apo_create_eq(
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 extern ForgeResult forge_apo_create_mastering_limiter(
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 extern ForgeResult forge_apo_create_reverb(
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 extern ForgeResult forge_apo_create_echo(
-    ForgeApo **pEffect,
-    const void *pInitData,
+    ForgeApo **effect,
+    const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -812,21 +812,21 @@ static inline void WriteWaveFormatExtensible(
     const ForgeGuid *subformat
 ) {
     ForgeAudio_assert(fmt != NULL);
-    fmt->Format.wBitsPerSample = 32;
-    fmt->Format.wFormatTag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
-    fmt->Format.nChannels = channels;
-    fmt->Format.nSamplesPerSec = samplerate;
-    fmt->Format.nBlockAlign = (
-        fmt->Format.nChannels *
-        (fmt->Format.wBitsPerSample / 8)
+    fmt->Format.bits_per_sample = 32;
+    fmt->Format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
+    fmt->Format.channels = channels;
+    fmt->Format.sample_rate = samplerate;
+    fmt->Format.block_align = (
+        fmt->Format.channels *
+        (fmt->Format.bits_per_sample / 8)
     );
-    fmt->Format.nAvgBytesPerSec = (
-        fmt->Format.nSamplesPerSec *
-        fmt->Format.nBlockAlign
+    fmt->Format.average_bytes_per_second = (
+        fmt->Format.sample_rate *
+        fmt->Format.block_align
     );
-    fmt->Format.cbSize = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
-    fmt->Samples.wValidBitsPerSample = 32;
-    fmt->dwChannelMask = GetMask(fmt->Format.nChannels);
+    fmt->Format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
+    fmt->Samples.valid_bits_per_sample = 32;
+    fmt->channel_mask = GetMask(fmt->Format.channels);
     ForgeAudio_memcpy(&fmt->SubFormat, subformat, sizeof(ForgeGuid));
 }
 

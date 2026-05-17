@@ -167,9 +167,9 @@ void ForgeAudio_PlatformInit(
 	ForgeAudio_assert(updateSize != NULL);
 
 	/* Build the device spec */
-	spec.freq = mixFormat->Format.nSamplesPerSec;
+	spec.freq = mixFormat->Format.sample_rate;
 	spec.format = SDL_AUDIO_F32;
-	spec.channels = mixFormat->Format.nChannels;
+	spec.channels = mixFormat->Format.channels;
 	if (flags & FORGE_AUDIO_1024_QUANTUM)
 	{
 		/* Get the sample count for a 21.33ms frame.
