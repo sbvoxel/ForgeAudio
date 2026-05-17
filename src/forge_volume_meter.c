@@ -16,13 +16,13 @@
 /* volume Meter ForgeEffect Implementation */
 
 static const ForgeEffectInfo VolumeMeterInfo = {
-    /*.flags = */ (FORGE_EFFECT_FLAG_CHANNELS_MUST_MATCH | FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
-                   FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH | FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
-                   FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED | FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED),
-    /*.min_input_buffer_count = */ 1,
-    /*.max_input_buffer_count = */ 1,
-    /*.min_output_buffer_count = */ 1,
-    /*.max_output_buffer_count =*/1};
+    .flags = (FORGE_EFFECT_FLAG_CHANNELS_MUST_MATCH | FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
+              FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH | FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
+              FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED | FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED),
+    .min_input_buffer_count = 1,
+    .max_input_buffer_count = 1,
+    .min_output_buffer_count = 1,
+    .max_output_buffer_count = 1};
 
 typedef struct ForgeVolumeMeter {
     ForgeEffectBase base;
