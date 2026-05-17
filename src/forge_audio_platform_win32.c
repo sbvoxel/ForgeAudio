@@ -37,7 +37,7 @@ DEFINE_GUID(IID_IMMDeviceEnumerator, 0xA95664D2, 0x9614, 0x4F35, 0xA7, 0x46, 0xD
 DEFINE_GUID(CLSID_MMDeviceEnumerator, 0xBCDE0395, 0xE52F, 0x467C, 0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E);
 #endif
 
-static CRITICAL_SECTION faudio_cs = {NULL, -1, 0, 0, 0, 0};
+static CRITICAL_SECTION device_enumerator_lock = {NULL, -1, 0, 0, 0, 0};
 static IMMDeviceEnumerator *device_enumerator;
 static HRESULT init_hr;
 
@@ -390,7 +390,7 @@ void forge_platform_quit(void *platformDevice) {
 
 void forge_platform_add_ref(void) {
     HRESULT hr;
-    EnterCriticalSection(&faudio_cs);
+    EnterCriticalSection(&device_enumerator_lock);
     if (!device_enumerator) {
         init_hr = CoInitialize(NULL);
         hr = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &IID_IMMDeviceEnumerator,
@@ -398,17 +398,17 @@ void forge_platform_add_ref(void) {
         forge_assert(!FAILED(hr) && "CoCreateInstance failed!");
     } else
         IMMDeviceEnumerator_AddRef(device_enumerator);
-    LeaveCriticalSection(&faudio_cs);
+    LeaveCriticalSection(&device_enumerator_lock);
 }
 
 void forge_platform_release(void) {
-    EnterCriticalSection(&faudio_cs);
+    EnterCriticalSection(&device_enumerator_lock);
     if (!IMMDeviceEnumerator_Release(device_enumerator)) {
         device_enumerator = NULL;
         if (SUCCEEDED(init_hr))
             CoUninitialize();
     }
-    LeaveCriticalSection(&faudio_cs);
+    LeaveCriticalSection(&device_enumerator_lock);
 }
 
 uint32_t forge_platform_get_device_count(void) {
@@ -586,7 +586,7 @@ struct ForgeAudioThreadArgs {
     void *data;
 };
 
-static DWORD WINAPI FaudioThreadWrapper(void *user) {
+static DWORD WINAPI forge_platform_thread_wrapper(void *user) {
     struct ForgeAudioThreadArgs *args = user;
     DWORD ret;
 
@@ -606,7 +606,7 @@ ForgeAudioThread forge_platform_create_thread(ForgeAudioThreadFunc func, const c
     args->name = name;
     args->data = data;
 
-    return CreateThread(NULL, 0, &FaudioThreadWrapper, args, 0, NULL);
+    return CreateThread(NULL, 0, &forge_platform_thread_wrapper, args, 0, NULL);
 }
 
 void forge_platform_wait_thread(ForgeAudioThread thread, int32_t *retval) {
