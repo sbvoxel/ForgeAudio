@@ -204,8 +204,6 @@ static ForgeResult engine_construct_with_allocator(
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
     forge_audio_set_debug_configuration(*engine, &debugInit, NULL);
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
-    (*engine)->refLock = ForgeAudio_PlatformCreateMutex();
-    LOG_MUTEX_CREATE((*engine), (*engine)->refLock)
     (*engine)->sourceLock = ForgeAudio_PlatformCreateMutex();
     LOG_MUTEX_CREATE((*engine), (*engine)->sourceLock)
     (*engine)->submixLock = ForgeAudio_PlatformCreateMutex();
@@ -217,84 +215,44 @@ static ForgeResult engine_construct_with_allocator(
     (*engine)->malloc_func = customMalloc;
     (*engine)->free_func = customFree;
     (*engine)->realloc_func = customRealloc;
-    (*engine)->refcount = 1;
     return 0;
-}
-
-// Preliminary TODO:
-// * Document why this function doesn't increment atomically.
-// * Document the thread safety story of this library.
-// * Look into removing refcounting if it's related to COM, and even if not, perhaps still.
-uint32_t forge_audio_engine_retain(ForgeAudioEngine *audio)
-{
-    uint32_t refcount;
-
-    LOG_API_ENTER(audio)
-
-    ForgeAudio_PlatformLockMutex(audio->refLock);
-    LOG_MUTEX_LOCK(audio, audio->refLock)
-    audio->refcount += 1;
-    refcount = audio->refcount;
-    ForgeAudio_PlatformUnlockMutex(audio->refLock);
-    LOG_MUTEX_UNLOCK(audio, audio->refLock)
-
-    LOG_API_EXIT(audio)
-    return refcount;
 }
 
 static void destroy_voice(ForgeVoice *voice);
 
-uint32_t forge_audio_engine_release(ForgeAudioEngine *audio)
+void forge_audio_destroy(ForgeAudioEngine *audio)
 {
-	uint32_t refcount;
 	ForgeVoice *voice;
 
 	LOG_API_ENTER(audio)
 
-	ForgeAudio_PlatformLockMutex(audio->refLock);
-	LOG_MUTEX_LOCK(audio, audio->refLock)
-	audio->refcount -= 1;
-	refcount = audio->refcount;
-	ForgeAudio_PlatformUnlockMutex(audio->refLock);
-	LOG_MUTEX_UNLOCK(audio, audio->refLock)
-
-	if (refcount == 0)
+	while (audio->sources)
 	{
-		while (audio->sources)
-		{
-			voice = (ForgeSourceVoice*) audio->sources->entry;
-			destroy_voice(voice);
-		}
-		while (audio->submixes)
-		{
-			voice = (ForgeSourceVoice*) audio->submixes->entry;
-			destroy_voice(voice);
-		}
-		if (audio->master)
-			destroy_voice(audio->master);
-		ForgeAudio_OperationSet_ClearAll(audio);
-		forge_audio_stop_engine(audio);
-		audio->free_func(audio->decodeCache);
-		audio->free_func(audio->resampleCache);
-		audio->free_func(audio->effectChainCache);
-		LOG_MUTEX_DESTROY(audio, audio->refLock)
-		ForgeAudio_PlatformDestroyMutex(audio->refLock);
-		LOG_MUTEX_DESTROY(audio, audio->sourceLock)
-		ForgeAudio_PlatformDestroyMutex(audio->sourceLock);
-		LOG_MUTEX_DESTROY(audio, audio->submixLock)
-		ForgeAudio_PlatformDestroyMutex(audio->submixLock);
-		LOG_MUTEX_DESTROY(audio, audio->callbackLock)
-		ForgeAudio_PlatformDestroyMutex(audio->callbackLock);
-		LOG_MUTEX_DESTROY(audio, audio->operationLock)
-		ForgeAudio_PlatformDestroyMutex(audio->operationLock);
-		audio->free_func(audio);
-		ForgeAudio_PlatformRelease();
+		voice = (ForgeSourceVoice*) audio->sources->entry;
+		destroy_voice(voice);
 	}
-	else
+	while (audio->submixes)
 	{
-		LOG_API_EXIT(audio)
+		voice = (ForgeSourceVoice*) audio->submixes->entry;
+		destroy_voice(voice);
 	}
-	return refcount;
+	if (audio->master)
+		destroy_voice(audio->master);
+	ForgeAudio_OperationSet_ClearAll(audio);
+	forge_audio_stop_engine(audio);
+	audio->free_func(audio->decodeCache);
+	audio->free_func(audio->resampleCache);
+	audio->free_func(audio->effectChainCache);
+	LOG_MUTEX_DESTROY(audio, audio->sourceLock)
+	ForgeAudio_PlatformDestroyMutex(audio->sourceLock);
+	LOG_MUTEX_DESTROY(audio, audio->submixLock)
+	ForgeAudio_PlatformDestroyMutex(audio->submixLock);
+	LOG_MUTEX_DESTROY(audio, audio->callbackLock)
+	ForgeAudio_PlatformDestroyMutex(audio->callbackLock);
+	LOG_MUTEX_DESTROY(audio, audio->operationLock)
+	ForgeAudio_PlatformDestroyMutex(audio->operationLock);
+	audio->free_func(audio);
+	ForgeAudio_PlatformRelease();
 }
 
 ForgeResult forge_audio_get_device_count(ForgeAudioEngine *audio, uint32_t *count)

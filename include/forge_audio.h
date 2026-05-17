@@ -426,7 +426,7 @@ extern ForgeGuid FORGE_AUDIO_SUBTYPE_WMAUDIO_LOSSLESS;
 
 /* Version API */
 
-#define FORGE_AUDIO_ABI_VERSION     0
+#define FORGE_AUDIO_ABI_VERSION     1
 #define FORGE_AUDIO_MAJOR_VERSION     0
 #define FORGE_AUDIO_MINOR_VERSION     1
 #define FORGE_AUDIO_PATCH_VERSION     0
@@ -454,15 +454,8 @@ FORGE_AUDIO_API ForgeResult forge_audio_create(
     uint32_t Flags
 );
 
-/* Increments a reference counter. When counter is 0, audio is freed.
- * Returns the reference count after incrementing.
- */
-FORGE_AUDIO_API uint32_t forge_audio_engine_retain(ForgeAudioEngine *audio);
-
-/* Decrements a reference counter. When counter is 0, audio is freed.
- * Returns the reference count after decrementing.
- */
-FORGE_AUDIO_API uint32_t forge_audio_engine_release(ForgeAudioEngine *audio);
+/* Destroys the audio engine and all voices still owned by it. */
+FORGE_AUDIO_API void forge_audio_destroy(ForgeAudioEngine *audio);
 
 /* Queries the number of sound devices available for use.
  *

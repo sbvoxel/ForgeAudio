@@ -374,14 +374,12 @@ void ForgeAudio_OperationSet_QueueSetFrequencyRatio(
 struct ForgeAudioEngine
 {
     uint8_t active;
-    uint32_t refcount;
     uint32_t initFlags;
     uint32_t updateSize;
     ForgeMasterVoice *master;
     LinkedList *sources;
     LinkedList *submixes;
     LinkedList *callbacks;
-    ForgeAudioMutex refLock;
     ForgeAudioMutex sourceLock;
     ForgeAudioMutex submixLock;
     ForgeAudioMutex callbackLock;

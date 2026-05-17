@@ -198,7 +198,7 @@ FORGE_AUDIO_API void XNA_SongQuit()
 {
     XNA_SongKill();
     forge_voice_destroy(songMaster);
-    forge_audio_engine_release(songAudio);
+    forge_audio_destroy(songAudio);
 }
 
 FORGE_AUDIO_API float XNA_PlaySong(const char *name)
