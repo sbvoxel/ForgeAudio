@@ -326,9 +326,11 @@ struct ForgeAudioEngine {
     uint32_t decodeSamples;
     uint32_t resampleSamples;
     uint32_t effectChainSamples;
+    uint32_t effectChainSamples2;
     float *decodeCache;
     float *resampleCache;
     float *effectChainCache;
+    float *effectChainCache2;
 
     /* Allocator callbacks */
     ForgeMallocFunc malloc_func;
@@ -445,6 +447,9 @@ FORGE_INTERNAL_API void forge_audio_resize_decode_cache(ForgeAudioEngine *audio,
 FORGE_INTERNAL_API void forge_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain);
 FORGE_INTERNAL_API void forge_audio_free_effect_chain(ForgeVoice *voice);
 FORGE_INTERNAL_API ForgeResult forge_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendList *send_list);
+#ifdef FORGE_AUDIO_TESTING
+FORGE_AUDIO_API float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples);
+#endif
 FORGE_INTERNAL_API extern const float forge_audio_internal_matrix_defaults[8][8][64];
 
 FORGE_INTERNAL_API bool forge_array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity, size_t count,

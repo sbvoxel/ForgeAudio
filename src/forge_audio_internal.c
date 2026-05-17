@@ -467,14 +467,27 @@ static inline void forge_audio_filter_voice(ForgeAudioEngine *audio, const Forge
     LOG_FUNC_EXIT(audio)
 }
 
-static void forge_audio_resize_effect_chain_cache(ForgeAudioEngine *audio, uint32_t samples) {
+static float *forge_audio_get_effect_chain_cache(ForgeAudioEngine *audio, const void *source_buffer, uint32_t samples) {
+    float **cache;
+    uint32_t *cache_samples;
+
     LOG_FUNC_ENTER(audio)
-    if (samples > audio->effectChainSamples) {
-        audio->effectChainSamples = samples;
-        audio->effectChainCache =
-            (float *)audio->realloc_func(audio->effectChainCache, sizeof(float) * audio->effectChainSamples);
+
+    if (source_buffer != audio->effectChainCache) {
+        cache = &audio->effectChainCache;
+        cache_samples = &audio->effectChainSamples;
+    } else {
+        cache = &audio->effectChainCache2;
+        cache_samples = &audio->effectChainSamples2;
     }
+
+    if (samples > *cache_samples) {
+        *cache_samples = samples;
+        *cache = (float *)audio->realloc_func(*cache, sizeof(float) * *cache_samples);
+    }
+
     LOG_FUNC_EXIT(audio)
+    return *cache;
 }
 
 static inline float *forge_audio_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples) {
@@ -505,16 +518,9 @@ static inline float *forge_audio_process_effect_chain(ForgeVoice *voice, float *
         effect = voice->effects.desc[i].effect;
 
         if (!voice->effects.inPlaceProcessing[i]) {
-            if (dstParams.buffer == buffer) {
-                forge_audio_resize_effect_chain_cache(voice->audio, voice->effects.desc[i].output_channels *
-                                                                        srcParams.valid_frame_count);
-                dstParams.buffer = voice->audio->effectChainCache;
-            } else {
-                /* FIXME: The original buffer may be too small when this
-                 * non-in-place effect expands channel count.
-                 */
-                dstParams.buffer = buffer;
-            }
+            dstParams.buffer = forge_audio_get_effect_chain_cache(voice->audio, srcParams.buffer,
+                                                                  voice->effects.desc[i].output_channels *
+                                                                      srcParams.valid_frame_count);
 
             forge_zero(dstParams.buffer,
                        voice->effects.desc[i].output_channels * srcParams.valid_frame_count * sizeof(float));
@@ -539,6 +545,12 @@ static inline float *forge_audio_process_effect_chain(ForgeVoice *voice, float *
     LOG_FUNC_EXIT(voice->audio)
     return (float *)dstParams.buffer;
 }
+
+#ifdef FORGE_AUDIO_TESTING
+float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples) {
+    return forge_audio_process_effect_chain(voice, buffer, samples);
+}
+#endif
 
 static void forge_audio_resize_resample_cache(ForgeAudioEngine *audio, uint32_t samples) {
     LOG_FUNC_ENTER(audio)

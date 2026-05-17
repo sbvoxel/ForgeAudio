@@ -24,6 +24,7 @@ option(LOG_ASSERTIONS "Bind ForgeAudio_assert to log, instead of platform's asse
 option(FORCE_ENABLE_DEBUGCONFIGURATION "Enable DebugConfiguration in all build types" OFF)
 option(DUMP_VOICES "Dump voices to RIFF WAVE files" OFF)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
+option(BUILD_TESTS "Build tests" OFF)
 
 # Build type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -102,6 +103,15 @@ set_target_properties(ForgeAudio PROPERTIES OUTPUT_NAME "ForgeAudio"
 # Dump source voices to RIFF WAVE files
 if(DUMP_VOICES)
     target_compile_definitions(ForgeAudio PRIVATE FORGE_AUDIO_DUMP_VOICES)
+endif()
+
+if(BUILD_TESTS)
+    enable_testing()
+    target_compile_definitions(ForgeAudio PUBLIC FORGE_AUDIO_TESTING)
+
+    add_executable(effect_chain_scratch_test tests/effect_chain_scratch.c)
+    target_link_libraries(effect_chain_scratch_test PRIVATE ForgeAudio)
+    add_test(NAME effect_chain_scratch COMMAND effect_chain_scratch_test)
 endif()
 
 # SDL3 Dependency

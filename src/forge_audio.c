@@ -165,6 +165,7 @@ void forge_audio_destroy(ForgeAudioEngine *audio) {
     audio->free_func(audio->decodeCache);
     audio->free_func(audio->resampleCache);
     audio->free_func(audio->effectChainCache);
+    audio->free_func(audio->effectChainCache2);
     LOG_MUTEX_DESTROY(audio, audio->sourceLock)
     forge_platform_destroy_mutex(audio->sourceLock);
     LOG_MUTEX_DESTROY(audio, audio->submixLock)
