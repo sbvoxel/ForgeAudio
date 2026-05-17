@@ -1,5 +1,7 @@
 # ForgeAudio
 
+> Note: this README is currently AI-written draft text and may need later revision for precision.
+
 ForgeAudio is a general-purpose audio runtime for games and interactive applications.
 
 It began as a fork of [FAudio](https://github.com/FNA-XNA/FAudio), a mature reimplementation of Microsoft's game-audio runtime APIs. ForgeAudio keeps the useful low-level foundation from FAudio while moving toward a smaller engine-facing design of its own.
@@ -8,18 +10,17 @@ The goal is a compact, explicit audio library that can sit underneath a game eng
 
 ## Status
 
-ForgeAudio is still early as an independent fork, but it is not a greenfield rewrite.
+ForgeAudio is an independent audio library derived from FAudio.
 
-The current codebase has already diverged from upstream FAudio in several ways:
+Current state:
 
-- Public headers and build targets have been renamed for ForgeAudio.
-- XACT and related tooling have been removed.
-- The C# wrapper, Visual Studio solution files, Xcode project files, and some packaging inherited from upstream have been removed.
+- The public headers, build targets, symbols, result types, and extension documents use ForgeAudio names and conventions.
+- XACT, XNA song support, MSADPCM source support, legacy compatibility utilities, generated project files, and inherited packaging have been removed.
 - The build has been simplified around CMake and C23.
 - SDL3 is the default portable backend path, with a native Win32 path still available behind `PLATFORM_WIN32`.
-- Several upstream FAudio fixes have been ported into the fork.
+- Effects, spatial audio, audio batches, format handling, and other APIs are being shaped for ForgeAudio rather than preserved as direct FAudio/XAudio surface area.
 
-ForgeAudio is now allowed to diverge when that makes the library smaller, clearer, or better suited to engine use. Upstream FAudio remains useful reference material, but source compatibility and easy patch porting are no longer design constraints.
+Upstream FAudio remains useful reference material and a source of fixes, but compatibility with it is not a design goal.
 
 ## Goals
 
