@@ -143,7 +143,7 @@ extern void FAudio_Log(char const *msg);
 
 #define FAudio_strlen(ptr) SDL_strlen(ptr)
 #define FAudio_strcmp(str1, str2) SDL_strcmp(str1, str2)
-#define FAudio_strncmp(str1, str2, size) SDL_strncmp(str1, str1, size)
+#define FAudio_strncmp(str1, str2, size) SDL_strncmp(str1, str2, size)
 #define FAudio_strlcpy(ptr1, ptr2, size) SDL_strlcpy(ptr1, ptr2, size)
 
 #define FAudio_pow(x, y) SDL_pow(x, y)
@@ -197,6 +197,15 @@ extern void FAudio_Log(char const *msg);
     (val1 > val2 ? val1 : val2)
 #define FAudio_clamp(val, min, max) \
     (val > max ? max : (val < min ? min : val))
+
+/* Alignment macro for gcc/clang/msvc */
+#if defined(__clang__) || defined(__GNUC__)
+#define ALIGN(type, boundary) type __attribute__((aligned(boundary)))
+#elif defined(_MSC_VER)
+#define ALIGN(type, boundary) __declspec(align(boundary)) type
+#else
+#define ALIGN(type, boundary) type
+#endif
 
 /* Threading Types */
 
@@ -371,6 +380,7 @@ struct FAudio
     LinkedList *sources;
     LinkedList *submixes;
     LinkedList *callbacks;
+    FAudioMutex refLock;
     FAudioMutex sourceLock;
     FAudioMutex submixLock;
     FAudioMutex callbackLock;
@@ -770,7 +780,7 @@ static inline uint32_t GetMask(uint16_t channels)
     if (channels == 4) return SPEAKER_QUAD;
     if (channels == 5) return SPEAKER_4POINT1;
     if (channels == 6) return SPEAKER_5POINT1;
-    if (channels == 8) return SPEAKER_7POINT1;
+    if (channels == 8) return SPEAKER_7POINT1_SURROUND;
     FAudio_assert(0 && "Unrecognized speaker layout!");
     return 0;
 }

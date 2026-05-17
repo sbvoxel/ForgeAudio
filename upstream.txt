@@ -1,9 +1,35 @@
 Commits not ported:
-    81d5a24
-    cfdc4db
-    68a555e
-    all SDL3 commits
+    cfdc4db (SDL2 packaging; ForgeAudio uses SDL3 and simplified CMake)
     522a349 (FACT has been removed)
 
     CollectorEXT
     https://github.com/FNA-XNA/FAudio/commit/7d14fdb7910040a0bdaa6ef82c8052c5ed25e238
+
+Reviewed 2026-05-17:
+    Last upstream port before this pass appears to be FAudio 3b7037e
+    (2025-06-05, "Debug: Avoid a use-after-free when logging api exits in
+    DestroyVoice").
+
+    Ported:
+        81d5a24 / 68a555e: live MSVC/alignment pieces
+        730ae9e: effect parameter null effect-chain check
+        c6bb4e2: win32 AUTOCONVERTPCM initialization
+        13e1a47: default 7.1 mask to SPEAKER_7POINT1_SURROUND
+        67ed0a1: win32 GetDeviceDetails error propagation
+        e9e9d94: reject multi-send lists with mismatched sample rates
+        bbd3d72: fix FAudio_strncmp SDL wrapper
+        48a0199 / 1b6e96a / 423aa0a / 030d8d5:
+            reject sendless source/submix voices before mastering voice exists
+        05d0c37: lock engine refcount
+
+    Skipped for now:
+        FACT commits: FACT has been removed.
+        FAudioUI commits: only affect utility UI behavior.
+        WMADEC commits: ForgeAudio does not currently build the split win32
+            WMA decoder path.
+        February-April 2026 queued-buffer rewrite and followups: valuable, but
+            it replaces the source buffer/flush path rather than applying as a
+            small bug-fix patch.
+        1fcf26b: fixes a bug in the newer direct ADPCM decoder; ForgeAudio is
+            still on the older block-cache decoder and already applies offsets
+            when copying from the decoded block cache.
