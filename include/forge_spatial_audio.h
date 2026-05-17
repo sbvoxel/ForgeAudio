@@ -146,7 +146,6 @@ typedef struct ForgeSpatialEmitter {
     ForgeVector3 position;
     ForgeVector3 velocity;
     float inner_radius;
-    float inner_radius_angle;
     uint32_t channel_count;
     float channel_radius;
     float *channel_azimuths;

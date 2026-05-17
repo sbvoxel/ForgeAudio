@@ -274,7 +274,6 @@ static uint8_t forge_spatializer_check_calculate_params(const ForgeSpatializer *
         VECTOR_BASE_CHECK(emitter->orient_front, emitter->orient_top);
     }
     FLOAT_BETWEEN_CHECK(emitter->inner_radius, 0.0f, FLT_MAX);
-    FLOAT_BETWEEN_CHECK(emitter->inner_radius_angle, 0.0f, FORGE_SPATIAL_2PI / 4.0f);
     PARAM_CHECK(emitter->channel_count > 0, "Invalid channel count for emitter");
     PARAM_CHECK(emitter->channel_radius >= 0.0f, "Invalid channel radius for emitter");
     if (emitter->channel_count > 1) {
@@ -887,7 +886,7 @@ static inline void ComputeEmitterChannelCoefficients(const ConfigInfo *curConfig
  * computed once, but all the azimuths and inner_radius calculations are done per
  * emitter channel.
  *
- * FIXME: inner_radius_angle is validated by the public API but not yet applied here.
+ * TODO: Design a ForgeAudio source spread/extent model for wide or near-field emitters.
  */
 static inline void CalculateMatrix(uint32_t ChannelMask, uint32_t flags, const ForgeSpatialListener *listener,
                                    const ForgeSpatialEmitter *emitter, uint32_t src_channel_count,
