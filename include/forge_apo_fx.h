@@ -69,7 +69,7 @@ typedef struct ForgeApoEqParameters
 typedef struct ForgeApoMasteringLimiterParameters
 {
     uint32_t Release;    /* In milliseconds */
-    uint32_t Loudness;    /* In... uh, MSDN doesn't actually say what. */
+    uint32_t Loudness;
 } ForgeApoMasteringLimiterParameters;
 
 /* See FORGE_APO_REVERB_* constants below.

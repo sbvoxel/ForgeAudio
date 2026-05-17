@@ -794,13 +794,13 @@ uint32_t FAudio_timems(void);
 
 static inline uint32_t GetMask(uint16_t channels)
 {
-    if (channels == 1) return SPEAKER_MONO;
-    if (channels == 2) return SPEAKER_STEREO;
-    if (channels == 3) return SPEAKER_2POINT1;
-    if (channels == 4) return SPEAKER_QUAD;
-    if (channels == 5) return SPEAKER_4POINT1;
-    if (channels == 6) return SPEAKER_5POINT1;
-    if (channels == 8) return SPEAKER_7POINT1_SURROUND;
+    if (channels == 1) return FORGE_SPEAKER_MONO;
+    if (channels == 2) return FORGE_SPEAKER_STEREO;
+    if (channels == 3) return FORGE_SPEAKER_2POINT1;
+    if (channels == 4) return FORGE_SPEAKER_QUAD;
+    if (channels == 5) return FORGE_SPEAKER_4POINT1;
+    if (channels == 6) return FORGE_SPEAKER_5POINT1;
+    if (channels == 8) return FORGE_SPEAKER_7POINT1_SURROUND;
     FAudio_assert(0 && "Unrecognized speaker layout!");
     return 0;
 }

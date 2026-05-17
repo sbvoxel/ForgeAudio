@@ -24,46 +24,6 @@
  *
  */
 
-/* This file has no documentation since the MSDN docs are still perfectly fine:
- * https://docs.microsoft.com/en-us/windows/desktop/api/xapobase/
- *
- * Of course, the APIs aren't exactly the same since APO is super dependent on
- * C++. Instead, we use a struct full of functions to mimic a vtable.
- *
- * To mimic the CAPOParametersBase experience, initialize the object like this:
- *
- * extern ForgeApoProperties MyApoProperties;
- * extern int32_t producer;
- * typedef struct MyApoParams
- * {
- *    uint32_t something;
- * } MyApoParams;
- * typedef struct MyApo
- * {
- *    ForgeApoBase base;
- *    uint32_t somethingElse;
- * } MyApo;
- * void MyApo_Free(void* fapo)
- * {
- *    MyApo *mine = (MyApo*) fapo;
- *    mine->base.pFree(mine->base.m_pParameterBlocks);
- *    mine->base.pFree(fapo);
- * }
- *
- * MyApo *result = (MyApo*) SDL_malloc(sizeof(MyApo));
- * uint8_t *params = (uint8_t*) SDL_malloc(sizeof(MyApoParams) * 3);
- * forge_apo_base_init(
- *    &result->base,
- *    &MyApoProperties,
- *    params,
- *    sizeof(MyApoParams),
- *    producer
- * );
- * result->base.base.Initialize = (ForgeApoInitializeFunc) MyApo_Initialize;
- * result->base.base.Process = (ForgeApoProcessFunc) MyApo_Process;
- * result->base.Destructor = MyApo_Free;
- */
-
 #ifndef FORGE_APO_BASE_H
 #define FORGE_APO_BASE_H
 

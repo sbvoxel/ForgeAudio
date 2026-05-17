@@ -78,7 +78,7 @@
 
 #define SPEAKERMASK(spatializer) ((spatializer)->SpeakerChannelMask)
 #define SPEAKERCOUNT(spatializer) ((spatializer)->SpeakerCount)
-#define SPEAKER_LF_INDEX(spatializer) ((spatializer)->LowFrequencyChannelIndex)
+#define FORGE_SPEAKER_LF_INDEX(spatializer) ((spatializer)->LowFrequencyChannelIndex)
 #define SPEEDOFSOUND(spatializer) ((spatializer)->SpeedOfSound)
 #define SPEEDOFSOUNDEPSILON(spatializer) ((spatializer)->SpeedOfSoundEpsilon)
 
@@ -89,16 +89,16 @@ static bool forge_spatializer_check_init_params(
 ) {
     const uint32_t kAllowedSpeakerMasks[] =
     {
-        SPEAKER_MONO,
-        SPEAKER_STEREO,
-        SPEAKER_2POINT1,
-        SPEAKER_QUAD,
-        SPEAKER_SURROUND,
-        SPEAKER_4POINT1,
-        SPEAKER_5POINT1,
-        SPEAKER_5POINT1_SURROUND,
-        SPEAKER_7POINT1,
-        SPEAKER_7POINT1_SURROUND,
+        FORGE_SPEAKER_MONO,
+        FORGE_SPEAKER_STEREO,
+        FORGE_SPEAKER_2POINT1,
+        FORGE_SPEAKER_QUAD,
+        FORGE_SPEAKER_SURROUND,
+        FORGE_SPEAKER_4POINT1,
+        FORGE_SPEAKER_5POINT1,
+        FORGE_SPEAKER_5POINT1_SURROUND,
+        FORGE_SPEAKER_7POINT1,
+        FORGE_SPEAKER_7POINT1_SURROUND,
     };
     uint8_t speakerMaskIsValid = 0;
     uint32_t i;
@@ -169,16 +169,16 @@ bool forge_spatializer_init(
     /* ... Convert back to float. */
     SPEEDOFSOUNDEPSILON(spatializer) = epsilonHack.f;
 
-    SPEAKER_LF_INDEX(spatializer) = 0xFFFFFFFF;
-    if (SpeakerChannelMask & SPEAKER_LOW_FREQUENCY)
+    FORGE_SPEAKER_LF_INDEX(spatializer) = 0xFFFFFFFF;
+    if (SpeakerChannelMask & FORGE_SPEAKER_LOW_FREQUENCY)
     {
-        if (SpeakerChannelMask & SPEAKER_FRONT_CENTER)
+        if (SpeakerChannelMask & FORGE_SPEAKER_FRONT_CENTER)
         {
-            SPEAKER_LF_INDEX(spatializer) = 3;
+            FORGE_SPEAKER_LF_INDEX(spatializer) = 3;
         }
         else
         {
-            SPEAKER_LF_INDEX(spatializer) = 2;
+            FORGE_SPEAKER_LF_INDEX(spatializer) = 2;
         }
     }
 
@@ -321,7 +321,7 @@ static uint8_t forge_spatializer_check_calculate_params(
     if (Flags & FORGE_SPATIAL_CALCULATE_ZERO_CENTER)
     {
         const uint32_t isCalculateMatrix = (Flags & FORGE_SPATIAL_CALCULATE_MATRIX);
-        const uint32_t hasCenter = SPEAKERMASK(spatializer) & SPEAKER_FRONT_CENTER;
+        const uint32_t hasCenter = SPEAKERMASK(spatializer) & FORGE_SPEAKER_FRONT_CENTER;
         PARAM_CHECK(
             isCalculateMatrix && hasCenter,
             "FORGE_SPATIAL_CALCULATE_ZERO_CENTER is only valid for matrix"
@@ -332,7 +332,7 @@ static uint8_t forge_spatializer_check_calculate_params(
     if (Flags & FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE)
     {
         const uint32_t isCalculateMatrix = (Flags & FORGE_SPATIAL_CALCULATE_MATRIX);
-        const uint32_t hasLF = SPEAKERMASK(spatializer) & SPEAKER_LOW_FREQUENCY;
+        const uint32_t hasLF = SPEAKERMASK(spatializer) & FORGE_SPEAKER_LOW_FREQUENCY;
         PARAM_CHECK(
             isCalculateMatrix && hasLF,
             "FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE is only valid for matrix"
@@ -590,7 +590,7 @@ static ForgeSpatialDistanceCurve DefaultVolumeCurve =
  * reverse engineered by looking at the data from various X3DAudioCalculate()
  * matrix results for the various speaker configurations; *in particular*, the
  * azimuths are different from the ones in X3DAudio.h for
- * SPEAKER_STEREO (which is declared has having front L and R speakers in the
+ * FORGE_SPEAKER_STEREO (which is declared has having front L and R speakers in the
  * bit mask, but in fact has L and R *side* speakers). LF speakers are
  * deliberately not included in the SpeakerInfo list, rather, we store the index
  * into a separate field (with a -1 sentinel value if it has no LF speaker).
@@ -622,87 +622,87 @@ typedef struct
  * -Adrien
  */
 
-#define SPEAKER_AZIMUTH_CENTER            0.0f
-#define SPEAKER_AZIMUTH_FRONT_RIGHT_OF_CENTER    (FORGE_SPATIAL_PI *  1.0f / 8.0f)
-#define SPEAKER_AZIMUTH_FRONT_RIGHT        (FORGE_SPATIAL_PI *  1.0f / 4.0f)
-#define SPEAKER_AZIMUTH_SIDE_RIGHT        (FORGE_SPATIAL_PI *  1.0f / 2.0f)
-#define SPEAKER_AZIMUTH_BACK_RIGHT        (FORGE_SPATIAL_PI *  3.0f / 4.0f)
-#define SPEAKER_AZIMUTH_BACK_CENTER        FORGE_SPATIAL_PI
-#define SPEAKER_AZIMUTH_BACK_LEFT        (FORGE_SPATIAL_PI *  5.0f / 4.0f)
-#define SPEAKER_AZIMUTH_SIDE_LEFT        (FORGE_SPATIAL_PI *  3.0f / 2.0f)
-#define SPEAKER_AZIMUTH_FRONT_LEFT        (FORGE_SPATIAL_PI *  7.0f / 4.0f)
-#define SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER    (FORGE_SPATIAL_PI * 15.0f / 8.0f)
+#define FORGE_SPEAKER_AZIMUTH_CENTER            0.0f
+#define FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT_OF_CENTER    (FORGE_SPATIAL_PI *  1.0f / 8.0f)
+#define FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT        (FORGE_SPATIAL_PI *  1.0f / 4.0f)
+#define FORGE_SPEAKER_AZIMUTH_SIDE_RIGHT        (FORGE_SPATIAL_PI *  1.0f / 2.0f)
+#define FORGE_SPEAKER_AZIMUTH_BACK_RIGHT        (FORGE_SPATIAL_PI *  3.0f / 4.0f)
+#define FORGE_SPEAKER_AZIMUTH_BACK_CENTER        FORGE_SPATIAL_PI
+#define FORGE_SPEAKER_AZIMUTH_BACK_LEFT        (FORGE_SPATIAL_PI *  5.0f / 4.0f)
+#define FORGE_SPEAKER_AZIMUTH_SIDE_LEFT        (FORGE_SPATIAL_PI *  3.0f / 2.0f)
+#define FORGE_SPEAKER_AZIMUTH_FRONT_LEFT        (FORGE_SPATIAL_PI *  7.0f / 4.0f)
+#define FORGE_SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER    (FORGE_SPATIAL_PI * 15.0f / 8.0f)
 
 const SpeakerInfo kMonoConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_CENTER, 0 },
+    { FORGE_SPEAKER_AZIMUTH_CENTER, 0 },
 };
 const SpeakerInfo kStereoConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_SIDE_RIGHT,    1 },
-    { SPEAKER_AZIMUTH_SIDE_LEFT,    0 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_RIGHT,    1 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_LEFT,    0 },
 };
 const SpeakerInfo k2Point1ConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_SIDE_RIGHT,    1 },
-    { SPEAKER_AZIMUTH_SIDE_LEFT,    0 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_RIGHT,    1 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_LEFT,    0 },
 };
 const SpeakerInfo kSurroundConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_CENTER,    2 },
-    { SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
-    { SPEAKER_AZIMUTH_BACK_CENTER,    3 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
+    { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_CENTER,    3 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
 const SpeakerInfo kQuadConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_FRONT_RIGHT, 1 },
-    { SPEAKER_AZIMUTH_BACK_RIGHT,  3 },
-    { SPEAKER_AZIMUTH_BACK_LEFT,   2 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT,  0 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT, 1 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_RIGHT,  3 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,   2 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,  0 },
 };
 const SpeakerInfo k4Point1ConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
-    { SPEAKER_AZIMUTH_BACK_RIGHT,    4 },
-    { SPEAKER_AZIMUTH_BACK_LEFT,    3 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_RIGHT,    4 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,    3 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
 const SpeakerInfo k5Point1ConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_CENTER,    2 },
-    { SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
-    { SPEAKER_AZIMUTH_BACK_RIGHT,    5 },
-    { SPEAKER_AZIMUTH_BACK_LEFT,    4 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
+    { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_RIGHT,    5 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,    4 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
 const SpeakerInfo k7Point1ConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_CENTER,            2 },
-    { SPEAKER_AZIMUTH_FRONT_RIGHT_OF_CENTER,    7 },
-    { SPEAKER_AZIMUTH_FRONT_RIGHT,            1 },
-    { SPEAKER_AZIMUTH_BACK_RIGHT,            5 },
-    { SPEAKER_AZIMUTH_BACK_LEFT,            4 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT,            0 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER,        6 },
+    { FORGE_SPEAKER_AZIMUTH_CENTER,            2 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT_OF_CENTER,    7 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,            1 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_RIGHT,            5 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,            4 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,            0 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER,        6 },
 };
 const SpeakerInfo k5Point1SurroundConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_CENTER,    2 },
-    { SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
-    { SPEAKER_AZIMUTH_SIDE_RIGHT,    5 },
-    { SPEAKER_AZIMUTH_SIDE_LEFT,    4 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
+    { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_RIGHT,    5 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_LEFT,    4 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
 const SpeakerInfo k7Point1SurroundConfigSpeakers[] =
 {
-    { SPEAKER_AZIMUTH_CENTER,    2 },
-    { SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
-    { SPEAKER_AZIMUTH_SIDE_RIGHT,    7 },
-    { SPEAKER_AZIMUTH_BACK_RIGHT,    5 },
-    { SPEAKER_AZIMUTH_BACK_LEFT,    4 },
-    { SPEAKER_AZIMUTH_SIDE_LEFT,    6 },
-    { SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
+    { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_RIGHT,    7 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_RIGHT,    5 },
+    { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,    4 },
+    { FORGE_SPEAKER_AZIMUTH_SIDE_LEFT,    6 },
+    { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
 
 /* With that organization, the index of the LF speaker into the matrix array
@@ -713,16 +713,16 @@ const SpeakerInfo k7Point1SurroundConfigSpeakers[] =
  */
 const ConfigInfo kSpeakersConfigInfo[] =
 {
-    { SPEAKER_MONO,            kMonoConfigSpeakers,        ARRAY_COUNT(kMonoConfigSpeakers),        -1 },
-    { SPEAKER_STEREO,        kStereoConfigSpeakers,        ARRAY_COUNT(kStereoConfigSpeakers),        -1 },
-    { SPEAKER_2POINT1,        k2Point1ConfigSpeakers,        ARRAY_COUNT(k2Point1ConfigSpeakers),         2 },
-    { SPEAKER_SURROUND,        kSurroundConfigSpeakers,    ARRAY_COUNT(kSurroundConfigSpeakers),        -1 },
-    { SPEAKER_QUAD,            kQuadConfigSpeakers,        ARRAY_COUNT(kQuadConfigSpeakers),        -1 },
-    { SPEAKER_4POINT1,        k4Point1ConfigSpeakers,        ARRAY_COUNT(k4Point1ConfigSpeakers),         2 },
-    { SPEAKER_5POINT1,        k5Point1ConfigSpeakers,        ARRAY_COUNT(k5Point1ConfigSpeakers),         3 },
-    { SPEAKER_7POINT1,        k7Point1ConfigSpeakers,        ARRAY_COUNT(k7Point1ConfigSpeakers),         3 },
-    { SPEAKER_5POINT1_SURROUND,    k5Point1SurroundConfigSpeakers,    ARRAY_COUNT(k5Point1SurroundConfigSpeakers),     3 },
-    { SPEAKER_7POINT1_SURROUND,    k7Point1SurroundConfigSpeakers,    ARRAY_COUNT(k7Point1SurroundConfigSpeakers),     3 },
+    { FORGE_SPEAKER_MONO,            kMonoConfigSpeakers,        ARRAY_COUNT(kMonoConfigSpeakers),        -1 },
+    { FORGE_SPEAKER_STEREO,        kStereoConfigSpeakers,        ARRAY_COUNT(kStereoConfigSpeakers),        -1 },
+    { FORGE_SPEAKER_2POINT1,        k2Point1ConfigSpeakers,        ARRAY_COUNT(k2Point1ConfigSpeakers),         2 },
+    { FORGE_SPEAKER_SURROUND,        kSurroundConfigSpeakers,    ARRAY_COUNT(kSurroundConfigSpeakers),        -1 },
+    { FORGE_SPEAKER_QUAD,            kQuadConfigSpeakers,        ARRAY_COUNT(kQuadConfigSpeakers),        -1 },
+    { FORGE_SPEAKER_4POINT1,        k4Point1ConfigSpeakers,        ARRAY_COUNT(k4Point1ConfigSpeakers),         2 },
+    { FORGE_SPEAKER_5POINT1,        k5Point1ConfigSpeakers,        ARRAY_COUNT(k5Point1ConfigSpeakers),         3 },
+    { FORGE_SPEAKER_7POINT1,        k7Point1ConfigSpeakers,        ARRAY_COUNT(k7Point1ConfigSpeakers),         3 },
+    { FORGE_SPEAKER_5POINT1_SURROUND,    k5Point1SurroundConfigSpeakers,    ARRAY_COUNT(k5Point1SurroundConfigSpeakers),     3 },
+    { FORGE_SPEAKER_7POINT1_SURROUND,    k7Point1SurroundConfigSpeakers,    ARRAY_COUNT(k7Point1SurroundConfigSpeakers),     3 },
 };
 
 /* A simple linear search is absolutely OK for 10 elements. */
@@ -1005,7 +1005,7 @@ static inline void ComputeEmitterChannelCoefficients(
         if (skipCenter)
         {
             nChannelsToDiffuseTo -= 1;
-            FAudio_assert(curConfig->speakers[0].azimuth == SPEAKER_AZIMUTH_CENTER);
+            FAudio_assert(curConfig->speakers[0].azimuth == FORGE_SPEAKER_AZIMUTH_CENTER);
             centerChannelIdx = curConfig->speakers[0].matrixIdx;
         }
 
@@ -1252,7 +1252,7 @@ static inline void CalculateMatrix(
 
     FAudio_zero(MatrixCoefficients, sizeof(float) * SrcChannelCount * DstChannelCount);
 
-    /* In the SPEAKER_MONO case, we can skip all energy diffusion calculation. */
+    /* In the FORGE_SPEAKER_MONO case, we can skip all energy diffusion calculation. */
     if (DstChannelCount == 1)
     {
         for (iEC = 0; iEC < pEmitter->ChannelCount; iEC += 1)
@@ -1548,7 +1548,7 @@ void forge_spatializer_calculate(
 
     /* Unimplemented Flags */
     if (    (Flags & FORGE_SPATIAL_CALCULATE_DELAY) &&
-        SPEAKERMASK(spatializer) == SPEAKER_STEREO    )
+        SPEAKERMASK(spatializer) == FORGE_SPEAKER_STEREO    )
     {
         for (i = 0; i < pDSPSettings->DstChannelCount; i += 1)
         {

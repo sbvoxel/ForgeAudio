@@ -24,13 +24,6 @@
  *
  */
 
-/* This file has no documentation since the MSDN docs are still perfectly fine:
- * https://docs.microsoft.com/en-us/windows/desktop/api/xaudio2fx/
- *
- * Note, however, that ForgeAudio's Reverb implementation does NOT support the new
- * parameters for 7.1's 7.1 Reverb effect!
- */
-
 #ifndef FORGE_AUDIO_FX_H
 #define FORGE_AUDIO_FX_H
 
