@@ -608,42 +608,42 @@ typedef struct
 #define FORGE_SPEAKER_AZIMUTH_FRONT_LEFT        (FORGE_SPATIAL_PI *  7.0f / 4.0f)
 #define FORGE_SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER    (FORGE_SPATIAL_PI * 15.0f / 8.0f)
 
-const SpeakerInfo kMonoConfigSpeakers[] =
+static const SpeakerInfo kMonoConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_CENTER, 0 },
 };
-const SpeakerInfo kStereoConfigSpeakers[] =
+static const SpeakerInfo kStereoConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_SIDE_RIGHT,    1 },
     { FORGE_SPEAKER_AZIMUTH_SIDE_LEFT,    0 },
 };
-const SpeakerInfo k2Point1ConfigSpeakers[] =
+static const SpeakerInfo k2Point1ConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_SIDE_RIGHT,    1 },
     { FORGE_SPEAKER_AZIMUTH_SIDE_LEFT,    0 },
 };
-const SpeakerInfo kSurroundConfigSpeakers[] =
+static const SpeakerInfo kSurroundConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
     { FORGE_SPEAKER_AZIMUTH_BACK_CENTER,    3 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
-const SpeakerInfo kQuadConfigSpeakers[] =
+static const SpeakerInfo kQuadConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT, 1 },
     { FORGE_SPEAKER_AZIMUTH_BACK_RIGHT,  3 },
     { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,   2 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,  0 },
 };
-const SpeakerInfo k4Point1ConfigSpeakers[] =
+static const SpeakerInfo k4Point1ConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
     { FORGE_SPEAKER_AZIMUTH_BACK_RIGHT,    4 },
     { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,    3 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
-const SpeakerInfo k5Point1ConfigSpeakers[] =
+static const SpeakerInfo k5Point1ConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
@@ -651,7 +651,7 @@ const SpeakerInfo k5Point1ConfigSpeakers[] =
     { FORGE_SPEAKER_AZIMUTH_BACK_LEFT,    4 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
-const SpeakerInfo k7Point1ConfigSpeakers[] =
+static const SpeakerInfo k7Point1ConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_CENTER,            2 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT_OF_CENTER,    7 },
@@ -661,7 +661,7 @@ const SpeakerInfo k7Point1ConfigSpeakers[] =
     { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,            0 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT_OF_CENTER,        6 },
 };
-const SpeakerInfo k5Point1SurroundConfigSpeakers[] =
+static const SpeakerInfo k5Point1SurroundConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
@@ -669,7 +669,7 @@ const SpeakerInfo k5Point1SurroundConfigSpeakers[] =
     { FORGE_SPEAKER_AZIMUTH_SIDE_LEFT,    4 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_LEFT,    0 },
 };
-const SpeakerInfo k7Point1SurroundConfigSpeakers[] =
+static const SpeakerInfo k7Point1SurroundConfigSpeakers[] =
 {
     { FORGE_SPEAKER_AZIMUTH_CENTER,    2 },
     { FORGE_SPEAKER_AZIMUTH_FRONT_RIGHT,    1 },
@@ -685,7 +685,7 @@ const SpeakerInfo k7Point1SurroundConfigSpeakers[] =
  * much cleaner.
  * -Adrien
  */
-const ConfigInfo kSpeakersConfigInfo[] =
+static const ConfigInfo kSpeakersConfigInfo[] =
 {
     { FORGE_SPEAKER_MONO,            kMonoConfigSpeakers,        ARRAY_COUNT(kMonoConfigSpeakers),        -1 },
     { FORGE_SPEAKER_STEREO,        kStereoConfigSpeakers,        ARRAY_COUNT(kStereoConfigSpeakers),        -1 },

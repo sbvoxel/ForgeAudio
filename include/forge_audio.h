@@ -426,12 +426,12 @@ typedef enum ForgeResult
 #define FORGE_AUDIO_FORMAT_XMAUDIO2        0x0166
 #define FORGE_AUDIO_FORMAT_EXTENSIBLE    0xFFFE
 
-extern ForgeGuid FORGE_AUDIO_SUBTYPE_PCM;
-extern ForgeGuid FORGE_AUDIO_SUBTYPE_IEEE_FLOAT;
-extern ForgeGuid FORGE_AUDIO_SUBTYPE_XMAUDIO2;
-extern ForgeGuid FORGE_AUDIO_SUBTYPE_WMAUDIO2;
-extern ForgeGuid FORGE_AUDIO_SUBTYPE_WMAUDIO3;
-extern ForgeGuid FORGE_AUDIO_SUBTYPE_WMAUDIO_LOSSLESS;
+extern ForgeGuid forge_audio_subtype_pcm;
+extern ForgeGuid forge_audio_subtype_ieee_float;
+extern ForgeGuid forge_audio_subtype_xmaudio2;
+extern ForgeGuid forge_audio_subtype_wmaudio2;
+extern ForgeGuid forge_audio_subtype_wmaudio3;
+extern ForgeGuid forge_audio_subtype_wmaudio_lossless;
 
 /* Version API */
 

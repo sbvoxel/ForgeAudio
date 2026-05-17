@@ -93,7 +93,7 @@
 #define DIVBY8388607 0.00000011920930376163766f
 
 #if NEED_SCALAR_CONVERTER_FALLBACKS
-void ForgeAudio_Internal_Convert_U8_To_F32_Scalar(
+static void forge_audio_convert_u8_to_f32_scalar(
     const uint8_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -105,7 +105,7 @@ void ForgeAudio_Internal_Convert_U8_To_F32_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Convert_S16_To_F32_Scalar(
+static void forge_audio_convert_s16_to_f32_scalar(
     const int16_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -117,7 +117,7 @@ void ForgeAudio_Internal_Convert_S16_To_F32_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Convert_S32_To_F32_Scalar(
+static void forge_audio_convert_s32_to_f32_scalar(
     const int32_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -131,7 +131,7 @@ void ForgeAudio_Internal_Convert_S32_To_F32_Scalar(
 #endif /* NEED_SCALAR_CONVERTER_FALLBACKS */
 
 #if HAVE_SSE2_INTRINSICS
-void ForgeAudio_Internal_Convert_U8_To_F32_SSE2(
+static void forge_audio_convert_u8_to_f32_sse2(
     const uint8_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -187,7 +187,7 @@ void ForgeAudio_Internal_Convert_U8_To_F32_SSE2(
     }
 }
 
-void ForgeAudio_Internal_Convert_S16_To_F32_SSE2(
+static void forge_audio_convert_s16_to_f32_sse2(
     const int16_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -230,7 +230,7 @@ void ForgeAudio_Internal_Convert_S16_To_F32_SSE2(
     }
 }
 
-void ForgeAudio_Internal_Convert_S32_To_F32_SSE2(
+static void forge_audio_convert_s32_to_f32_sse2(
     const int32_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -266,7 +266,7 @@ void ForgeAudio_Internal_Convert_S32_To_F32_SSE2(
 #endif /* HAVE_SSE2_INTRINSICS */
 
 #if HAVE_NEON_INTRINSICS
-void ForgeAudio_Internal_Convert_U8_To_F32_NEON(
+static void forge_audio_convert_u8_to_f32_neon(
     const uint8_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -313,7 +313,7 @@ void ForgeAudio_Internal_Convert_U8_To_F32_NEON(
     }
 }
 
-void ForgeAudio_Internal_Convert_S16_To_F32_NEON(
+static void forge_audio_convert_s16_to_f32_neon(
     const int16_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -352,7 +352,7 @@ void ForgeAudio_Internal_Convert_S16_To_F32_NEON(
     }
 }
 
-void ForgeAudio_Internal_Convert_S32_To_F32_NEON(
+static void forge_audio_convert_s32_to_f32_neon(
     const int32_t *restrict src,
     float *restrict dst,
     uint32_t len
@@ -389,7 +389,7 @@ void ForgeAudio_Internal_Convert_S32_To_F32_NEON(
 
 /* SECTION 2: Linear Resamplers */
 
-void ForgeAudio_Internal_ResampleGeneric(
+void forge_audio_resample_generic(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -429,7 +429,7 @@ void ForgeAudio_Internal_ResampleGeneric(
 }
 
 #if NEED_SCALAR_CONVERTER_FALLBACKS
-void ForgeAudio_Internal_ResampleMono_Scalar(
+static void forge_audio_resample_mono_scalar(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -465,7 +465,7 @@ void ForgeAudio_Internal_ResampleMono_Scalar(
     }
 }
 
-void ForgeAudio_Internal_ResampleStereo_Scalar(
+static void forge_audio_resample_stereo_scalar(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -510,7 +510,7 @@ void ForgeAudio_Internal_ResampleStereo_Scalar(
 /* The SSE2 versions of the resamplers come from @8thMage! */
 
 #if HAVE_SSE2_INTRINSICS
-void ForgeAudio_Internal_ResampleMono_SSE2(
+static void forge_audio_resample_mono_sse2(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -681,7 +681,7 @@ void ForgeAudio_Internal_ResampleMono_SSE2(
     }
 }
 
-void ForgeAudio_Internal_ResampleStereo_SSE2(
+static void forge_audio_resample_stereo_sse2(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -853,7 +853,7 @@ void ForgeAudio_Internal_ResampleStereo_SSE2(
 #endif /* HAVE_SSE2_INTRINSICS */
 
 #if HAVE_NEON_INTRINSICS
-void ForgeAudio_Internal_ResampleMono_NEON(
+static void forge_audio_resample_mono_neon(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -1025,7 +1025,7 @@ void ForgeAudio_Internal_ResampleMono_NEON(
     }
 }
 
-void ForgeAudio_Internal_ResampleStereo_NEON(
+static void forge_audio_resample_stereo_neon(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -1192,7 +1192,7 @@ void ForgeAudio_Internal_ResampleStereo_NEON(
 /* SECTION 3: Amplifiers */
 
 #if NEED_SCALAR_CONVERTER_FALLBACKS
-void ForgeAudio_Internal_Amplify_Scalar(
+static void forge_audio_amplify_scalar(
     float* output,
     uint32_t totalSamples,
     float volume
@@ -1208,7 +1208,7 @@ void ForgeAudio_Internal_Amplify_Scalar(
 /* The SSE2 version of the amplifier comes from @8thMage! */
 
 #if HAVE_SSE2_INTRINSICS
-void ForgeAudio_Internal_Amplify_SSE2(
+static void forge_audio_amplify_sse2(
     float* output,
     uint32_t totalSamples,
     float volume
@@ -1247,7 +1247,7 @@ void ForgeAudio_Internal_Amplify_SSE2(
 #endif /* HAVE_SSE2_INTRINSICS */
 
 #if HAVE_NEON_INTRINSICS
-void ForgeAudio_Internal_Amplify_NEON(
+static void forge_audio_amplify_neon(
     float* output,
     uint32_t totalSamples,
     float volume
@@ -1287,7 +1287,7 @@ void ForgeAudio_Internal_Amplify_NEON(
 
 /* SECTION 4: Mixer Functions */
 
-void ForgeAudio_Internal_Mix_Generic_Scalar(
+void forge_audio_mix_generic_scalar(
     uint32_t toMix,
     uint32_t srcChans,
     uint32_t dstChans,
@@ -1321,7 +1321,7 @@ static inline float forge_audio_simd_hadd(__m128 v)
     return _mm_cvtss_f32(sums);
 }
 
-void ForgeAudio_Internal_Mix_Generic_SSE2(
+static void forge_audio_mix_generic_sse2(
     uint32_t toMix,
     uint32_t srcChans,
     uint32_t dstChans,
@@ -1353,7 +1353,7 @@ void ForgeAudio_Internal_Mix_Generic_SSE2(
 }
 #endif /* HAVE_SSE2_INTRINSICS */
 
-void ForgeAudio_Internal_Mix_1in_1out_Scalar(
+void forge_audio_mix_1in_1out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1369,7 +1369,7 @@ void ForgeAudio_Internal_Mix_1in_1out_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Mix_1in_2out_Scalar(
+void forge_audio_mix_1in_2out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1385,7 +1385,7 @@ void ForgeAudio_Internal_Mix_1in_2out_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Mix_1in_6out_Scalar(
+void forge_audio_mix_1in_6out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1405,7 +1405,7 @@ void ForgeAudio_Internal_Mix_1in_6out_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Mix_1in_8out_Scalar(
+void forge_audio_mix_1in_8out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1427,7 +1427,7 @@ void ForgeAudio_Internal_Mix_1in_8out_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Mix_2in_1out_Scalar(
+void forge_audio_mix_2in_1out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1446,7 +1446,7 @@ void ForgeAudio_Internal_Mix_2in_1out_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Mix_2in_2out_Scalar(
+void forge_audio_mix_2in_2out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1468,7 +1468,7 @@ void ForgeAudio_Internal_Mix_2in_2out_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Mix_2in_6out_Scalar(
+void forge_audio_mix_2in_6out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1506,7 +1506,7 @@ void ForgeAudio_Internal_Mix_2in_6out_Scalar(
     }
 }
 
-void ForgeAudio_Internal_Mix_2in_8out_Scalar(
+void forge_audio_mix_2in_8out_scalar(
     uint32_t toMix,
     uint32_t UNUSED1,
     uint32_t UNUSED2,
@@ -1554,69 +1554,69 @@ void ForgeAudio_Internal_Mix_2in_8out_Scalar(
 
 /* SECTION 5: InitSIMDFunctions. Assigns based on SSE2/NEON support. */
 
-void (*ForgeAudio_Internal_Convert_U8_To_F32)(
+void (*forge_audio_convert_u8_to_f32)(
     const uint8_t *restrict src,
     float *restrict dst,
     uint32_t len
 );
-void (*ForgeAudio_Internal_Convert_S16_To_F32)(
+void (*forge_audio_convert_s16_to_f32)(
     const int16_t *restrict src,
     float *restrict dst,
     uint32_t len
 );
-void (*ForgeAudio_Internal_Convert_S32_To_F32)(
+void (*forge_audio_convert_s32_to_f32)(
     const int32_t *restrict src,
     float *restrict dst,
     uint32_t len
 );
 
-ForgeAudioResampleCallback ForgeAudio_Internal_ResampleMono;
-ForgeAudioResampleCallback ForgeAudio_Internal_ResampleStereo;
+ForgeAudioResampleCallback forge_audio_resample_mono;
+ForgeAudioResampleCallback forge_audio_resample_stereo;
 
-void (*ForgeAudio_Internal_Amplify)(
+void (*forge_audio_amplify)(
     float *output,
     uint32_t totalSamples,
     float volume
 );
 
-ForgeAudioMixCallback ForgeAudio_Internal_Mix_Generic;
+ForgeAudioMixCallback forge_audio_mix_generic;
 
-void ForgeAudio_Internal_InitSIMDFunctions(uint8_t hasSSE2, uint8_t hasNEON)
+void forge_audio_init_simd_functions(uint8_t hasSSE2, uint8_t hasNEON)
 {
 #if HAVE_SSE2_INTRINSICS
     if (hasSSE2)
     {
-        ForgeAudio_Internal_Convert_U8_To_F32 = ForgeAudio_Internal_Convert_U8_To_F32_SSE2;
-        ForgeAudio_Internal_Convert_S16_To_F32 = ForgeAudio_Internal_Convert_S16_To_F32_SSE2;
-        ForgeAudio_Internal_Convert_S32_To_F32 = ForgeAudio_Internal_Convert_S32_To_F32_SSE2;
-        ForgeAudio_Internal_ResampleMono = ForgeAudio_Internal_ResampleMono_SSE2;
-        ForgeAudio_Internal_ResampleStereo = ForgeAudio_Internal_ResampleStereo_SSE2;
-        ForgeAudio_Internal_Amplify = ForgeAudio_Internal_Amplify_SSE2;
-        ForgeAudio_Internal_Mix_Generic = ForgeAudio_Internal_Mix_Generic_SSE2;
+        forge_audio_convert_u8_to_f32 = forge_audio_convert_u8_to_f32_sse2;
+        forge_audio_convert_s16_to_f32 = forge_audio_convert_s16_to_f32_sse2;
+        forge_audio_convert_s32_to_f32 = forge_audio_convert_s32_to_f32_sse2;
+        forge_audio_resample_mono = forge_audio_resample_mono_sse2;
+        forge_audio_resample_stereo = forge_audio_resample_stereo_sse2;
+        forge_audio_amplify = forge_audio_amplify_sse2;
+        forge_audio_mix_generic = forge_audio_mix_generic_sse2;
         return;
     }
 #endif
 #if HAVE_NEON_INTRINSICS
     if (hasNEON)
     {
-        ForgeAudio_Internal_Convert_U8_To_F32 = ForgeAudio_Internal_Convert_U8_To_F32_NEON;
-        ForgeAudio_Internal_Convert_S16_To_F32 = ForgeAudio_Internal_Convert_S16_To_F32_NEON;
-        ForgeAudio_Internal_Convert_S32_To_F32 = ForgeAudio_Internal_Convert_S32_To_F32_NEON;
-        ForgeAudio_Internal_ResampleMono = ForgeAudio_Internal_ResampleMono_NEON;
-        ForgeAudio_Internal_ResampleStereo = ForgeAudio_Internal_ResampleStereo_NEON;
-        ForgeAudio_Internal_Amplify = ForgeAudio_Internal_Amplify_NEON;
-        ForgeAudio_Internal_Mix_Generic = ForgeAudio_Internal_Mix_Generic_Scalar;
+        forge_audio_convert_u8_to_f32 = forge_audio_convert_u8_to_f32_neon;
+        forge_audio_convert_s16_to_f32 = forge_audio_convert_s16_to_f32_neon;
+        forge_audio_convert_s32_to_f32 = forge_audio_convert_s32_to_f32_neon;
+        forge_audio_resample_mono = forge_audio_resample_mono_neon;
+        forge_audio_resample_stereo = forge_audio_resample_stereo_neon;
+        forge_audio_amplify = forge_audio_amplify_neon;
+        forge_audio_mix_generic = forge_audio_mix_generic_scalar;
         return;
     }
 #endif
 #if NEED_SCALAR_CONVERTER_FALLBACKS
-    ForgeAudio_Internal_Convert_U8_To_F32 = ForgeAudio_Internal_Convert_U8_To_F32_Scalar;
-    ForgeAudio_Internal_Convert_S16_To_F32 = ForgeAudio_Internal_Convert_S16_To_F32_Scalar;
-    ForgeAudio_Internal_Convert_S32_To_F32 = ForgeAudio_Internal_Convert_S32_To_F32_Scalar;
-    ForgeAudio_Internal_ResampleMono = ForgeAudio_Internal_ResampleMono_Scalar;
-    ForgeAudio_Internal_ResampleStereo = ForgeAudio_Internal_ResampleStereo_Scalar;
-    ForgeAudio_Internal_Amplify = ForgeAudio_Internal_Amplify_Scalar;
-    ForgeAudio_Internal_Mix_Generic = ForgeAudio_Internal_Mix_Generic_Scalar;
+    forge_audio_convert_u8_to_f32 = forge_audio_convert_u8_to_f32_scalar;
+    forge_audio_convert_s16_to_f32 = forge_audio_convert_s16_to_f32_scalar;
+    forge_audio_convert_s32_to_f32 = forge_audio_convert_s32_to_f32_scalar;
+    forge_audio_resample_mono = forge_audio_resample_mono_scalar;
+    forge_audio_resample_stereo = forge_audio_resample_stereo_scalar;
+    forge_audio_amplify = forge_audio_amplify_scalar;
+    forge_audio_mix_generic = forge_audio_mix_generic_scalar;
 #else
     ForgeAudio_assert(0 && "Need converter functions!");
 #endif

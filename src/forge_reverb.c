@@ -482,15 +482,15 @@ static float APF_OUT_DELAYS[REVERB_COUNT_APF_OUT] =
     7.73f
 };
 
-typedef enum ForgeAudio_ChannelPositionFlags
+typedef enum ForgeReverbChannelPositionFlags
 {
     Position_Left = 0x1,
     Position_Right = 0x2,
     Position_Center = 0x4,
     Position_Rear = 0x8,
-} ForgeAudio_ChannelPositionFlags;
+} ForgeReverbChannelPositionFlags;
 
-static ForgeAudio_ChannelPositionFlags ForgeAudio_GetChannelPositionFlags(int32_t total_channels, int32_t channel)
+static ForgeReverbChannelPositionFlags forge_reverb_get_channel_position_flags(int32_t total_channels, int32_t channel)
 {
     switch (total_channels)
     {
@@ -539,9 +539,9 @@ static ForgeAudio_ChannelPositionFlags ForgeAudio_GetChannelPositionFlags(int32_
     return Position_Left;
 }
 
-float ForgeAudio_GetStereoSpreadDelayMS(int32_t total_channels, int32_t channel)
+static float forge_reverb_get_stereo_spread_delay_ms(int32_t total_channels, int32_t channel)
 {
-    ForgeAudio_ChannelPositionFlags flags = ForgeAudio_GetChannelPositionFlags(total_channels, channel);
+    ForgeReverbChannelPositionFlags flags = forge_reverb_get_channel_position_flags(total_channels, channel);
     return (flags & Position_Right) ? 0.5216f : 0.0f;
 }
 
@@ -621,7 +621,7 @@ static inline void DspReverb_Create(
             DspCombShelving_Initialize(
                 &reverb->channel[c].lpf_comb[i],
                 sampleRate,
-                COMB_DELAYS[i] + ForgeAudio_GetStereoSpreadDelayMS(reverb->reverb_channels, c),
+                COMB_DELAYS[i] + forge_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c),
                 500,
                 500,
                 -6,
@@ -636,7 +636,7 @@ static inline void DspReverb_Create(
             DspAllPass_Initialize(
                 &reverb->channel[c].apf_out[i],
                 sampleRate,
-                APF_OUT_DELAYS[i] + ForgeAudio_GetStereoSpreadDelayMS(reverb->reverb_channels, c),
+                APF_OUT_DELAYS[i] + forge_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c),
                 0.5f,
                 malloc_func
             );
@@ -723,7 +723,7 @@ static inline void DspReverb_SetParameters(
     for (c = 0; c < reverb->reverb_channels; c += 1)
     {
         float channel_delay =
-            (ForgeAudio_GetChannelPositionFlags(reverb->reverb_channels, c) & Position_Rear) ?
+            (forge_reverb_get_channel_position_flags(reverb->reverb_channels, c) & Position_Rear) ?
             params->rear_delay :
             0.0f;
 
@@ -739,7 +739,7 @@ static inline void DspReverb_SetParameters(
             /* Set decay time of comb filter */
             DspDelay_Change(
                 &comb->comb_delay,
-                COMB_DELAYS[i] + ForgeAudio_GetStereoSpreadDelayMS(reverb->reverb_channels, c)
+                COMB_DELAYS[i] + forge_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c)
             );
             comb->comb_feedback_gain = DspComb_FeedbackFromRT60(
                 &comb->comb_delay,
@@ -774,14 +774,14 @@ static inline void DspReverb_SetParameters(
 
     for (c = 0; c < reverb->reverb_channels; c += 1)
     {
-        ForgeAudio_ChannelPositionFlags position = ForgeAudio_GetChannelPositionFlags(reverb->reverb_channels, c);
+        ForgeReverbChannelPositionFlags position = forge_reverb_get_channel_position_flags(reverb->reverb_channels, c);
         float gain;
 
         for (i = 0; i < REVERB_COUNT_APF_OUT; i += 1)
         {
             DspAllPass_Change(
                 &reverb->channel[c].apf_out[i],
-                APF_OUT_DELAYS[i] + ForgeAudio_GetStereoSpreadDelayMS(reverb->reverb_channels, c),
+                APF_OUT_DELAYS[i] + forge_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c),
                 late_diffusion
             );
         }
@@ -1186,22 +1186,9 @@ static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
 
     if (format->format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE)
     {
-        /* WaveFormatExtensible, match GUID */
-        #define MAKE_SUBFORMAT_GUID(guid, fmt) \
-            static ForgeGuid KSDATAFORMAT_SUBTYPE_##guid = \
-            { \
-                (uint16_t) (fmt), 0x0000, 0x0010, \
-                { \
-                    0x80, 0x00, 0x00, 0xaa, \
-                    0x00, 0x38, 0x9b, 0x71 \
-                } \
-            }
-        MAKE_SUBFORMAT_GUID(IEEE_FLOAT, 3);
-        #undef MAKE_SUBFORMAT_GUID
-
         if (ForgeAudio_memcmp(
             &((ForgeAudioFormatExtensible*) format)->sub_format,
-            &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
+            &forge_audio_subtype_ieee_float,
             sizeof(ForgeGuid)
         ) == 0) {
             return 1;

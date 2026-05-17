@@ -148,7 +148,7 @@ static HRESULT ForgeAudio_FillAudioClientBuffer(
 
         if (args->audio->active)
         {
-            ForgeAudio_Internal_UpdateEngine(
+            forge_audio_update_engine(
                 args->audio,
                 (float*) buffer
             );
@@ -348,7 +348,7 @@ static HRESULT ForgeAudio_OpenDevice(uint32_t deviceIndex, IMMDevice **device)
 	return hr;
 }
 
-void ForgeAudio_PlatformInit(
+void forge_platform_init(
     ForgeAudioEngine *audio,
     uint32_t flags,
     uint32_t deviceIndex,
@@ -370,10 +370,10 @@ void ForgeAudio_PlatformInit(
 #else
     BOOL has_neon = FALSE;
 #endif
-    ForgeAudio_Internal_InitSIMDFunctions(has_sse2, has_neon);
+    forge_audio_init_simd_functions(has_sse2, has_neon);
     ForgeAudio_ResolveSetThreadDescription();
 
-    ForgeAudio_PlatformAddRef();
+    forge_platform_add_ref();
 
 	*platformDevice = NULL;
 
@@ -477,7 +477,7 @@ void ForgeAudio_PlatformInit(
     return;
 }
 
-void ForgeAudio_PlatformQuit(void* platformDevice)
+void forge_platform_quit(void* platformDevice)
 {
     struct ForgeAudioWin32PlatformData *data = platformDevice;
 
@@ -490,10 +490,10 @@ void ForgeAudio_PlatformQuit(void* platformDevice)
         FreeLibrary(kernelbase);
         kernelbase = NULL;
     }
-    ForgeAudio_PlatformRelease();
+    forge_platform_release();
 }
 
-void ForgeAudio_PlatformAddRef()
+void forge_platform_add_ref()
 {
     HRESULT hr;
     EnterCriticalSection(&faudio_cs);
@@ -513,7 +513,7 @@ void ForgeAudio_PlatformAddRef()
     LeaveCriticalSection(&faudio_cs);
 }
 
-void ForgeAudio_PlatformRelease()
+void forge_platform_release()
 {
     EnterCriticalSection(&faudio_cs);
     if (!IMMDeviceEnumerator_Release(device_enumerator))
@@ -524,13 +524,13 @@ void ForgeAudio_PlatformRelease()
     LeaveCriticalSection(&faudio_cs);
 }
 
-uint32_t ForgeAudio_PlatformGetDeviceCount(void)
+uint32_t forge_platform_get_device_count(void)
 {
 	IMMDeviceCollection *device_collection;
 	uint32_t count;
 	HRESULT hr;
 
-	ForgeAudio_PlatformAddRef();
+	forge_platform_add_ref();
 
 	hr = IMMDeviceEnumerator_EnumAudioEndpoints(
 		device_enumerator,
@@ -539,25 +539,25 @@ uint32_t ForgeAudio_PlatformGetDeviceCount(void)
 		&device_collection
 	);
 	if (FAILED(hr)) {
-		ForgeAudio_PlatformRelease();
+		forge_platform_release();
 		return 0;
 	}
 
 	hr = IMMDeviceCollection_GetCount(device_collection, &count);
 	if (FAILED(hr)) {
 		IMMDeviceCollection_Release(device_collection);
-		ForgeAudio_PlatformRelease();
+		forge_platform_release();
 		return 0;
 	}
 
 	IMMDeviceCollection_Release(device_collection);
 
-	ForgeAudio_PlatformRelease();
+	forge_platform_release();
 
 	return count;
 }
 
-ForgeResult ForgeAudio_PlatformGetDeviceDetails(
+ForgeResult forge_platform_get_device_details(
     uint32_t index,
     ForgeDeviceDetails *details
 ) {
@@ -575,18 +575,18 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 
 	ForgeAudio_memset(details, 0, sizeof(ForgeDeviceDetails));
 
-    ForgeAudio_PlatformAddRef();
+    forge_platform_add_ref();
 
-	count = ForgeAudio_PlatformGetDeviceCount();
+	count = forge_platform_get_device_count();
 	if (index >= count)
 	{
-		ForgeAudio_PlatformRelease();
+		forge_platform_release();
 		return ForgeResultInvalidCall;
 	}
 
 	if (FAILED(hr = ForgeAudio_OpenDevice(index, &device)))
 	{
-		ForgeAudio_PlatformRelease();
+		forge_platform_release();
 		return hr;
 	}
 
@@ -603,14 +603,14 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 	if (FAILED(hr = IMMDevice_OpenPropertyStore(device, STGM_READ, &properties)))
 	{
 		IMMDevice_Release(device);
-		ForgeAudio_PlatformRelease();
+		forge_platform_release();
 		return hr;
 	}
 	if (FAILED(hr = IPropertyStore_GetValue(properties, (PROPERTYKEY*)&DEVPKEY_Device_FriendlyName, &deviceName)))
 	{
 		IPropertyStore_Release(properties);
 		IMMDevice_Release(device);
-		ForgeAudio_PlatformRelease();
+		forge_platform_release();
 		return hr;
 	}
 	lstrcpynW((LPWSTR)details->display_name, deviceName.pwszVal, ARRAYSIZE(details->display_name) - 1);
@@ -621,7 +621,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 	if (FAILED(hr = IMMDevice_GetId(device, &str)))
 	{
 		IMMDevice_Release(device);
-		ForgeAudio_PlatformRelease();
+		forge_platform_release();
 		return hr;
 	}
 	lstrcpynW((LPWSTR)details->device_id, str, ARRAYSIZE(details->device_id) - 1);
@@ -630,7 +630,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
     if (FAILED(hr = IMMDevice_Activate(device, &IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&client)))
     {
         IMMDevice_Release(device);
-        ForgeAudio_PlatformRelease();
+        forge_platform_release();
         return hr;
     }
 
@@ -638,7 +638,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
     {
         IAudioClient_Release(client);
         IMMDevice_Release(device);
-        ForgeAudio_PlatformRelease();
+        forge_platform_release();
         return hr;
     }
 
@@ -648,7 +648,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
         sub = ext->sub_format;
         ForgeAudio_memcpy(
             &ext->sub_format,
-            &FORGE_AUDIO_SUBTYPE_PCM,
+            &forge_audio_subtype_pcm,
             sizeof(GUID)
         );
 
@@ -694,12 +694,12 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 
     IMMDevice_Release(device);
 
-    ForgeAudio_PlatformRelease();
+    forge_platform_release();
 
     return ret;
 }
 
-ForgeAudioMutex ForgeAudio_PlatformCreateMutex(void)
+ForgeAudioMutex forge_platform_create_mutex(void)
 {
     CRITICAL_SECTION *cs;
 
@@ -711,17 +711,17 @@ ForgeAudioMutex ForgeAudio_PlatformCreateMutex(void)
     return cs;
 }
 
-void ForgeAudio_PlatformLockMutex(ForgeAudioMutex mutex)
+void forge_platform_lock_mutex(ForgeAudioMutex mutex)
 {
     if (mutex) EnterCriticalSection(mutex);
 }
 
-void ForgeAudio_PlatformUnlockMutex(ForgeAudioMutex mutex)
+void forge_platform_unlock_mutex(ForgeAudioMutex mutex)
 {
     if (mutex) LeaveCriticalSection(mutex);
 }
 
-void ForgeAudio_PlatformDestroyMutex(ForgeAudioMutex mutex)
+void forge_platform_destroy_mutex(ForgeAudioMutex mutex)
 {
     if (mutex) DeleteCriticalSection(mutex);
     ForgeAudio_free(mutex);
@@ -746,7 +746,7 @@ static DWORD WINAPI FaudioThreadWrapper(void *user)
     return ret;
 }
 
-ForgeAudioThread ForgeAudio_PlatformCreateThread(
+ForgeAudioThread forge_platform_create_thread(
     ForgeAudioThreadFunc func,
     const char *name,
     void* data
@@ -761,28 +761,28 @@ ForgeAudioThread ForgeAudio_PlatformCreateThread(
     return CreateThread(NULL, 0, &FaudioThreadWrapper, args, 0, NULL);
 }
 
-void ForgeAudio_PlatformWaitThread(ForgeAudioThread thread, int32_t *retval)
+void forge_platform_wait_thread(ForgeAudioThread thread, int32_t *retval)
 {
     WaitForSingleObject(thread, INFINITE);
     if (retval != NULL) GetExitCodeThread(thread, (DWORD *)retval);
 }
 
-void ForgeAudio_PlatformThreadPriority(ForgeAudioThreadPriority priority)
+void forge_platform_set_thread_priority(ForgeAudioThreadPriority priority)
 {
     /* FIXME */
 }
 
-uint64_t ForgeAudio_PlatformGetThreadID(void)
+uint64_t forge_platform_get_thread_id(void)
 {
     return GetCurrentThreadId();
 }
 
-void ForgeAudio_sleep(uint32_t ms)
+void forge_audio_sleep(uint32_t ms)
 {
     Sleep(ms);
 }
 
-uint32_t ForgeAudio_timems()
+uint32_t forge_audio_time_ms()
 {
     return GetTickCount();
 }
@@ -827,7 +827,7 @@ ForgeIOStream* forge_audio_fopen(const char *path)
     io->read = ForgeAudio_File_read;
     io->seek = ForgeAudio_File_seek;
     io->close = ForgeAudio_File_close;
-    io->lock = ForgeAudio_PlatformCreateMutex();
+    io->lock = forge_platform_create_mutex();
 
     return io;
 }
@@ -914,7 +914,7 @@ ForgeIOStream* forge_audio_memopen(void *mem, int len)
     io->read = ForgeAudio_MemRead;
     io->seek = ForgeAudio_MemSeek;
     io->close = ForgeAudio_MemClose;
-    io->lock = ForgeAudio_PlatformCreateMutex();
+    io->lock = forge_platform_create_mutex();
     return io;
 }
 
@@ -927,7 +927,7 @@ uint8_t* forge_audio_memptr(ForgeIOStream *io, size_t offset)
 void forge_audio_close(ForgeIOStream *io)
 {
     io->close(io->data);
-    ForgeAudio_PlatformDestroyMutex((ForgeAudioMutex) io->lock);
+    forge_platform_destroy_mutex((ForgeAudioMutex) io->lock);
     ForgeAudio_free(io);
 }
 

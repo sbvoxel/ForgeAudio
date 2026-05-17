@@ -49,7 +49,7 @@ typedef struct SDLAudioDevice
 
 /* Mixer Thread */
 
-static void ForgeAudio_Internal_MixCallback(
+static void forge_audio_mix_callback(
 	void *userdata,
 	SDL_AudioStream *stream,
 	int additional_amount,
@@ -66,7 +66,7 @@ static void ForgeAudio_Internal_MixCallback(
 	while (additional_amount > 0)
 	{
 		ForgeAudio_zero(dev->stagingBuffer, dev->stagingLen);
-		ForgeAudio_Internal_UpdateEngine(dev->audio, dev->stagingBuffer);
+		forge_audio_update_engine(dev->audio, dev->stagingBuffer);
 		SDL_PutAudioStreamData(
 			stream,
 			dev->stagingBuffer,
@@ -78,7 +78,7 @@ static void ForgeAudio_Internal_MixCallback(
 
 /* Platform Functions */
 
-static void ForgeAudio_Internal_PrioritizeDirectSound()
+static void forge_audio_prioritize_direct_sound()
 {
 	int numdrivers, i, wasapi, directsound;
 	void *dll, *proc;
@@ -138,28 +138,28 @@ static void ForgeAudio_Internal_PrioritizeDirectSound()
 	}
 }
 
-void ForgeAudio_PlatformAddRef()
+void forge_platform_add_ref()
 {
-	ForgeAudio_Internal_PrioritizeDirectSound();
+	forge_audio_prioritize_direct_sound();
 
 	/* SDL tracks ref counts for each subsystem */
 	if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
 	{
 		SDL_Log("SDL_INIT_AUDIO failed: %s", SDL_GetError());
 	}
-	ForgeAudio_Internal_InitSIMDFunctions(
+	forge_audio_init_simd_functions(
 		SDL_HasSSE2(),
 		SDL_HasNEON()
 	);
 }
 
-void ForgeAudio_PlatformRelease()
+void forge_platform_release()
 {
 	/* SDL tracks ref counts for each subsystem */
 	SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
-void ForgeAudio_PlatformInit(
+void forge_platform_init(
 	ForgeAudioEngine *audio,
 	uint32_t flags,
 	uint32_t deviceIndex,
@@ -217,7 +217,7 @@ void ForgeAudio_PlatformInit(
 	result->stream = SDL_OpenAudioDeviceStream(
 		devID,
 		&spec,
-		ForgeAudio_Internal_MixCallback,
+		forge_audio_mix_callback,
 		result
 	);
 
@@ -226,7 +226,7 @@ void ForgeAudio_PlatformInit(
 		mixFormat,
 		spec.channels,
 		spec.freq,
-		&FORGE_AUDIO_SUBTYPE_IEEE_FLOAT
+		&forge_audio_subtype_ieee_float
 	);
 	*updateSize = wantSamples;
 
@@ -237,7 +237,7 @@ void ForgeAudio_PlatformInit(
 	SDL_ResumeAudioDevice(SDL_GetAudioStreamDevice(result->stream));
 }
 
-void ForgeAudio_PlatformQuit(void* platformDevice)
+void forge_platform_quit(void* platformDevice)
 {
 	SDLAudioDevice *dev = (SDLAudioDevice*) platformDevice;
 	SDL_AudioDeviceID devID = SDL_GetAudioStreamDevice(dev->stream);
@@ -247,7 +247,7 @@ void ForgeAudio_PlatformQuit(void* platformDevice)
 	SDL_free(dev);
 }
 
-uint32_t ForgeAudio_PlatformGetDeviceCount()
+uint32_t forge_platform_get_device_count()
 {
 	int devcount;
 	SDL_free(SDL_GetAudioPlaybackDevices(&devcount));
@@ -259,9 +259,9 @@ uint32_t ForgeAudio_PlatformGetDeviceCount()
 	return devcount + 1; /* Add one for "Default Device" */
 }
 
-void ForgeAudio_UTF8_To_UTF16(const char *src, uint16_t *dst, size_t len);
+static void forge_utf8_to_utf16(const char *src, uint16_t *dst, size_t len);
 
-ForgeResult ForgeAudio_PlatformGetDeviceDetails(
+ForgeResult forge_platform_get_device_details(
 	uint32_t index,
 	ForgeDeviceDetails *details
 ) {
@@ -292,7 +292,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 		envvar = SDL_getenv("FORGE_AUDIO_FORCE_DEFAULT_DEVICEID");
 		if (envvar != NULL)
 		{
-			ForgeAudio_UTF8_To_UTF16(
+			forge_utf8_to_utf16(
 				envvar,
 				(uint16_t*) details->device_id,
 				sizeof(details->device_id)
@@ -304,7 +304,7 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 		name = SDL_GetAudioDeviceName(devs[index - 1]);
 		details->role = ForgeDeviceRoleNone;
 	}
-	ForgeAudio_UTF8_To_UTF16(
+	forge_utf8_to_utf16(
 		name,
 		(uint16_t*) details->display_name,
 		sizeof(details->display_name)
@@ -370,14 +370,14 @@ ForgeResult ForgeAudio_PlatformGetDeviceDetails(
 		&details->output_format,
 		channels,
 		rate,
-		&FORGE_AUDIO_SUBTYPE_PCM
+		&forge_audio_subtype_pcm
 	);
 	return 0;
 }
 
 /* Threading */
 
-ForgeAudioThread ForgeAudio_PlatformCreateThread(
+ForgeAudioThread forge_platform_create_thread(
 	ForgeAudioThreadFunc func,
 	const char *name,
 	void* data
@@ -389,56 +389,56 @@ ForgeAudioThread ForgeAudio_PlatformCreateThread(
 	);
 }
 
-void ForgeAudio_PlatformWaitThread(ForgeAudioThread thread, int32_t *retval)
+void forge_platform_wait_thread(ForgeAudioThread thread, int32_t *retval)
 {
 	SDL_WaitThread((SDL_Thread*) thread, retval);
 }
 
-void ForgeAudio_PlatformThreadPriority(ForgeAudioThreadPriority priority)
+void forge_platform_set_thread_priority(ForgeAudioThreadPriority priority)
 {
 	SDL_SetCurrentThreadPriority((SDL_ThreadPriority) priority);
 }
 
-uint64_t ForgeAudio_PlatformGetThreadID(void)
+uint64_t forge_platform_get_thread_id(void)
 {
 	return (uint64_t) SDL_GetCurrentThreadID();
 }
 
-ForgeAudioMutex ForgeAudio_PlatformCreateMutex()
+ForgeAudioMutex forge_platform_create_mutex()
 {
 	return (ForgeAudioMutex) SDL_CreateMutex();
 }
 
-void ForgeAudio_PlatformDestroyMutex(ForgeAudioMutex mutex)
+void forge_platform_destroy_mutex(ForgeAudioMutex mutex)
 {
 	SDL_DestroyMutex((SDL_Mutex*) mutex);
 }
 
-void ForgeAudio_PlatformLockMutex(ForgeAudioMutex mutex)
+void forge_platform_lock_mutex(ForgeAudioMutex mutex)
 {
 	SDL_LockMutex((SDL_Mutex*) mutex);
 }
 
-void ForgeAudio_PlatformUnlockMutex(ForgeAudioMutex mutex)
+void forge_platform_unlock_mutex(ForgeAudioMutex mutex)
 {
 	SDL_UnlockMutex((SDL_Mutex*) mutex);
 }
 
-void ForgeAudio_sleep(uint32_t ms)
+void forge_audio_sleep(uint32_t ms)
 {
 	SDL_Delay(ms);
 }
 
 /* Time */
 
-uint32_t ForgeAudio_timems()
+uint32_t forge_audio_time_ms()
 {
 	return SDL_GetTicks();
 }
 
 /* ForgeAudio I/O */
 
-static size_t FORGE_AUDIO_CALL ForgeAudio_Internal_ioread(
+static size_t FORGE_AUDIO_CALL forge_audio_ioread(
 	void *data,
 	void *dst,
 	size_t size,
@@ -447,7 +447,7 @@ static size_t FORGE_AUDIO_CALL ForgeAudio_Internal_ioread(
 	return SDL_ReadIO((SDL_IOStream*) data, dst, size * count) / size;
 }
 
-static int64_t FORGE_AUDIO_CALL ForgeAudio_Internal_ioseek(
+static int64_t FORGE_AUDIO_CALL forge_audio_ioseek(
 	void *data,
 	int64_t offset,
 	int whence
@@ -455,7 +455,7 @@ static int64_t FORGE_AUDIO_CALL ForgeAudio_Internal_ioseek(
 	return SDL_SeekIO((SDL_IOStream*) data, offset, whence);
 }
 
-static int FORGE_AUDIO_CALL ForgeAudio_Internal_ioclose(
+static int FORGE_AUDIO_CALL forge_audio_ioclose(
 	void *data
 ) {
 	return SDL_CloseIO((SDL_IOStream*) data);
@@ -468,10 +468,10 @@ ForgeIOStream* forge_audio_fopen(const char *path)
 	);
 	SDL_IOStream *stream = SDL_IOFromFile(path, "rb");
 	io->data = stream;
-	io->read = ForgeAudio_Internal_ioread;
-	io->seek = ForgeAudio_Internal_ioseek;
-	io->close = ForgeAudio_Internal_ioclose;
-	io->lock = ForgeAudio_PlatformCreateMutex();
+	io->read = forge_audio_ioread;
+	io->seek = forge_audio_ioseek;
+	io->close = forge_audio_ioclose;
+	io->lock = forge_platform_create_mutex();
 	return io;
 }
 
@@ -482,10 +482,10 @@ ForgeIOStream* forge_audio_memopen(void *mem, int len)
 	);
 	SDL_IOStream *stream = SDL_IOFromMem(mem, len);
 	io->data = stream;
-	io->read = ForgeAudio_Internal_ioread;
-	io->seek = ForgeAudio_Internal_ioseek;
-	io->close = ForgeAudio_Internal_ioclose;
-	io->lock = ForgeAudio_PlatformCreateMutex();
+	io->read = forge_audio_ioread;
+	io->seek = forge_audio_ioseek;
+	io->close = forge_audio_ioclose;
+	io->lock = forge_platform_create_mutex();
 	return io;
 }
 
@@ -499,12 +499,12 @@ uint8_t* forge_audio_memptr(ForgeIOStream *io, size_t offset)
 void forge_audio_close(ForgeIOStream *io)
 {
 	io->close(io->data);
-	ForgeAudio_PlatformDestroyMutex((ForgeAudioMutex) io->lock);
+	forge_platform_destroy_mutex((ForgeAudioMutex) io->lock);
 	ForgeAudio_free(io);
 }
 
 #ifdef FORGE_AUDIO_DUMP_VOICES
-static size_t FORGE_AUDIO_CALL ForgeAudio_Internal_iowrite(
+static size_t FORGE_AUDIO_CALL forge_audio_iowrite(
 	void *data,
 	const void *src,
 	size_t size,
@@ -513,32 +513,32 @@ static size_t FORGE_AUDIO_CALL ForgeAudio_Internal_iowrite(
 	SDL_WriteIO((SDL_IOStream*) data, src, size * count);
 }
 
-static size_t FORGE_AUDIO_CALL ForgeAudio_Internal_iosize(
+static size_t FORGE_AUDIO_CALL forge_audio_iosize(
 	void *data
 ) {
 	return SDL_GetIOSize((SDL_IOStream*) data);
 }
 
-ForgeAudioIOStreamOut* ForgeAudio_fopen_out(const char *path, const char *mode)
+ForgeAudioIOStreamOut* forge_audio_fopen_out(const char *path, const char *mode)
 {
 	ForgeAudioIOStreamOut *io = (ForgeAudioIOStreamOut*) ForgeAudio_malloc(
 		sizeof(ForgeAudioIOStreamOut)
 	);
 	SDL_IOStream *stream = SDL_IOFromFile(path, mode);
 	io->data = stream;
-	io->read = ForgeAudio_Internal_ioread;
-	io->write = ForgeAudio_Internal_iowrite;
-	io->seek = ForgeAudio_Internal_ioseek;
-	io->size = ForgeAudio_Internal_iosize;
-	io->close = ForgeAudio_Internal_ioclose;
-	io->lock = ForgeAudio_PlatformCreateMutex();
+	io->read = forge_audio_ioread;
+	io->write = forge_audio_iowrite;
+	io->seek = forge_audio_ioseek;
+	io->size = forge_audio_iosize;
+	io->close = forge_audio_ioclose;
+	io->lock = forge_platform_create_mutex();
 	return io;
 }
 
-void ForgeAudio_close_out(ForgeAudioIOStreamOut *io)
+void forge_audio_close_out(ForgeAudioIOStreamOut *io)
 {
 	io->close(io->data);
-	ForgeAudio_PlatformDestroyMutex((ForgeAudioMutex) io->lock);
+	forge_platform_destroy_mutex((ForgeAudioMutex) io->lock);
 	ForgeAudio_free(io);
 }
 #endif /* FORGE_AUDIO_DUMP_VOICES */
@@ -548,7 +548,7 @@ void ForgeAudio_close_out(ForgeAudioIOStreamOut *io)
 #define UNICODE_BOGUS_CHAR_VALUE 0xFFFFFFFF
 #define UNICODE_BOGUS_CHAR_CODEPOINT '?'
 
-static uint32_t ForgeAudio_UTF8_CodePoint(const char **_str)
+static uint32_t forge_utf8_code_point(const char **_str)
 {
     const char *str = *_str;
     uint32_t retval = 0;
@@ -703,12 +703,12 @@ static uint32_t ForgeAudio_UTF8_CodePoint(const char **_str)
     return UNICODE_BOGUS_CHAR_VALUE;
 }
 
-void ForgeAudio_UTF8_To_UTF16(const char *src, uint16_t *dst, size_t len)
+static void forge_utf8_to_utf16(const char *src, uint16_t *dst, size_t len)
 {
     len -= sizeof (uint16_t);   /* save room for null char. */
     while (len >= sizeof (uint16_t))
     {
-        uint32_t cp = ForgeAudio_UTF8_CodePoint(&src);
+        uint32_t cp = forge_utf8_code_point(&src);
         if (cp == 0)
             break;
         else if (cp == UNICODE_BOGUS_CHAR_VALUE)

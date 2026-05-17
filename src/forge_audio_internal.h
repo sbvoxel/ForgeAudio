@@ -217,6 +217,12 @@ extern void ForgeAudio_Log(char const *msg);
 #define ALIGN(type, boundary) type
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#define FORGE_INTERNAL_API __attribute__((visibility("hidden")))
+#else
+#define FORGE_INTERNAL_API
+#endif
+
 /* Threading Types */
 
 typedef void* ForgeAudioThread;
@@ -231,26 +237,26 @@ typedef enum ForgeAudioThreadPriority
 
 /* Linked Lists */
 
-typedef struct LinkedList LinkedList;
-struct LinkedList
+typedef struct ForgeLinkedList ForgeLinkedList;
+struct ForgeLinkedList
 {
     void* entry;
-    LinkedList *next;
+    ForgeLinkedList *next;
 };
-void LinkedList_AddEntry(
-    LinkedList **start,
+FORGE_INTERNAL_API void forge_linked_list_add_entry(
+    ForgeLinkedList **start,
     void* toAdd,
     ForgeAudioMutex lock,
     ForgeMallocFunc malloc_func
 );
-void LinkedList_PrependEntry(
-    LinkedList **start,
+FORGE_INTERNAL_API void forge_linked_list_prepend_entry(
+    ForgeLinkedList **start,
     void* toAdd,
     ForgeAudioMutex lock,
     ForgeMallocFunc malloc_func
 );
-void LinkedList_RemoveEntry(
-    LinkedList **start,
+FORGE_INTERNAL_API void forge_linked_list_remove_entry(
+    ForgeLinkedList **start,
     void* toRemove,
     ForgeAudioMutex lock,
     ForgeFreeFunc free_func
@@ -302,55 +308,55 @@ typedef float ForgeAudioFilterState[4];
 
 /* Operation Sets, original implementation by Tyler Glaiel */
 
-typedef struct ForgeAudio_OperationSet_Operation ForgeAudio_OperationSet_Operation;
+typedef struct ForgeOperationSetOperation ForgeOperationSetOperation;
 
-void ForgeAudio_OperationSet_Commit(ForgeAudioEngine *audio, uint32_t operation_set);
-void ForgeAudio_OperationSet_CommitAll(ForgeAudioEngine *audio);
-void ForgeAudio_OperationSet_Execute(ForgeAudioEngine *audio);
+FORGE_INTERNAL_API void forge_operation_set_commit(ForgeAudioEngine *audio, uint32_t operation_set);
+FORGE_INTERNAL_API void forge_operation_set_commit_all(ForgeAudioEngine *audio);
+FORGE_INTERNAL_API void forge_operation_set_execute(ForgeAudioEngine *audio);
 
-void ForgeAudio_OperationSet_ClearAll(ForgeAudioEngine *audio);
-void ForgeAudio_OperationSet_ClearAllForVoice(ForgeVoice *voice);
+FORGE_INTERNAL_API void forge_operation_set_clear_all(ForgeAudioEngine *audio);
+FORGE_INTERNAL_API void forge_operation_set_clear_all_for_voice(ForgeVoice *voice);
 
-void ForgeAudio_OperationSet_QueueEnableEffect(
+FORGE_INTERNAL_API void forge_operation_set_queue_enable_effect(
     ForgeVoice *voice,
     uint32_t effect_index,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueDisableEffect(
+FORGE_INTERNAL_API void forge_operation_set_queue_disable_effect(
     ForgeVoice *voice,
     uint32_t effect_index,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueSetEffectParameters(
+FORGE_INTERNAL_API void forge_operation_set_queue_set_effect_parameters(
     ForgeVoice *voice,
     uint32_t effect_index,
     const void *parameters,
     uint32_t parameters_byte_size,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueSetFilterParameters(
+FORGE_INTERNAL_API void forge_operation_set_queue_set_filter_parameters(
     ForgeVoice *voice,
     const ForgeFilterParameters *parameters,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueSetOutputFilterParameters(
+FORGE_INTERNAL_API void forge_operation_set_queue_set_output_filter_parameters(
     ForgeVoice *voice,
     ForgeVoice *destination_voice,
     const ForgeFilterParameters *parameters,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueSetVolume(
+FORGE_INTERNAL_API void forge_operation_set_queue_set_volume(
     ForgeVoice *voice,
     float volume,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueSetChannelVolumes(
+FORGE_INTERNAL_API void forge_operation_set_queue_set_channel_volumes(
     ForgeVoice *voice,
     uint32_t channels,
     const float *volumes,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueSetOutputMatrix(
+FORGE_INTERNAL_API void forge_operation_set_queue_set_output_matrix(
     ForgeVoice *voice,
     ForgeVoice *destination_voice,
     uint32_t source_channels,
@@ -358,21 +364,21 @@ void ForgeAudio_OperationSet_QueueSetOutputMatrix(
     const float *level_matrix,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueStart(
+FORGE_INTERNAL_API void forge_operation_set_queue_start(
     ForgeSourceVoice *voice,
     uint32_t flags,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueStop(
+FORGE_INTERNAL_API void forge_operation_set_queue_stop(
     ForgeSourceVoice *voice,
     uint32_t flags,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueExitLoop(
+FORGE_INTERNAL_API void forge_operation_set_queue_exit_loop(
     ForgeSourceVoice *voice,
     uint32_t operation_set
 );
-void ForgeAudio_OperationSet_QueueSetFrequencyRatio(
+FORGE_INTERNAL_API void forge_operation_set_queue_set_frequency_ratio(
     ForgeSourceVoice *voice,
     float ratio,
     uint32_t operation_set
@@ -386,17 +392,17 @@ struct ForgeAudioEngine
     uint32_t initFlags;
     uint32_t updateSize;
     ForgeMasterVoice *master;
-    LinkedList *sources;
-    LinkedList *submixes;
-    LinkedList *callbacks;
+    ForgeLinkedList *sources;
+    ForgeLinkedList *submixes;
+    ForgeLinkedList *callbacks;
     ForgeAudioMutex sourceLock;
     ForgeAudioMutex submixLock;
     ForgeAudioMutex callbackLock;
     ForgeAudioMutex operationLock;
     ForgeAudioFormatExtensible mixFormat;
 
-    ForgeAudio_OperationSet_Operation *queuedOperations;
-    ForgeAudio_OperationSet_Operation *committedOperations;
+    ForgeOperationSetOperation *queuedOperations;
+    ForgeOperationSetOperation *committedOperations;
 
     /* Used to prevent destroying an active voice */
     ForgeSourceVoice *processingSource;
@@ -524,26 +530,26 @@ struct ForgeVoice
 };
 
 /* Internal Functions */
-void ForgeAudio_Internal_InsertSubmixSorted(
-    LinkedList **start,
+FORGE_INTERNAL_API void forge_audio_insert_submix_sorted(
+    ForgeLinkedList **start,
     ForgeSubmixVoice *toAdd,
     ForgeAudioMutex lock,
     ForgeMallocFunc malloc_func
 );
-void ForgeAudio_Internal_UpdateEngine(ForgeAudioEngine *audio, float *output);
-void ForgeAudio_Internal_ResizeDecodeCache(ForgeAudioEngine *audio, uint32_t size);
-void ForgeAudio_Internal_AllocEffectChain(
+FORGE_INTERNAL_API void forge_audio_update_engine(ForgeAudioEngine *audio, float *output);
+FORGE_INTERNAL_API void forge_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t size);
+FORGE_INTERNAL_API void forge_audio_alloc_effect_chain(
     ForgeVoice *voice,
     const ForgeEffectChain *effect_chain
 );
-void ForgeAudio_Internal_FreeEffectChain(ForgeVoice *voice);
-ForgeResult ForgeAudio_Internal_VoiceOutputFrequency(
+FORGE_INTERNAL_API void forge_audio_free_effect_chain(ForgeVoice *voice);
+FORGE_INTERNAL_API ForgeResult forge_audio_voice_output_frequency(
     ForgeVoice *voice,
     const ForgeSendList *send_list
 );
-extern const float FORGE_AUDIO_INTERNAL_MATRIX_DEFAULTS[8][8][64];
+FORGE_INTERNAL_API extern const float forge_audio_internal_matrix_defaults[8][8][64];
 
-bool array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity, size_t count, size_t size);
+FORGE_INTERNAL_API bool forge_array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity, size_t count, size_t size);
 
 /* Debug */
 
@@ -551,7 +557,7 @@ bool array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity, s
 
 #if defined(_MSC_VER)
 /* VC doesn't support __attribute__ at all, and there's no replacement for format. */
-void ForgeAudio_Internal_debug(
+FORGE_INTERNAL_API void forge_audio_debug(
     ForgeAudioEngine *audio,
     const char *file,
     uint32_t line,
@@ -560,7 +566,7 @@ void ForgeAudio_Internal_debug(
     ...
 );
 #else
-void ForgeAudio_Internal_debug(
+FORGE_INTERNAL_API void forge_audio_debug(
     ForgeAudioEngine *audio,
     const char *file,
     uint32_t line,
@@ -570,7 +576,7 @@ void ForgeAudio_Internal_debug(
 ) __attribute__((format(printf,5,6)));
 #endif
 
-void ForgeAudio_Internal_debug_fmt(
+FORGE_INTERNAL_API void forge_audio_debug_fmt(
     ForgeAudioEngine *audio,
     const char *file,
     uint32_t line,
@@ -581,7 +587,7 @@ void ForgeAudio_Internal_debug_fmt(
 #define PRINT_DEBUG(engine, cond, type, fmt, ...) \
     if (engine->debug.trace_mask & FORGE_AUDIO_LOG_##cond) \
     { \
-        ForgeAudio_Internal_debug( \
+        forge_audio_debug( \
             engine, \
             __FILE__, \
             __LINE__, \
@@ -610,7 +616,7 @@ void ForgeAudio_Internal_debug_fmt(
 #define LOG_FORMAT(engine, waveFormat) \
     if (engine->debug.trace_mask & FORGE_AUDIO_LOG_INFO) \
     { \
-        ForgeAudio_Internal_debug_fmt( \
+        forge_audio_debug_fmt( \
             engine, \
             __FILE__, \
             __LINE__, \
@@ -648,25 +654,25 @@ void ForgeAudio_Internal_debug_fmt(
  * scalar-only, for now. SIMD versions should be possible for these.
  */
 
-extern void (*ForgeAudio_Internal_Convert_U8_To_F32)(
+FORGE_INTERNAL_API extern void (*forge_audio_convert_u8_to_f32)(
     const uint8_t *restrict src,
     float *restrict dst,
     uint32_t len
 );
-extern void (*ForgeAudio_Internal_Convert_S16_To_F32)(
+FORGE_INTERNAL_API extern void (*forge_audio_convert_s16_to_f32)(
     const int16_t *restrict src,
     float *restrict dst,
     uint32_t len
 );
-extern void (*ForgeAudio_Internal_Convert_S32_To_F32)(
+FORGE_INTERNAL_API extern void (*forge_audio_convert_s32_to_f32)(
     const int32_t *restrict src,
     float *restrict dst,
     uint32_t len
 );
 
-extern ForgeAudioResampleCallback ForgeAudio_Internal_ResampleMono;
-extern ForgeAudioResampleCallback ForgeAudio_Internal_ResampleStereo;
-extern void ForgeAudio_Internal_ResampleGeneric(
+FORGE_INTERNAL_API extern ForgeAudioResampleCallback forge_audio_resample_mono;
+FORGE_INTERNAL_API extern ForgeAudioResampleCallback forge_audio_resample_stereo;
+FORGE_INTERNAL_API extern void forge_audio_resample_generic(
     float *restrict dCache,
     float *restrict resampleCache,
     uint64_t *resampleOffset,
@@ -675,16 +681,16 @@ extern void ForgeAudio_Internal_ResampleGeneric(
     uint8_t channels
 );
 
-extern void (*ForgeAudio_Internal_Amplify)(
+FORGE_INTERNAL_API extern void (*forge_audio_amplify)(
     float *output,
     uint32_t totalSamples,
     float volume
 );
 
-extern ForgeAudioMixCallback ForgeAudio_Internal_Mix_Generic;
+FORGE_INTERNAL_API extern ForgeAudioMixCallback forge_audio_mix_generic;
 
-#define MIX_FUNC(type) \
-    extern void ForgeAudio_Internal_Mix_##type##_Scalar( \
+#define MIX_FUNC(name) \
+    FORGE_INTERNAL_API extern void forge_audio_mix_##name##_scalar( \
         uint32_t toMix, \
         uint32_t srcChans, \
         uint32_t dstChans, \
@@ -692,7 +698,7 @@ extern ForgeAudioMixCallback ForgeAudio_Internal_Mix_Generic;
         float *restrict dstData, \
         float *restrict coefficients \
     );
-MIX_FUNC(Generic)
+MIX_FUNC(generic)
 MIX_FUNC(1in_1out)
 MIX_FUNC(1in_2out)
 MIX_FUNC(1in_6out)
@@ -703,30 +709,30 @@ MIX_FUNC(2in_6out)
 MIX_FUNC(2in_8out)
 #undef MIX_FUNC
 
-void ForgeAudio_Internal_InitSIMDFunctions(uint8_t hasSSE2, uint8_t hasNEON);
+FORGE_INTERNAL_API void forge_audio_init_simd_functions(uint8_t hasSSE2, uint8_t hasNEON);
 
 /* Decoders */
 
-#define DECODE_FUNC(type) \
-    extern void ForgeAudio_Internal_Decode##type( \
+#define DECODE_FUNC(name) \
+    FORGE_INTERNAL_API extern void forge_audio_decode_##name( \
         ForgeVoice *voice, \
         const void *src, \
         float *decodeCache, \
         uint32_t samples \
     );
-DECODE_FUNC(PCM8)
-DECODE_FUNC(PCM16)
-DECODE_FUNC(PCM24)
-DECODE_FUNC(PCM32)
-DECODE_FUNC(PCM32F)
-DECODE_FUNC(WMAERROR)
+DECODE_FUNC(pcm8)
+DECODE_FUNC(pcm16)
+DECODE_FUNC(pcm24)
+DECODE_FUNC(pcm32)
+DECODE_FUNC(pcm32f)
+DECODE_FUNC(wma_error)
 #undef DECODE_FUNC
 
 /* Platform Functions */
 
-void ForgeAudio_PlatformAddRef(void);
-void ForgeAudio_PlatformRelease(void);
-void ForgeAudio_PlatformInit(
+FORGE_INTERNAL_API void forge_platform_add_ref(void);
+FORGE_INTERNAL_API void forge_platform_release(void);
+FORGE_INTERNAL_API void forge_platform_init(
     ForgeAudioEngine *audio,
     uint32_t flags,
     uint32_t deviceIndex,
@@ -734,33 +740,33 @@ void ForgeAudio_PlatformInit(
     uint32_t *updateSize,
     void** platformDevice
 );
-void ForgeAudio_PlatformQuit(void* platformDevice);
+FORGE_INTERNAL_API void forge_platform_quit(void* platformDevice);
 
-uint32_t ForgeAudio_PlatformGetDeviceCount(void);
-ForgeResult ForgeAudio_PlatformGetDeviceDetails(
+FORGE_INTERNAL_API uint32_t forge_platform_get_device_count(void);
+FORGE_INTERNAL_API ForgeResult forge_platform_get_device_details(
     uint32_t index,
     ForgeDeviceDetails *details
 );
 
 /* Threading */
 
-ForgeAudioThread ForgeAudio_PlatformCreateThread(
+FORGE_INTERNAL_API ForgeAudioThread forge_platform_create_thread(
     ForgeAudioThreadFunc func,
     const char *name,
     void* data
 );
-void ForgeAudio_PlatformWaitThread(ForgeAudioThread thread, int32_t *retval);
-void ForgeAudio_PlatformThreadPriority(ForgeAudioThreadPriority priority);
-uint64_t ForgeAudio_PlatformGetThreadID(void);
-ForgeAudioMutex ForgeAudio_PlatformCreateMutex(void);
-void ForgeAudio_PlatformDestroyMutex(ForgeAudioMutex mutex);
-void ForgeAudio_PlatformLockMutex(ForgeAudioMutex mutex);
-void ForgeAudio_PlatformUnlockMutex(ForgeAudioMutex mutex);
-void ForgeAudio_sleep(uint32_t ms);
+FORGE_INTERNAL_API void forge_platform_wait_thread(ForgeAudioThread thread, int32_t *retval);
+FORGE_INTERNAL_API void forge_platform_set_thread_priority(ForgeAudioThreadPriority priority);
+FORGE_INTERNAL_API uint64_t forge_platform_get_thread_id(void);
+FORGE_INTERNAL_API ForgeAudioMutex forge_platform_create_mutex(void);
+FORGE_INTERNAL_API void forge_platform_destroy_mutex(ForgeAudioMutex mutex);
+FORGE_INTERNAL_API void forge_platform_lock_mutex(ForgeAudioMutex mutex);
+FORGE_INTERNAL_API void forge_platform_unlock_mutex(ForgeAudioMutex mutex);
+FORGE_INTERNAL_API void forge_audio_sleep(uint32_t ms);
 
 /* Time */
 
-uint32_t ForgeAudio_timems(void);
+FORGE_INTERNAL_API uint32_t forge_audio_time_ms(void);
 
 /* WaveFormatExtensible Helpers */
 
@@ -879,6 +885,6 @@ typedef struct ForgeAudioIOStreamOut
     void *lock;
 } ForgeAudioIOStreamOut;
 
-ForgeAudioIOStreamOut* ForgeAudio_fopen_out(const char *path, const char *mode);
-void ForgeAudio_close_out(ForgeAudioIOStreamOut *io);
+FORGE_INTERNAL_API ForgeAudioIOStreamOut* forge_audio_fopen_out(const char *path, const char *mode);
+FORGE_INTERNAL_API void forge_audio_close_out(ForgeAudioIOStreamOut *io);
 #endif /* FORGE_AUDIO_DUMP_VOICES */
