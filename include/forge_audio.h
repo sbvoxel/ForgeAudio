@@ -436,13 +436,13 @@ FORGE_AUDIO_API uint32_t forge_audio_linked_version(void);
 
 /* This should be your first ForgeAudio call.
  *
- * ppFAudio:        Filled with the audio engine context.
+ * engine:        Filled with the audio engine context.
  * Flags:        Can be 0 or a combination of FORGE_AUDIO_DEBUG_ENGINE and FORGE_AUDIO_1024_QUANTUM.
  *
  * Returns 0 on success.
  */
 FORGE_AUDIO_API uint32_t forge_audio_create(
-    ForgeAudioEngine **ppFAudio,
+    ForgeAudioEngine **engine,
     uint32_t Flags
 );
 
@@ -1152,7 +1152,7 @@ typedef void (FORGE_AUDIO_CALL * ForgeFreeFunc)(void* ptr);
 typedef void* (FORGE_AUDIO_CALL * ForgeReallocFunc)(void* ptr, size_t size);
 
 FORGE_AUDIO_API uint32_t forge_audio_create_with_allocator(
-    ForgeAudioEngine **ppFAudio,
+    ForgeAudioEngine **engine,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,

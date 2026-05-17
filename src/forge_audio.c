@@ -147,11 +147,11 @@ uint32_t forge_audio_linked_version(void)
 /* ForgeAudioEngine Interface */
 
 uint32_t forge_audio_create(
-    ForgeAudioEngine **ppForgeAudio,
+    ForgeAudioEngine **engine,
     uint32_t Flags
 ) {
     return forge_audio_create_with_allocator(
-        ppForgeAudio,
+        engine,
         Flags,
         ForgeAudio_malloc,
         ForgeAudio_free,
@@ -160,7 +160,7 @@ uint32_t forge_audio_create(
 }
 
 static uint32_t engine_construct_with_allocator(
-    ForgeAudioEngine **ppForgeAudio,
+    ForgeAudioEngine **engine,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
@@ -172,24 +172,24 @@ static uint32_t engine_initialize(
 );
 
 uint32_t forge_audio_create_with_allocator(
-    ForgeAudioEngine **ppForgeAudio,
+    ForgeAudioEngine **engine,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
     engine_construct_with_allocator(
-        ppForgeAudio,
+        engine,
         customMalloc,
         customFree,
         customRealloc
     );
-    engine_initialize(*ppForgeAudio, Flags);
+    engine_initialize(*engine, Flags);
     return 0;
 }
 
 static uint32_t engine_construct_with_allocator(
-    ForgeAudioEngine **ppForgeAudio,
+    ForgeAudioEngine **engine,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
@@ -199,25 +199,25 @@ static uint32_t engine_construct_with_allocator(
     ForgeDebugConfiguration debugInit = {0};
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
     ForgeAudio_PlatformAddRef();
-    *ppForgeAudio = (ForgeAudioEngine*) customMalloc(sizeof(ForgeAudioEngine));
-    ForgeAudio_zero(*ppForgeAudio, sizeof(ForgeAudioEngine));
+    *engine = (ForgeAudioEngine*) customMalloc(sizeof(ForgeAudioEngine));
+    ForgeAudio_zero(*engine, sizeof(ForgeAudioEngine));
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
-    forge_audio_set_debug_configuration(*ppForgeAudio, &debugInit, NULL);
+    forge_audio_set_debug_configuration(*engine, &debugInit, NULL);
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
-    (*ppForgeAudio)->refLock = ForgeAudio_PlatformCreateMutex();
-    LOG_MUTEX_CREATE((*ppForgeAudio), (*ppForgeAudio)->refLock)
-    (*ppForgeAudio)->sourceLock = ForgeAudio_PlatformCreateMutex();
-    LOG_MUTEX_CREATE((*ppForgeAudio), (*ppForgeAudio)->sourceLock)
-    (*ppForgeAudio)->submixLock = ForgeAudio_PlatformCreateMutex();
-    LOG_MUTEX_CREATE((*ppForgeAudio), (*ppForgeAudio)->submixLock)
-    (*ppForgeAudio)->callbackLock = ForgeAudio_PlatformCreateMutex();
-    LOG_MUTEX_CREATE((*ppForgeAudio), (*ppForgeAudio)->callbackLock)
-    (*ppForgeAudio)->operationLock = ForgeAudio_PlatformCreateMutex();
-    LOG_MUTEX_CREATE((*ppForgeAudio), (*ppForgeAudio)->operationLock)
-    (*ppForgeAudio)->pMalloc = customMalloc;
-    (*ppForgeAudio)->pFree = customFree;
-    (*ppForgeAudio)->pRealloc = customRealloc;
-    (*ppForgeAudio)->refcount = 1;
+    (*engine)->refLock = ForgeAudio_PlatformCreateMutex();
+    LOG_MUTEX_CREATE((*engine), (*engine)->refLock)
+    (*engine)->sourceLock = ForgeAudio_PlatformCreateMutex();
+    LOG_MUTEX_CREATE((*engine), (*engine)->sourceLock)
+    (*engine)->submixLock = ForgeAudio_PlatformCreateMutex();
+    LOG_MUTEX_CREATE((*engine), (*engine)->submixLock)
+    (*engine)->callbackLock = ForgeAudio_PlatformCreateMutex();
+    LOG_MUTEX_CREATE((*engine), (*engine)->callbackLock)
+    (*engine)->operationLock = ForgeAudio_PlatformCreateMutex();
+    LOG_MUTEX_CREATE((*engine), (*engine)->operationLock)
+    (*engine)->pMalloc = customMalloc;
+    (*engine)->pFree = customFree;
+    (*engine)->pRealloc = customRealloc;
+    (*engine)->refcount = 1;
     return 0;
 }
 

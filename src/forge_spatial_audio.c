@@ -51,12 +51,8 @@
     PARAM_CHECK(f <= b, "Value" #f " is too big")
 
 
-/* Quote X3DAUDIO docs:
- * "To be considered orthonormal, a pair of vectors must have a magnitude of
- * 1 +- 1x10-5 and a dot product of 0 +- 1x10-5."
- * VECTOR_NORMAL_CHECK verifies that vectors are normal (i.e. have norm 1 +- 1x10-5)
- * VECTOR_BASE_CHECK verifies that a pair of vectors are orthogonal (i.e. their dot
- * product is 0 +- 1x10-5)
+/* Spatial vectors are treated as orthonormal when their magnitude is within
+ * 1e-5 of 1.0 and their dot product is within 1e-5 of zero.
  */
 
 /* TODO: Switch to square length (to save CPU) */
@@ -472,11 +468,7 @@ static inline float ComputeDistanceAttenuation(
         for (i = 1; (i < n_points) && (normalizedDistance >= points[i].Distance); i += 1);
         if (i == n_points)
         {
-            /* We've reached the last point, so we use its value directly.
-             * Quote X3DAUDIO docs:
-             * "If an emitter moves beyond a distance of (CurveDistanceScaler × 1.0f),
-             * the last point on the curve is used to compute the volume output level."
-             */
+            /* We've reached the last point, so we use its value directly. */
             res = points[n_points - 1].DSPSetting;
         }
         else
@@ -507,7 +499,7 @@ static inline float ComputeConeParameter(
     float innerParam,
     float outerParam
 ) {
-    /* When computing whether a point lies inside a cone, X3DAUDIO first determines
+    /* When computing whether a point lies inside a cone, first determine
      * whether the point is close enough to the apex of the cone.
      * If it is, the innerParam is used.
      * The following constant is the one that is used for this distance check;
@@ -517,9 +509,8 @@ static inline float ComputeConeParameter(
 
     float halfInnerAngle, halfOuterAngle, alpha;
 
-    /* Quote X3DAudio.h:
-     * "Set both cone angles to 0 or X3DAUDIO_2PI for omnidirectionality using
-     * only the outer or inner values respectively."
+    /* Both cone angles at 0 use the outer values; both at 2PI use the inner
+     * values.
      */
     if (innerAngle == 0.0f && outerAngle == 0.0f)
     {
@@ -547,13 +538,8 @@ static inline float ComputeConeParameter(
     {
         alpha = (angle - halfInnerAngle) / (halfOuterAngle - halfInnerAngle);
 
-        /* Sooo... This is awkward. MSDN doesn't say anything, but
-         * X3DAudio.h says that this should be lerped. However in
-         * practice the behaviour of X3DAudio isn't a lerp at all. It's
-         * easy to see with big (InnerAngle / OuterAngle) values. If we
-         * want accurate emulation, we'll need to either find what
-         * formula they use, or use a more advanced interpolation, like
-         * tricubic.
+        /* This is an approximation. A more accurate version may need a
+         * higher-order interpolation curve.
          *
          * TODO: HIGH_ACCURACY version.
          * -Adrien
@@ -565,32 +551,12 @@ static inline float ComputeConeParameter(
     return outerParam;
 }
 
-/* X3DAudio.h declares something like this, but the default (if emitter is NULL)
- * volume curve is a *computed* inverse law, while on the other hand a curve
- * leads to a piecewise linear function. So a "default curve" like this is
- * pointless, not sure what X3DAudio does with it...
- * -Adrien
- */
-#if 0
-static ForgeSpatialDistanceCurvePoint DefaultVolumeCurvePoints[] =
-{
-    { 0.0f, 1.0f },
-    { 1.0f, 0.0f }
-};
-static ForgeSpatialDistanceCurve DefaultVolumeCurve =
-{
-    DefaultVolumeCurvePoints,
-    ARRAY_COUNT(DefaultVolumeCurvePoints)
-};
-#endif
-
 /* Here we declare the azimuths of every speaker for every speaker
  * configuration, ordered by increasing angle, as well as the index to which
  * they map in the final matrix for their respective configuration. It had to be
- * reverse engineered by looking at the data from various X3DAudioCalculate()
- * matrix results for the various speaker configurations; *in particular*, the
- * azimuths are different from the ones in X3DAudio.h for
- * FORGE_SPEAKER_STEREO (which is declared has having front L and R speakers in the
+ * reverse engineered from output matrix results for the various speaker
+ * configurations; *in particular*, FORGE_SPEAKER_STEREO is declared as having
+ * front L and R speakers in the
  * bit mask, but in fact has L and R *side* speakers). LF speakers are
  * deliberately not included in the SpeakerInfo list, rather, we store the index
  * into a separate field (with a -1 sentinel value if it has no LF speaker).
@@ -706,9 +672,8 @@ const SpeakerInfo k7Point1SurroundConfigSpeakers[] =
 };
 
 /* With that organization, the index of the LF speaker into the matrix array
- * strangely looks exactly like the old X3DAudio handle mystery field.
- * We're keeping a separate field within ConfigInfo because it makes the code
- * much cleaner, though.
+ * is kept in a separate field within ConfigInfo because it makes the code
+ * much cleaner.
  * -Adrien
  */
 const ConfigInfo kSpeakersConfigInfo[] =
@@ -858,9 +823,6 @@ typedef float DiffusionSpeakerFactors[3];
  *
  * Above InnerRadius, only the two matching speakers receive sound.
  *
- * For more detail, see the "Inner Radius and Inner Radius Angle" in the
- * MSDN docs for the X3DAUDIO_EMITTER structure.
- * https://msdn.microsoft.com/en-us/library/windows/desktop/microsoft.directx_sdk.x3daudio.x3daudio_emitter(v=vs.85).aspx
  */
 static inline void ComputeInnerRadiusDiffusionFactors(
     float radialDistance,
@@ -877,7 +839,7 @@ static inline void ComputeInnerRadiusDiffusionFactors(
      */
     #define DIFFUSION_LERP_MIDPOINT_VALUE 0.707107f
 
-    /* X3DAudio always uses an InnerRadius-like behaviour (i.e. diffusing sound to more than
+    /* Spatialization always uses an InnerRadius-like behaviour (i.e. diffusing sound to more than
      * a pair of speakers) even if InnerRadius is set to 0.0f.
      * This constant determines the distance at which this behaviour is produced in that case. */
     /* This constant was determined by manual binary search. TODO: get a more accurate version
@@ -889,7 +851,7 @@ static inline void ComputeInnerRadiusDiffusionFactors(
 
     normalizedRadialDist = radialDistance / actualInnerRadius;
 
-    /* X3DAudio does another check for small radial distances before applying any InnerRadius-like
+    /* Do another check for small radial distances before applying any InnerRadius-like
      * behaviour. This is the constant that determines the threshold: below this distance we simply
      * diffuse to all speakers equally. */
     #define DIFFUSION_DISTANCE_EQUAL_ENERGY 1e-7f
@@ -1165,11 +1127,10 @@ static inline void ComputeEmitterChannelCoefficients(
  * diffusion case, each channel receives the same value.
  *
  * Note: in the case of multi-channel emitters, the distance attenuation is only
- * compted once, but all the azimuths and InnerRadius calculations are done per
+ * computed once, but all the azimuths and InnerRadius calculations are done per
  * emitter channel.
  *
- * TODO: Handle InnerRadiusAngle. But honestly the X3DAudio default behaviour is
- * so wacky that I wonder if anybody has ever used it.
+ * TODO: Handle InnerRadiusAngle.
  * -Adrien
  */
 static inline void CalculateMatrix(
