@@ -642,41 +642,6 @@ void ForgeAudio_Internal_debug_fmt(
 
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
 
-/* ForgeEffectFx Creators */
-
-extern ForgeResult forge_effect_create_eq(
-    ForgeEffect **effect,
-    const void *init_data,
-    uint32_t init_data_byte_size,
-    ForgeMallocFunc custom_malloc,
-    ForgeFreeFunc custom_free,
-    ForgeReallocFunc custom_realloc
-);
-extern ForgeResult forge_effect_create_mastering_limiter(
-    ForgeEffect **effect,
-    const void *init_data,
-    uint32_t init_data_byte_size,
-    ForgeMallocFunc custom_malloc,
-    ForgeFreeFunc custom_free,
-    ForgeReallocFunc custom_realloc
-);
-extern ForgeResult forge_effect_create_reverb(
-    ForgeEffect **effect,
-    const void *init_data,
-    uint32_t init_data_byte_size,
-    ForgeMallocFunc custom_malloc,
-    ForgeFreeFunc custom_free,
-    ForgeReallocFunc custom_realloc
-);
-extern ForgeResult forge_effect_create_echo(
-    ForgeEffect **effect,
-    const void *init_data,
-    uint32_t init_data_byte_size,
-    ForgeMallocFunc custom_malloc,
-    ForgeFreeFunc custom_free,
-    ForgeReallocFunc custom_realloc
-);
-
 /* SIMD Stuff */
 
 /* Callbacks declared as functions (rather than function pointers) are
