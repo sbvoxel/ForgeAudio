@@ -59,7 +59,6 @@ cmake --build build
 Useful options:
 
 - `BUILD_SHARED_LIBS`: build a shared library. Enabled by default.
-- `BUILD_UTILS`: build the utility programs.
 - `PLATFORM_WIN32`: use the native Win32 platform path instead of SDL3 on Windows.
 - `LOG_ASSERTIONS`: log assertions instead of binding to the platform assert.
 - `DUMP_VOICES`: dump source voices to RIFF WAVE files for debugging.

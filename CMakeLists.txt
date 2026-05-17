@@ -16,7 +16,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(ENABLE_PULSEAUDIO "Enable PulseAudio backend" ON)
 option(ENABLE_WASAPI "Enable WASAPI backend" ON)
 
-option(BUILD_UTILS "Build utils/ folder" OFF)
 if(WIN32)
 option(PLATFORM_WIN32 "Enable native Win32 platform instead of SDL3" OFF)
 endif()
@@ -140,13 +139,6 @@ else()
         target_include_directories(ForgeAudio PUBLIC "$<BUILD_INTERFACE:${SDL3_INCLUDE_DIRS}>")
         target_link_libraries(ForgeAudio PUBLIC ${SDL3_LIBRARIES})
     endif()
-endif()
-
-if(BUILD_UTILS)
-    enable_language(CXX)
-
-    add_executable(showriffheader utils/showriffheader/showriffheader.cpp)
-    target_link_libraries(showriffheader PRIVATE ForgeAudio)
 endif()
 
 # define install directories
