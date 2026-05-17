@@ -1,4 +1,9 @@
-/* ForgeAudioEngine
+/* ForgeAudio
+ *
+ * This file is part of ForgeAudio, an altered source version of FAudio.
+ */
+
+/* FAudio - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2020 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -369,10 +374,10 @@ void ForgeAudio_PlatformInit(
 	*platformDevice = NULL;
 
     args = ForgeAudio_malloc(sizeof(*args));
-    ForgeAudio_assert(!!args && "Failed to allocate ForgeAudioEngine thread args!");
+    ForgeAudio_assert(!!args && "Failed to allocate ForgeAudio thread args!");
 
     data = ForgeAudio_malloc(sizeof(*data));
-    ForgeAudio_assert(!!data && "Failed to allocate ForgeAudioEngine platform data!");
+    ForgeAudio_assert(!!data && "Failed to allocate ForgeAudio platform data!");
     ForgeAudio_zero(data, sizeof(*data));
 
     args->format.format.format_tag = mixFormat->format.format_tag;
@@ -395,10 +400,10 @@ void ForgeAudio_PlatformInit(
     }
 
     audioEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
-    ForgeAudio_assert(!!audioEvent && "Failed to create ForgeAudioEngine thread buffer event!");
+    ForgeAudio_assert(!!audioEvent && "Failed to create ForgeAudio thread buffer event!");
 
     data->stopEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
-    ForgeAudio_assert(!!data->stopEvent && "Failed to create ForgeAudioEngine thread stop event!");
+    ForgeAudio_assert(!!data->stopEvent && "Failed to create ForgeAudio thread stop event!");
 
 	hr = ForgeAudio_OpenDevice(deviceIndex, &device);
 	ForgeAudio_assert(!FAILED(hr) && "Failed to get audio device!");
@@ -778,7 +783,7 @@ uint32_t ForgeAudio_timems()
     return GetTickCount();
 }
 
-/* ForgeAudioEngine I/O */
+/* ForgeAudio I/O */
 
 static size_t FORGE_AUDIO_CALL ForgeAudio_File_read(
     void *data,

@@ -203,8 +203,8 @@ CREDITS
 
 #define STB_VERSION  1
 
-/* In addition to trimming out all the stuff ForgeAudioEngine does not use, we are also
- * binding various stdlib functions stb.h uses to ForgeAudioEngine's stdlib.
+/* In addition to trimming out all the stuff ForgeAudio does not use, we are also
+ * binding various stdlib functions stb.h uses to ForgeAudio's stdlib.
  * -flibit
  */
 #ifdef STB_MEMCPY_OVERRIDE

@@ -1,4 +1,9 @@
-/* ForgeAudioEngine
+/* ForgeAudio
+ *
+ * This file is part of ForgeAudio, an altered source version of FAudio.
+ */
+
+/* FAudio - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -427,7 +432,7 @@ uint32_t ForgeAudio_timems()
 	return SDL_GetTicks();
 }
 
-/* ForgeAudioEngine I/O */
+/* ForgeAudio I/O */
 
 static size_t FORGE_AUDIO_CALL ForgeAudio_Internal_ioread(
 	void *data,
