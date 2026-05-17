@@ -127,11 +127,11 @@ static const char *get_subformat_string(const ForgeAudioFormat *fmt)
     {
         return "N/A";
     }
-    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_subtype_ieee_float, sizeof(ForgeGuid)))
+    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_format_subtype_ieee_float, sizeof(ForgeGuid)))
     {
         return "IEEE_FLOAT";
     }
-    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_subtype_pcm, sizeof(ForgeGuid)))
+    if (!forge_memcmp(&fmtex->sub_format, &forge_audio_format_subtype_pcm, sizeof(ForgeGuid)))
     {
         return "PCM";
     }

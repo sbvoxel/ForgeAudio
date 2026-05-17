@@ -293,12 +293,12 @@ FORGE_AUDIO_API ForgeResult forge_create_reverb_7point1_with_allocator(
 
 FORGE_AUDIO_API void forge_reverb_convert_i3dl2(
     const ForgeReverbI3DL2Parameters *i3dl2,
-    ForgeReverbParameters *native
+    ForgeReverbParameters *parameters
 );
 FORGE_AUDIO_API void forge_reverb_convert_i3dl2_7point1(
     const ForgeReverbI3DL2Parameters *i3dl2,
-    ForgeReverbParameters7Point1 *native,
-    int32_t seven_point_one_reverb
+    ForgeReverbParameters7Point1 *parameters,
+    int32_t use_7point1_rear_delay
 );
 
 #ifdef __cplusplus

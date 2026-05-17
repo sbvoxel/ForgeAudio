@@ -226,7 +226,7 @@ void forge_platform_init(
 		mixFormat,
 		spec.channels,
 		spec.freq,
-		&forge_audio_subtype_ieee_float
+		&forge_audio_format_subtype_ieee_float
 	);
 	*updateSize = wantSamples;
 
@@ -370,7 +370,7 @@ ForgeResult forge_platform_get_device_details(
 		&details->output_format,
 		channels,
 		rate,
-		&forge_audio_subtype_pcm
+		&forge_audio_format_subtype_pcm
 	);
 	return 0;
 }

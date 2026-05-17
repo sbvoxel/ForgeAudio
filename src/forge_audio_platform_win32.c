@@ -648,7 +648,7 @@ ForgeResult forge_platform_get_device_details(
         sub = ext->sub_format;
         forge_memcpy(
             &ext->sub_format,
-            &forge_audio_subtype_pcm,
+            &forge_audio_format_subtype_pcm,
             sizeof(GUID)
         );
 

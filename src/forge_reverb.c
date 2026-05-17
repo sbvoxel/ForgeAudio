@@ -838,34 +838,34 @@ static inline void DspReverb_SetParameters(
     reverb->dry_ratio = 1.0f - reverb->wet_ratio;
 }
 
-static inline void DspReverb_SetParameters9(
+static inline void DspReverb_SetParameters7Point1(
     DspReverb *reverb,
     ForgeReverbParameters7Point1 *params
 ) {
-    ForgeReverbParameters oldParams;
-    oldParams.wet_dry_mix = params->wet_dry_mix;
-    oldParams.reflections_delay = params->reflections_delay;
-    oldParams.reverb_delay = params->reverb_delay;
-    oldParams.rear_delay = params->rear_delay;
-    oldParams.position_left = params->position_left;
-    oldParams.position_right = params->position_right;
-    oldParams.position_matrix_left = params->position_matrix_left;
-    oldParams.position_matrix_right = params->position_matrix_right;
-    oldParams.early_diffusion = params->early_diffusion;
-    oldParams.late_diffusion = params->late_diffusion;
-    oldParams.low_eq_gain = params->low_eq_gain;
-    oldParams.low_eq_cutoff = params->low_eq_cutoff;
-    oldParams.high_eq_gain = params->high_eq_gain;
-    oldParams.high_eq_cutoff = params->high_eq_cutoff;
-    oldParams.room_filter_freq = params->room_filter_freq;
-    oldParams.room_filter_main = params->room_filter_main;
-    oldParams.room_filter_hf = params->room_filter_hf;
-    oldParams.reflections_gain = params->reflections_gain;
-    oldParams.reverb_gain = params->reverb_gain;
-    oldParams.decay_time = params->decay_time;
-    oldParams.density = params->density;
-    oldParams.room_size = params->room_size;
-    DspReverb_SetParameters(reverb, &oldParams);
+    ForgeReverbParameters standard_params;
+    standard_params.wet_dry_mix = params->wet_dry_mix;
+    standard_params.reflections_delay = params->reflections_delay;
+    standard_params.reverb_delay = params->reverb_delay;
+    standard_params.rear_delay = params->rear_delay;
+    standard_params.position_left = params->position_left;
+    standard_params.position_right = params->position_right;
+    standard_params.position_matrix_left = params->position_matrix_left;
+    standard_params.position_matrix_right = params->position_matrix_right;
+    standard_params.early_diffusion = params->early_diffusion;
+    standard_params.late_diffusion = params->late_diffusion;
+    standard_params.low_eq_gain = params->low_eq_gain;
+    standard_params.low_eq_cutoff = params->low_eq_cutoff;
+    standard_params.high_eq_gain = params->high_eq_gain;
+    standard_params.high_eq_cutoff = params->high_eq_cutoff;
+    standard_params.room_filter_freq = params->room_filter_freq;
+    standard_params.room_filter_main = params->room_filter_main;
+    standard_params.room_filter_hf = params->room_filter_hf;
+    standard_params.reflections_gain = params->reflections_gain;
+    standard_params.reverb_gain = params->reverb_gain;
+    standard_params.decay_time = params->decay_time;
+    standard_params.density = params->density;
+    standard_params.room_size = params->room_size;
+    DspReverb_SetParameters(reverb, &standard_params);
 }
 
 static inline float DspReverb_INTERNAL_ProcessEarly(
@@ -1162,6 +1162,12 @@ static ForgeEffectInfo ReverbInfo =
     /*.max_output_buffer_count = */ 1
 };
 
+typedef enum ForgeReverbParameterLayout
+{
+    FORGE_REVERB_PARAMETER_LAYOUT_STANDARD,
+    FORGE_REVERB_PARAMETER_LAYOUT_7POINT1
+} ForgeReverbParameterLayout;
+
 typedef struct ForgeReverb
 {
     ForgeEffectBase base;
@@ -1172,11 +1178,11 @@ typedef struct ForgeReverb
     uint16_t inBlockAlign;
     uint16_t outBlockAlign;
 
-    uint8_t apiVersion;
+    ForgeReverbParameterLayout parameter_layout;
     DspReverb reverb;
 } ForgeReverb;
 
-static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
+static inline int8_t forge_reverb_is_float_format(const ForgeAudioFormat *format)
 {
     if (format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT)
     {
@@ -1188,7 +1194,7 @@ static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
     {
         if (forge_memcmp(
             &((ForgeAudioFormatExtensible*) format)->sub_format,
-            &forge_audio_subtype_ieee_float,
+            &forge_audio_format_subtype_ieee_float,
             sizeof(ForgeGuid)
         ) == 0) {
             return 1;
@@ -1220,7 +1226,7 @@ static ForgeResult forge_reverb_is_input_format_supported(
     }
 
     /* Data type */
-    if (!IsFloatFormat(requested_input_format))
+    if (!forge_reverb_is_float_format(requested_input_format))
     {
         SET_SUPPORTED_FIELD(format_tag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
     }
@@ -1275,7 +1281,7 @@ static ForgeResult forge_reverb_is_output_format_supported(
     }
 
     /* Data type */
-    if (!IsFloatFormat(requested_output_format))
+    if (!forge_reverb_is_float_format(requested_output_format))
     {
         SET_SUPPORTED_FIELD(format_tag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
     }
@@ -1332,7 +1338,7 @@ static ForgeResult forge_reverb_lock_for_process(
     ForgeResult result;
 
     /* reverb specific validation */
-    if (!IsFloatFormat(input_locked_parameters->format))
+    if (!forge_reverb_is_float_format(input_locked_parameters->format))
     {
         return ForgeResultEffectFormatUnsupported;
     }
@@ -1384,9 +1390,9 @@ static ForgeResult forge_reverb_lock_for_process(
     );
 
     /* initialize the effect to a default setting */
-    if (effect->apiVersion == 9)
+    if (effect->parameter_layout == FORGE_REVERB_PARAMETER_LAYOUT_7POINT1)
     {
-        DspReverb_SetParameters9(
+        DspReverb_SetParameters7Point1(
             &effect->reverb,
             (ForgeReverbParameters7Point1*) effect->base.parameters
         );
@@ -1485,9 +1491,9 @@ static void forge_reverb_process(
     /* Update parameters before doing anything else  */
     if (update_params)
     {
-        if (effect->apiVersion == 9)
+        if (effect->parameter_layout == FORGE_REVERB_PARAMETER_LAYOUT_7POINT1)
         {
-            DspReverb_SetParameters9(
+            DspReverb_SetParameters7Point1(
                 &effect->reverb,
                 (ForgeReverbParameters7Point1*) params
             );
@@ -1607,7 +1613,7 @@ static void forge_reverb_free(void* effect)
     reverb->base.free_func(effect);
 }
 
-/* Public API (Version 7) */
+/* Public standard reverb API */
 
 ForgeResult forge_create_reverb(ForgeEffect** effect, uint32_t flags)
 {
@@ -1627,7 +1633,7 @@ ForgeResult forge_create_reverb_with_allocator(
     ForgeFreeFunc custom_free,
     ForgeReallocFunc custom_realloc
 ) {
-    const ForgeReverbParameters fxdefault =
+    const ForgeReverbParameters default_parameters =
     {
         FORGE_REVERB_DEFAULT_WET_DRY_MIX,
         FORGE_REVERB_DEFAULT_REFLECTIONS_DELAY,
@@ -1656,7 +1662,7 @@ ForgeResult forge_create_reverb_with_allocator(
     /* Allocate... */
     ForgeReverb *result = (ForgeReverb*) custom_malloc(sizeof(ForgeReverb));
     uint8_t *params = (uint8_t*) custom_malloc(sizeof(ForgeReverbParameters));
-    result->apiVersion = 7;
+    result->parameter_layout = FORGE_REVERB_PARAMETER_LAYOUT_STANDARD;
 
     forge_effect_base_init_with_allocator(
         &result->base,
@@ -1691,7 +1697,7 @@ ForgeResult forge_create_reverb_with_allocator(
     /* Prepare the default parameters */
     result->base.base.initialize(
         result,
-        &fxdefault,
+        &default_parameters,
         sizeof(ForgeReverbParameters)
     );
 
@@ -1702,22 +1708,22 @@ ForgeResult forge_create_reverb_with_allocator(
 
 void forge_reverb_convert_i3dl2(
     const ForgeReverbI3DL2Parameters *i3dl2,
-    ForgeReverbParameters *native
+    ForgeReverbParameters *parameters
 ) {
     float reflectionsDelay;
     float reverbDelay;
 
-    native->rear_delay = FORGE_REVERB_DEFAULT_REAR_DELAY;
-    native->position_left = FORGE_REVERB_DEFAULT_POSITION;
-    native->position_right = FORGE_REVERB_DEFAULT_POSITION;
-    native->position_matrix_left = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
-    native->position_matrix_right = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
-    native->room_size = FORGE_REVERB_DEFAULT_ROOM_SIZE;
-    native->low_eq_cutoff = 4;
-    native->high_eq_cutoff = 6;
+    parameters->rear_delay = FORGE_REVERB_DEFAULT_REAR_DELAY;
+    parameters->position_left = FORGE_REVERB_DEFAULT_POSITION;
+    parameters->position_right = FORGE_REVERB_DEFAULT_POSITION;
+    parameters->position_matrix_left = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    parameters->position_matrix_right = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    parameters->room_size = FORGE_REVERB_DEFAULT_ROOM_SIZE;
+    parameters->low_eq_cutoff = 4;
+    parameters->high_eq_cutoff = 6;
 
-    native->room_filter_main = (float) i3dl2->room / 100.0f;
-    native->room_filter_hf = (float) i3dl2->room_hf / 100.0f;
+    parameters->room_filter_main = (float) i3dl2->room / 100.0f;
+    parameters->room_filter_hf = (float) i3dl2->room_hf / 100.0f;
 
     if (i3dl2->decay_hf_ratio >= 1.0f)
     {
@@ -1726,9 +1732,9 @@ void forge_reverb_convert_i3dl2(
         {
             index = -8;
         }
-        native->low_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->high_eq_gain = 8;
-        native->decay_time = i3dl2->decay_time * i3dl2->decay_hf_ratio;
+        parameters->low_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        parameters->high_eq_gain = 8;
+        parameters->decay_time = i3dl2->decay_time * i3dl2->decay_hf_ratio;
     }
     else
     {
@@ -1737,9 +1743,9 @@ void forge_reverb_convert_i3dl2(
         {
             index = -8;
         }
-        native->low_eq_gain = 8;
-        native->high_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->decay_time = i3dl2->decay_time;
+        parameters->low_eq_gain = 8;
+        parameters->high_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        parameters->decay_time = i3dl2->decay_time;
     }
 
     reflectionsDelay = i3dl2->reflections_delay * 1000.0f;
@@ -1751,26 +1757,26 @@ void forge_reverb_convert_i3dl2(
     {
         reflectionsDelay = 1;
     }
-    native->reflections_delay = (uint32_t) reflectionsDelay;
+    parameters->reflections_delay = (uint32_t) reflectionsDelay;
 
     reverbDelay = i3dl2->reverb_delay * 1000.0f;
     if (reverbDelay >= FORGE_REVERB_MAX_REVERB_DELAY)
     {
         reverbDelay = (float) (FORGE_REVERB_MAX_REVERB_DELAY - 1);
     }
-    native->reverb_delay = (uint8_t) reverbDelay;
+    parameters->reverb_delay = (uint8_t) reverbDelay;
 
-    native->reflections_gain = i3dl2->reflections / 100.0f;
-    native->reverb_gain = i3dl2->reverb / 100.0f;
-    native->early_diffusion = (uint8_t) (15.0f * i3dl2->diffusion / 100.0f);
-    native->late_diffusion = native->early_diffusion;
-    native->density = i3dl2->density;
-    native->room_filter_freq = i3dl2->hf_reference;
+    parameters->reflections_gain = i3dl2->reflections / 100.0f;
+    parameters->reverb_gain = i3dl2->reverb / 100.0f;
+    parameters->early_diffusion = (uint8_t) (15.0f * i3dl2->diffusion / 100.0f);
+    parameters->late_diffusion = parameters->early_diffusion;
+    parameters->density = i3dl2->density;
+    parameters->room_filter_freq = i3dl2->hf_reference;
 
-    native->wet_dry_mix = i3dl2->wet_dry_mix;
+    parameters->wet_dry_mix = i3dl2->wet_dry_mix;
 }
 
-/* Public API (Version 9) */
+/* Public 7.1 reverb API */
 
 ForgeResult forge_create_reverb_7point1(ForgeEffect** effect, uint32_t flags)
 {
@@ -1790,12 +1796,12 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
     ForgeFreeFunc custom_free,
     ForgeReallocFunc custom_realloc
 ) {
-    const ForgeReverbParameters7Point1 fxdefault =
+    const ForgeReverbParameters7Point1 default_parameters =
     {
         FORGE_REVERB_DEFAULT_WET_DRY_MIX,
         FORGE_REVERB_DEFAULT_REFLECTIONS_DELAY,
         FORGE_REVERB_DEFAULT_REVERB_DELAY,
-        FORGE_REVERB_DEFAULT_REAR_DELAY, /* FIXME: 7POINT1? */
+        FORGE_REVERB_DEFAULT_7_1_REAR_DELAY,
         FORGE_REVERB_DEFAULT_7_1_SIDE_DELAY,
         FORGE_REVERB_DEFAULT_POSITION,
         FORGE_REVERB_DEFAULT_POSITION,
@@ -1820,7 +1826,7 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
     /* Allocate... */
     ForgeReverb *result = (ForgeReverb*) custom_malloc(sizeof(ForgeReverb));
     uint8_t *params = (uint8_t*) custom_malloc(sizeof(ForgeReverbParameters7Point1));
-    result->apiVersion = 9;
+    result->parameter_layout = FORGE_REVERB_PARAMETER_LAYOUT_7POINT1;
 
     forge_effect_base_init_with_allocator(
         &result->base,
@@ -1855,7 +1861,7 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
     /* Prepare the default parameters */
     result->base.base.initialize(
         result,
-        &fxdefault,
+        &default_parameters,
         sizeof(ForgeReverbParameters7Point1)
     );
 
@@ -1866,31 +1872,31 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
 
 void forge_reverb_convert_i3dl2_7point1(
     const ForgeReverbI3DL2Parameters *i3dl2,
-    ForgeReverbParameters7Point1 *native,
-    int32_t seven_point_one_reverb
+    ForgeReverbParameters7Point1 *parameters,
+    int32_t use_7point1_rear_delay
 ) {
     float reflectionsDelay;
     float reverbDelay;
 
-    if (seven_point_one_reverb)
+    if (use_7point1_rear_delay)
     {
-        native->rear_delay = FORGE_REVERB_DEFAULT_7_1_REAR_DELAY;
+        parameters->rear_delay = FORGE_REVERB_DEFAULT_7_1_REAR_DELAY;
     }
     else
     {
-        native->rear_delay = FORGE_REVERB_DEFAULT_REAR_DELAY;
+        parameters->rear_delay = FORGE_REVERB_DEFAULT_REAR_DELAY;
     }
-    native->side_delay = FORGE_REVERB_DEFAULT_7_1_SIDE_DELAY;
-    native->position_left = FORGE_REVERB_DEFAULT_POSITION;
-    native->position_right = FORGE_REVERB_DEFAULT_POSITION;
-    native->position_matrix_left = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
-    native->position_matrix_right = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
-    native->room_size = FORGE_REVERB_DEFAULT_ROOM_SIZE;
-    native->low_eq_cutoff = 4;
-    native->high_eq_cutoff = 6;
+    parameters->side_delay = FORGE_REVERB_DEFAULT_7_1_SIDE_DELAY;
+    parameters->position_left = FORGE_REVERB_DEFAULT_POSITION;
+    parameters->position_right = FORGE_REVERB_DEFAULT_POSITION;
+    parameters->position_matrix_left = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    parameters->position_matrix_right = FORGE_REVERB_DEFAULT_POSITION_MATRIX;
+    parameters->room_size = FORGE_REVERB_DEFAULT_ROOM_SIZE;
+    parameters->low_eq_cutoff = 4;
+    parameters->high_eq_cutoff = 6;
 
-    native->room_filter_main = (float) i3dl2->room / 100.0f;
-    native->room_filter_hf = (float) i3dl2->room_hf / 100.0f;
+    parameters->room_filter_main = (float) i3dl2->room / 100.0f;
+    parameters->room_filter_hf = (float) i3dl2->room_hf / 100.0f;
 
     if (i3dl2->decay_hf_ratio >= 1.0f)
     {
@@ -1899,9 +1905,9 @@ void forge_reverb_convert_i3dl2_7point1(
         {
             index = -8;
         }
-        native->low_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->high_eq_gain = 8;
-        native->decay_time = i3dl2->decay_time * i3dl2->decay_hf_ratio;
+        parameters->low_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        parameters->high_eq_gain = 8;
+        parameters->decay_time = i3dl2->decay_time * i3dl2->decay_hf_ratio;
     }
     else
     {
@@ -1910,9 +1916,9 @@ void forge_reverb_convert_i3dl2_7point1(
         {
             index = -8;
         }
-        native->low_eq_gain = 8;
-        native->high_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
-        native->decay_time = i3dl2->decay_time;
+        parameters->low_eq_gain = 8;
+        parameters->high_eq_gain = (uint8_t) ((index < 0) ? index + 8 : 8);
+        parameters->decay_time = i3dl2->decay_time;
     }
 
     reflectionsDelay = i3dl2->reflections_delay * 1000.0f;
@@ -1924,21 +1930,21 @@ void forge_reverb_convert_i3dl2_7point1(
     {
         reflectionsDelay = 1;
     }
-    native->reflections_delay = (uint32_t) reflectionsDelay;
+    parameters->reflections_delay = (uint32_t) reflectionsDelay;
 
     reverbDelay = i3dl2->reverb_delay * 1000.0f;
     if (reverbDelay >= FORGE_REVERB_MAX_REVERB_DELAY)
     {
         reverbDelay = (float) (FORGE_REVERB_MAX_REVERB_DELAY - 1);
     }
-    native->reverb_delay = (uint8_t) reverbDelay;
+    parameters->reverb_delay = (uint8_t) reverbDelay;
 
-    native->reflections_gain = i3dl2->reflections / 100.0f;
-    native->reverb_gain = i3dl2->reverb / 100.0f;
-    native->early_diffusion = (uint8_t) (15.0f * i3dl2->diffusion / 100.0f);
-    native->late_diffusion = native->early_diffusion;
-    native->density = i3dl2->density;
-    native->room_filter_freq = i3dl2->hf_reference;
+    parameters->reflections_gain = i3dl2->reflections / 100.0f;
+    parameters->reverb_gain = i3dl2->reverb / 100.0f;
+    parameters->early_diffusion = (uint8_t) (15.0f * i3dl2->diffusion / 100.0f);
+    parameters->late_diffusion = parameters->early_diffusion;
+    parameters->density = i3dl2->density;
+    parameters->room_filter_freq = i3dl2->hf_reference;
 
-    native->wet_dry_mix = i3dl2->wet_dry_mix;
+    parameters->wet_dry_mix = i3dl2->wet_dry_mix;
 }

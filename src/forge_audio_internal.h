@@ -223,6 +223,13 @@ extern void forge_log_message(char const *msg);
 #define FORGE_INTERNAL_API
 #endif
 
+FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_pcm;
+FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_ieee_float;
+FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_xmaudio2;
+FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_wmaudio2;
+FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_wmaudio3;
+FORGE_INTERNAL_API extern const ForgeGuid forge_audio_format_subtype_wmaudio_lossless;
+
 /* Threading Types */
 
 typedef void* ForgeAudioThread;
