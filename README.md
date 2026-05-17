@@ -19,7 +19,7 @@ The current codebase has already diverged from upstream FAudio in several ways:
 - SDL3 is the default portable backend path, with a native Win32 path still available behind `PLATFORM_WIN32`.
 - Several upstream FAudio fixes have been ported into the fork.
 
-The implementation is still intentionally close to FAudio in many core areas. That makes it practical to continue porting upstream bug fixes while ForgeAudio grows its own engine-facing API and behavior.
+ForgeAudio is now allowed to diverge when that makes the library smaller, clearer, or better suited to engine use. Upstream FAudio remains useful reference material, but source compatibility and easy patch porting are no longer design constraints.
 
 ## Goals
 
