@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,13 +27,13 @@
 #include "forge_apo_fx.h"
 #include "FAudio_internal.h"
 
-uint32_t FAPOFX_CreateFX(
+uint32_t forge_apo_create_effect(
     const ForgeGuid *clsid,
-    FAPO **pEffect,
+    ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize
 ) {
-    return FAPOFX_CreateFXWithCustomAllocatorEXT(
+    return forge_apo_create_effect_with_allocator(
         clsid,
         pEffect,
         pInitData,
@@ -44,44 +44,56 @@ uint32_t FAPOFX_CreateFX(
     );
 }
 
-uint32_t FAPOFX_CreateFXWithCustomAllocatorEXT(
+uint32_t forge_apo_create_effect_with_allocator(
     const ForgeGuid *clsid,
-    FAPO **pEffect,
+    ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-    #define CHECK_AND_RETURN(effect) \
-        if (FAudio_memcmp(clsid, &FAPOFX_CLSID_FX##effect, sizeof(ForgeGuid)) == 0) \
-        { \
-            return FAPOFXCreate##effect( \
-                pEffect, \
-                pInitData, \
-                InitDataByteSize, \
-                customMalloc, \
-                customFree, \
-                customRealloc, \
-                0 \
-            ); \
-        } \
-        else if (FAudio_memcmp(clsid, &FAPOFX_CLSID_FX##effect##_LEGACY, sizeof(ForgeGuid)) == 0) \
-        { \
-            return FAPOFXCreate##effect( \
-                pEffect, \
-                pInitData, \
-                InitDataByteSize, \
-                customMalloc, \
-                customFree, \
-                customRealloc, \
-                1 \
-            ); \
-        }
-    CHECK_AND_RETURN(EQ)
-    CHECK_AND_RETURN(MasteringLimiter)
-    CHECK_AND_RETURN(Reverb)
-    CHECK_AND_RETURN(Echo)
-    #undef CHECK_AND_RETURN
+#define CHECK_AND_RETURN(id, legacy_id, create_func) \
+    if (FAudio_memcmp(clsid, &(id), sizeof(ForgeGuid)) == 0) \
+    { \
+        return create_func( \
+            pEffect, \
+            pInitData, \
+            InitDataByteSize, \
+            customMalloc, \
+            customFree, \
+            customRealloc, \
+            0 \
+        ); \
+    } \
+    else if (FAudio_memcmp(clsid, &(legacy_id), sizeof(ForgeGuid)) == 0) \
+    { \
+        return create_func( \
+            pEffect, \
+            pInitData, \
+            InitDataByteSize, \
+            customMalloc, \
+            customFree, \
+            customRealloc, \
+            1 \
+        ); \
+    }
+    CHECK_AND_RETURN(FORGE_APO_FX_ID_EQ, FORGE_APO_FX_ID_EQ_LEGACY, forge_apo_create_eq)
+    CHECK_AND_RETURN(
+        FORGE_APO_FX_ID_MASTERING_LIMITER,
+        FORGE_APO_FX_ID_MASTERING_LIMITER_LEGACY,
+        forge_apo_create_mastering_limiter
+    )
+    CHECK_AND_RETURN(
+        FORGE_APO_FX_ID_REVERB,
+        FORGE_APO_FX_ID_REVERB_LEGACY,
+        forge_apo_create_reverb
+    )
+    CHECK_AND_RETURN(
+        FORGE_APO_FX_ID_ECHO,
+        FORGE_APO_FX_ID_ECHO_LEGACY,
+        forge_apo_create_echo
+    )
+#undef CHECK_AND_RETURN
     return -1;
 }

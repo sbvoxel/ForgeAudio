@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudio
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,41 +27,41 @@
 /* This file has no documentation since the MSDN docs are still perfectly fine:
  * https://docs.microsoft.com/en-us/windows/desktop/api/xapobase/
  *
- * Of course, the APIs aren't exactly the same since XAPO is super dependent on
+ * Of course, the APIs aren't exactly the same since APO is super dependent on
  * C++. Instead, we use a struct full of functions to mimic a vtable.
  *
- * To mimic the CXAPOParametersBase experience, initialize the object like this:
+ * To mimic the CAPOParametersBase experience, initialize the object like this:
  *
- * extern FAPORegistrationProperties MyFAPOProperties;
+ * extern ForgeApoProperties MyApoProperties;
  * extern int32_t producer;
- * typedef struct MyFAPOParams
+ * typedef struct MyApoParams
  * {
  *    uint32_t something;
- * } MyFAPOParams;
- * typedef struct MyFAPO
+ * } MyApoParams;
+ * typedef struct MyApo
  * {
- *    FAPOBase base;
+ *    ForgeApoBase base;
  *    uint32_t somethingElse;
- * } MyFAPO;
- * void MyFAPO_Free(void* fapo)
+ * } MyApo;
+ * void MyApo_Free(void* fapo)
  * {
- *    MyFAPO *mine = (MyFAPO*) fapo;
+ *    MyApo *mine = (MyApo*) fapo;
  *    mine->base.pFree(mine->base.m_pParameterBlocks);
  *    mine->base.pFree(fapo);
  * }
  *
- * MyFAPO *result = (MyFAPO*) SDL_malloc(sizeof(MyFAPO));
- * uint8_t *params = (uint8_t*) SDL_malloc(sizeof(MyFAPOParams) * 3);
- * CreateFAPOBase(
+ * MyApo *result = (MyApo*) SDL_malloc(sizeof(MyApo));
+ * uint8_t *params = (uint8_t*) SDL_malloc(sizeof(MyApoParams) * 3);
+ * forge_apo_base_init(
  *    &result->base,
- *    &MyFAPOProperties,
+ *    &MyApoProperties,
  *    params,
- *    sizeof(MyFAPOParams),
+ *    sizeof(MyApoParams),
  *    producer
  * );
- * result->base.base.Initialize = (InitializeFunc) MyFAPO_Initialize;
- * result->base.base.Process = (ProcessFunc) MyFAPO_Process;
- * result->base.Destructor = MyFAPO_Free;
+ * result->base.base.Initialize = (ForgeApoInitializeFunc) MyApo_Initialize;
+ * result->base.base.Process = (ForgeApoProcessFunc) MyApo_Process;
+ * result->base.Destructor = MyApo_Free;
  */
 
 #ifndef FORGE_APO_BASE_H
@@ -75,45 +75,45 @@ extern "C" {
 
 /* Constants */
 
-#define FAPOBASE_DEFAULT_FORMAT_TAG        FORGE_AUDIO_FORMAT_IEEE_FLOAT
-#define FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS    FAPO_MIN_CHANNELS
-#define FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS    FAPO_MAX_CHANNELS
-#define FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE    FAPO_MIN_FRAMERATE
-#define FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE    FAPO_MAX_FRAMERATE
-#define FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE    32
+#define FORGE_APO_BASE_DEFAULT_FORMAT_TAG        FORGE_AUDIO_FORMAT_IEEE_FLOAT
+#define FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS    FORGE_APO_MIN_CHANNELS
+#define FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS    FORGE_APO_MAX_CHANNELS
+#define FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE    FORGE_APO_MIN_SAMPLE_RATE
+#define FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE    FORGE_APO_MAX_SAMPLE_RATE
+#define FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE    32
 
-#define FAPOBASE_DEFAULT_FLAG ( \
-    FAPO_FLAG_CHANNELS_MUST_MATCH | \
-    FAPO_FLAG_FRAMERATE_MUST_MATCH | \
-    FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH | \
-    FAPO_FLAG_BUFFERCOUNT_MUST_MATCH | \
-    FAPO_FLAG_INPLACE_SUPPORTED \
+#define FORGE_APO_BASE_DEFAULT_FLAG ( \
+    FORGE_APO_FLAG_CHANNELS_MUST_MATCH | \
+    FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH | \
+    FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH | \
+    FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH | \
+    FORGE_APO_FLAG_IN_PLACE_SUPPORTED \
 )
 
-#define FAPOBASE_DEFAULT_BUFFER_COUNT 1
+#define FORGE_APO_BASE_DEFAULT_BUFFER_COUNT 1
 
-/* FAPOBase Interface */
+/* ForgeApoBase Interface */
 
-typedef struct FAPOBase FAPOBase;
+typedef struct ForgeApoBase ForgeApoBase;
 
-typedef void (FAPOCALL * OnSetParametersFunc)(
-    FAPOBase *fapo,
+typedef void (FORGE_APO_CALL * OnSetParametersFunc)(
+    ForgeApoBase *fapo,
     const void* parameters,
     uint32_t parametersSize
 );
 
 #pragma pack(push, 8)
-struct FAPOBase
+struct ForgeApoBase
 {
     /* Base Classes/Interfaces */
-    FAPO base;
-    void (FAPOCALL *Destructor)(void*);
+    ForgeApo base;
+    void (FORGE_APO_CALL *Destructor)(void*);
 
     /* Public Virtual Functions */
     OnSetParametersFunc OnSetParameters;
 
     /* Private Variables */
-    const FAPORegistrationProperties *m_pRegistrationProperties;
+    const ForgeApoProperties *m_pRegistrationProperties;
     void* m_pfnMatrixMixFunction;
     float *m_pfl32MatrixCoefficients;
     uint32_t m_nSrcFormatType;
@@ -130,25 +130,25 @@ struct FAPOBase
     /* Protected Variables */
     int32_t m_lReferenceCount; /* LONG */
 
-    /* Allocator callbacks, NOT part of XAPOBase spec! */
+    /* Allocator callbacks, NOT part of ForgeApoBase spec! */
     ForgeMallocFunc pMalloc;
     ForgeFreeFunc pFree;
     ForgeReallocFunc pRealloc;
 };
 #pragma pack(pop)
 
-FAPOAPI void CreateFAPOBase(
-    FAPOBase *fapo,
-    const FAPORegistrationProperties *pRegistrationProperties,
+FORGE_APO_API void forge_apo_base_init(
+    ForgeApoBase *fapo,
+    const ForgeApoProperties *pRegistrationProperties,
     uint8_t *pParameterBlocks,
     uint32_t uParameterBlockByteSize,
     uint8_t fProducer
 );
 
-/* See "extensions/CustomAllocatorEXT.txt" for more information. */
-FAPOAPI void CreateFAPOBaseWithCustomAllocatorEXT(
-    FAPOBase *fapo,
-    const FAPORegistrationProperties *pRegistrationProperties,
+/* See "extensions/custom allocator.txt" for more information. */
+FORGE_APO_API void forge_apo_base_init_with_allocator(
+    ForgeApoBase *fapo,
+    const ForgeApoProperties *pRegistrationProperties,
     uint8_t *pParameterBlocks,
     uint32_t uParameterBlockByteSize,
     uint8_t fProducer,
@@ -157,72 +157,72 @@ FAPOAPI void CreateFAPOBaseWithCustomAllocatorEXT(
     ForgeReallocFunc customRealloc
 );
 
-FAPOAPI int32_t FAPOBase_AddRef(FAPOBase *fapo);
+FORGE_APO_API int32_t forge_apo_base_retain(ForgeApoBase *fapo);
 
-FAPOAPI int32_t FAPOBase_Release(FAPOBase *fapo);
+FORGE_APO_API int32_t forge_apo_base_release(ForgeApoBase *fapo);
 
-FAPOAPI uint32_t FAPOBase_GetRegistrationProperties(
-    FAPOBase *fapo,
-    FAPORegistrationProperties **ppRegistrationProperties
+FORGE_APO_API uint32_t forge_apo_base_get_properties(
+    ForgeApoBase *fapo,
+    ForgeApoProperties **ppRegistrationProperties
 );
 
-FAPOAPI uint32_t FAPOBase_IsInputFormatSupported(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_is_input_format_supported(
+    ForgeApoBase *fapo,
     const ForgeAudioFormat *pOutputFormat,
     const ForgeAudioFormat *pRequestedInputFormat,
     ForgeAudioFormat **ppSupportedInputFormat
 );
 
-FAPOAPI uint32_t FAPOBase_IsOutputFormatSupported(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_is_output_format_supported(
+    ForgeApoBase *fapo,
     const ForgeAudioFormat *pInputFormat,
     const ForgeAudioFormat *pRequestedOutputFormat,
     ForgeAudioFormat **ppSupportedOutputFormat
 );
 
-FAPOAPI uint32_t FAPOBase_Initialize(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_initialize(
+    ForgeApoBase *fapo,
     const void* pData,
     uint32_t DataByteSize
 );
 
-FAPOAPI void FAPOBase_Reset(FAPOBase *fapo);
+FORGE_APO_API void forge_apo_base_reset(ForgeApoBase *fapo);
 
-FAPOAPI uint32_t FAPOBase_LockForProcess(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_lock_for_process(
+    ForgeApoBase *fapo,
     uint32_t InputLockedParameterCount,
-    const FAPOLockForProcessBufferParameters *pInputLockedParameters,
+    const ForgeApoLockBuffer *pInputLockedParameters,
     uint32_t OutputLockedParameterCount,
-    const FAPOLockForProcessBufferParameters *pOutputLockedParameters
+    const ForgeApoLockBuffer *pOutputLockedParameters
 );
 
-FAPOAPI void FAPOBase_UnlockForProcess(FAPOBase *fapo);
+FORGE_APO_API void forge_apo_base_unlock_for_process(ForgeApoBase *fapo);
 
-FAPOAPI uint32_t FAPOBase_CalcInputFrames(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_calc_input_frames(
+    ForgeApoBase *fapo,
     uint32_t OutputFrameCount
 );
 
-FAPOAPI uint32_t FAPOBase_CalcOutputFrames(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_calc_output_frames(
+    ForgeApoBase *fapo,
     uint32_t InputFrameCount
 );
 
-FAPOAPI uint32_t FAPOBase_ValidateFormatDefault(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_validate_default_format(
+    ForgeApoBase *fapo,
     ForgeAudioFormat *pFormat,
     uint8_t fOverwrite
 );
 
-FAPOAPI uint32_t FAPOBase_ValidateFormatPair(
-    FAPOBase *fapo,
+FORGE_APO_API uint32_t forge_apo_base_validate_format_pair(
+    ForgeApoBase *fapo,
     const ForgeAudioFormat *pSupportedFormat,
     ForgeAudioFormat *pRequestedFormat,
     uint8_t fOverwrite
 );
 
-FAPOAPI void FAPOBase_ProcessThru(
-    FAPOBase *fapo,
+FORGE_APO_API void forge_apo_base_process_through(
+    ForgeApoBase *fapo,
     void* pInputBuffer,
     float *pOutputBuffer,
     uint32_t FrameCount,
@@ -231,29 +231,29 @@ FAPOAPI void FAPOBase_ProcessThru(
     uint8_t MixWithOutput
 );
 
-FAPOAPI void FAPOBase_SetParameters(
-    FAPOBase *fapo,
+FORGE_APO_API void forge_apo_base_set_parameters(
+    ForgeApoBase *fapo,
     const void* pParameters,
     uint32_t ParameterByteSize
 );
 
-FAPOAPI void FAPOBase_GetParameters(
-    FAPOBase *fapo,
+FORGE_APO_API void forge_apo_base_get_parameters(
+    ForgeApoBase *fapo,
     void* pParameters,
     uint32_t ParameterByteSize
 );
 
-FAPOAPI void FAPOBase_OnSetParameters(
-    FAPOBase *fapo,
+FORGE_APO_API void forge_apo_base_on_set_parameters(
+    ForgeApoBase *fapo,
     const void* parameters,
     uint32_t parametersSize
 );
 
-FAPOAPI uint8_t FAPOBase_ParametersChanged(FAPOBase *fapo);
+FORGE_APO_API uint8_t forge_apo_base_parameters_changed(ForgeApoBase *fapo);
 
-FAPOAPI uint8_t* FAPOBase_BeginProcess(FAPOBase *fapo);
+FORGE_APO_API uint8_t* forge_apo_base_begin_process(ForgeApoBase *fapo);
 
-FAPOAPI void FAPOBase_EndProcess(FAPOBase *fapo);
+FORGE_APO_API void forge_apo_base_end_process(ForgeApoBase *fapo);
 
 #ifdef __cplusplus
 }

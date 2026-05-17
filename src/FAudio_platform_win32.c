@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2020 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *

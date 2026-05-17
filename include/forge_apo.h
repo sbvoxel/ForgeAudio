@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudio
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,10 +27,10 @@
 /* This file has no documentation since the MSDN docs are still perfectly fine:
  * https://docs.microsoft.com/en-us/windows/desktop/api/xapo/
  *
- * Of course, the APIs aren't exactly the same since XAPO is super dependent on
+ * Of course, the APIs aren't exactly the same since APO is super dependent on
  * C++. Instead, we use a struct full of functions to mimic a vtable.
  *
- * The only serious difference is that our FAPO (yes, really) always has the
+ * The only serious difference is that our ForgeApo (yes, really) always has the
  * Get/SetParameters function pointers, for simplicity. You can ignore these if
  * your effect does not have parameters, as they will never get called unless
  * it is explicitly requested by the application.
@@ -41,8 +41,8 @@
 
 #include "forge_audio.h"
 
-#define FAPOAPI FORGE_AUDIO_API
-#define FAPOCALL FORGE_AUDIO_CALL
+#define FORGE_APO_API FORGE_AUDIO_API
+#define FORGE_APO_CALL FORGE_AUDIO_CALL
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,17 +50,17 @@ extern "C" {
 
 /* Enumerations */
 
-typedef enum FAPOBufferFlags
+typedef enum ForgeApoBufferFlags
 {
-    FAPO_BUFFER_SILENT,
-    FAPO_BUFFER_VALID
-} FAPOBufferFlags;
+    FORGE_APO_BUFFER_SILENT,
+    FORGE_APO_BUFFER_VALID
+} ForgeApoBufferFlags;
 
 /* Structures */
 
 #pragma pack(push, 1)
 
-typedef struct FAPORegistrationProperties
+typedef struct ForgeApoProperties
 {
     ForgeGuid clsid;
     int16_t FriendlyName[256]; /* Win32 wchar_t */
@@ -72,130 +72,130 @@ typedef struct FAPORegistrationProperties
     uint32_t MaxInputBufferCount;
     uint32_t MinOutputBufferCount;
     uint32_t MaxOutputBufferCount;
-} FAPORegistrationProperties;
+} ForgeApoProperties;
 
-typedef struct FAPOLockForProcessBufferParameters
+typedef struct ForgeApoLockBuffer
 {
     const ForgeAudioFormat *pFormat;
     uint32_t MaxFrameCount;
-} FAPOLockForProcessBufferParameters;
+} ForgeApoLockBuffer;
 
-typedef struct FAPOProcessBufferParameters
+typedef struct ForgeApoProcessBuffer
 {
     void* pBuffer;
-    FAPOBufferFlags BufferFlags;
+    ForgeApoBufferFlags BufferFlags;
     uint32_t ValidFrameCount;
-} FAPOProcessBufferParameters;
+} ForgeApoProcessBuffer;
 
 #pragma pack(pop)
 
 /* Constants */
 
-#define FAPO_MIN_CHANNELS 1
-#define FAPO_MAX_CHANNELS 64
+#define FORGE_APO_MIN_CHANNELS 1
+#define FORGE_APO_MAX_CHANNELS 64
 
-#define FAPO_MIN_FRAMERATE 1000
-#define FAPO_MAX_FRAMERATE 200000
+#define FORGE_APO_MIN_SAMPLE_RATE 1000
+#define FORGE_APO_MAX_SAMPLE_RATE 200000
 
-#define FAPO_REGISTRATION_STRING_LENGTH 256
+#define FORGE_APO_PROPERTIES_STRING_LENGTH 256
 
-#define FAPO_FLAG_CHANNELS_MUST_MATCH        0x00000001
-#define FAPO_FLAG_FRAMERATE_MUST_MATCH        0x00000002
-#define FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH    0x00000004
-#define FAPO_FLAG_BUFFERCOUNT_MUST_MATCH    0x00000008
-#define FAPO_FLAG_INPLACE_REQUIRED        0x00000020
-#define FAPO_FLAG_INPLACE_SUPPORTED        0x00000010
+#define FORGE_APO_FLAG_CHANNELS_MUST_MATCH        0x00000001
+#define FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH        0x00000002
+#define FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH    0x00000004
+#define FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH    0x00000008
+#define FORGE_APO_FLAG_IN_PLACE_REQUIRED        0x00000020
+#define FORGE_APO_FLAG_IN_PLACE_SUPPORTED        0x00000010
 
-/* FAPO Interface */
+/* ForgeApo Interface */
 
-#ifndef FAPO_DECL
-#define FAPO_DECL
-typedef struct FAPO FAPO;
-#endif /* FAPO_DECL */
+#ifndef FORGE_APO_DECL
+#define FORGE_APO_DECL
+typedef struct ForgeApo ForgeApo;
+#endif /* FORGE_APO_DECL */
 
-typedef int32_t (FAPOCALL * AddRefFunc)(
+typedef int32_t (FORGE_APO_CALL * ForgeApoAddRefFunc)(
     void *fapo
 );
-typedef int32_t (FAPOCALL * ReleaseFunc)(
+typedef int32_t (FORGE_APO_CALL * ForgeApoReleaseFunc)(
     void *fapo
 );
-typedef uint32_t (FAPOCALL * GetRegistrationPropertiesFunc)(
+typedef uint32_t (FORGE_APO_CALL * ForgeApoGetPropertiesFunc)(
     void* fapo,
-    FAPORegistrationProperties **ppRegistrationProperties
+    ForgeApoProperties **ppRegistrationProperties
 );
-typedef uint32_t (FAPOCALL * IsInputFormatSupportedFunc)(
+typedef uint32_t (FORGE_APO_CALL * ForgeApoIsInputFormatSupportedFunc)(
     void* fapo,
     const ForgeAudioFormat *pOutputFormat,
     const ForgeAudioFormat *pRequestedInputFormat,
     ForgeAudioFormat **ppSupportedInputFormat
 );
-typedef uint32_t (FAPOCALL * IsOutputFormatSupportedFunc)(
+typedef uint32_t (FORGE_APO_CALL * ForgeApoIsOutputFormatSupportedFunc)(
     void* fapo,
     const ForgeAudioFormat *pInputFormat,
     const ForgeAudioFormat *pRequestedOutputFormat,
     ForgeAudioFormat **ppSupportedOutputFormat
 );
-typedef uint32_t (FAPOCALL * InitializeFunc)(
+typedef uint32_t (FORGE_APO_CALL * ForgeApoInitializeFunc)(
     void* fapo,
     const void* pData,
     uint32_t DataByteSize
 );
-typedef void (FAPOCALL * ResetFunc)(
+typedef void (FORGE_APO_CALL * ForgeApoResetFunc)(
     void* fapo
 );
-typedef uint32_t (FAPOCALL * LockForProcessFunc)(
+typedef uint32_t (FORGE_APO_CALL * ForgeApoLockForProcessFunc)(
     void* fapo,
     uint32_t InputLockedParameterCount,
-    const FAPOLockForProcessBufferParameters *pInputLockedParameters,
+    const ForgeApoLockBuffer *pInputLockedParameters,
     uint32_t OutputLockedParameterCount,
-    const FAPOLockForProcessBufferParameters *pOutputLockedParameters
+    const ForgeApoLockBuffer *pOutputLockedParameters
 );
-typedef void (FAPOCALL * UnlockForProcessFunc)(
+typedef void (FORGE_APO_CALL * ForgeApoUnlockForProcessFunc)(
     void* fapo
 );
-typedef void (FAPOCALL * ProcessFunc)(
+typedef void (FORGE_APO_CALL * ForgeApoProcessFunc)(
     void* fapo,
     uint32_t InputProcessParameterCount,
-    const FAPOProcessBufferParameters* pInputProcessParameters,
+    const ForgeApoProcessBuffer* pInputProcessParameters,
     uint32_t OutputProcessParameterCount,
-    FAPOProcessBufferParameters* pOutputProcessParameters,
+    ForgeApoProcessBuffer* pOutputProcessParameters,
     int32_t IsEnabled
 );
-typedef uint32_t (FAPOCALL * CalcInputFramesFunc)(
+typedef uint32_t (FORGE_APO_CALL * ForgeApoCalcInputFramesFunc)(
     void* fapo,
     uint32_t OutputFrameCount
 );
-typedef uint32_t (FAPOCALL * CalcOutputFramesFunc)(
+typedef uint32_t (FORGE_APO_CALL * ForgeApoCalcOutputFramesFunc)(
     void* fapo,
     uint32_t InputFrameCount
 );
-typedef void (FAPOCALL * SetParametersFunc)(
+typedef void (FORGE_APO_CALL * ForgeApoSetParametersFunc)(
     void* fapo,
     const void* pParameters,
     uint32_t ParameterByteSize
 );
-typedef void (FAPOCALL * GetParametersFunc)(
+typedef void (FORGE_APO_CALL * ForgeApoGetParametersFunc)(
     void* fapo,
     void* pParameters,
     uint32_t ParameterByteSize
 );
 
-struct FAPO
+struct ForgeApo
 {
-    AddRefFunc AddRef;
-    ReleaseFunc Release;
-    GetRegistrationPropertiesFunc GetRegistrationProperties;
-    IsInputFormatSupportedFunc IsInputFormatSupported;
-    IsOutputFormatSupportedFunc IsOutputFormatSupported;
-    InitializeFunc Initialize;
-    ResetFunc Reset;
-    LockForProcessFunc LockForProcess;
-    UnlockForProcessFunc UnlockForProcess;
-    ProcessFunc Process;
-    CalcInputFramesFunc CalcInputFrames;
-    CalcOutputFramesFunc CalcOutputFrames;
-    SetParametersFunc SetParameters;
-    GetParametersFunc GetParameters;
+    ForgeApoAddRefFunc AddRef;
+    ForgeApoReleaseFunc Release;
+    ForgeApoGetPropertiesFunc GetRegistrationProperties;
+    ForgeApoIsInputFormatSupportedFunc IsInputFormatSupported;
+    ForgeApoIsOutputFormatSupportedFunc IsOutputFormatSupported;
+    ForgeApoInitializeFunc Initialize;
+    ForgeApoResetFunc Reset;
+    ForgeApoLockForProcessFunc LockForProcess;
+    ForgeApoUnlockForProcessFunc UnlockForProcess;
+    ForgeApoProcessFunc Process;
+    ForgeApoCalcInputFramesFunc CalcInputFrames;
+    ForgeApoCalcOutputFramesFunc CalcOutputFrames;
+    ForgeApoSetParametersFunc SetParameters;
+    ForgeApoGetParametersFunc GetParameters;
 };
 
 #ifdef __cplusplus

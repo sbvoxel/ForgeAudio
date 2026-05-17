@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudio
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,8 +27,8 @@
 /* This file has no documentation since the MSDN docs are still perfectly fine:
  * https://docs.microsoft.com/en-us/windows/desktop/api/xaudio2fx/
  *
- * Note, however, that ForgeAudioEngine's Reverb implementation does NOT support the new
- * parameters for XAudio 2.9's 7.1 Reverb effect!
+ * Note, however, that ForgeAudio's Reverb implementation does NOT support the new
+ * parameters for 7.1's 7.1 Reverb effect!
  */
 
 #ifndef FORGE_AUDIO_FX_H
@@ -42,21 +42,21 @@ extern "C" {
 
 /* GUIDs */
 
-extern const ForgeGuid FAudioFX_CLSID_AudioVolumeMeter;
-extern const ForgeGuid FAudioFX_CLSID_AudioReverb;
+extern const ForgeGuid FORGE_AUDIO_FX_ID_VOLUME_METER;
+extern const ForgeGuid FORGE_AUDIO_FX_ID_REVERB;
 
 /* Structures */
 
 #pragma pack(push, 1)
 
-typedef struct FAudioFXVolumeMeterLevels
+typedef struct ForgeAudioFxVolumeMeterLevels
 {
     float *pPeakLevels;
     float *pRMSLevels;
     uint32_t ChannelCount;
-} FAudioFXVolumeMeterLevels;
+} ForgeAudioFxVolumeMeterLevels;
 
-typedef struct FAudioFXReverbParameters
+typedef struct ForgeAudioReverbParameters
 {
     float WetDryMix;
     uint32_t ReflectionsDelay;
@@ -80,9 +80,9 @@ typedef struct FAudioFXReverbParameters
     float DecayTime;
     float Density;
     float RoomSize;
-} FAudioFXReverbParameters;
+} ForgeAudioReverbParameters;
 
-typedef struct FAudioFXReverbParameters9
+typedef struct ForgeAudioReverbParameters7Point1
 {
     float WetDryMix;
     uint32_t ReflectionsDelay;
@@ -107,9 +107,9 @@ typedef struct FAudioFXReverbParameters9
     float DecayTime;
     float Density;
     float RoomSize;
-} FAudioFXReverbParameters9;
+} ForgeAudioReverbParameters7Point1;
 
-typedef struct FAudioFXReverbI3DL2Parameters
+typedef struct ForgeAudioReverbI3DL2Parameters
 {
     float WetDryMix;
     int32_t Room;
@@ -124,178 +124,178 @@ typedef struct FAudioFXReverbI3DL2Parameters
     float Diffusion;
     float Density;
     float HFReference;
-} FAudioFXReverbI3DL2Parameters;
+} ForgeAudioReverbI3DL2Parameters;
 
 #pragma pack(pop)
 
 /* Constants */
 
-#define FAUDIOFX_DEBUG 1
+#define FORGE_AUDIO_FX_DEBUG 1
 
-#define FAUDIOFX_REVERB_MIN_FRAMERATE 20000
-#define FAUDIOFX_REVERB_MAX_FRAMERATE 48000
+#define FORGE_AUDIO_REVERB_MIN_SAMPLE_RATE 20000
+#define FORGE_AUDIO_REVERB_MAX_SAMPLE_RATE 48000
 
-#define FAUDIOFX_REVERB_MIN_WET_DRY_MIX        0.0f
-#define FAUDIOFX_REVERB_MIN_REFLECTIONS_DELAY    0
-#define FAUDIOFX_REVERB_MIN_REVERB_DELAY    0
-#define FAUDIOFX_REVERB_MIN_REAR_DELAY        0
-#define FAUDIOFX_REVERB_MIN_7POINT1_SIDE_DELAY    0
-#define FAUDIOFX_REVERB_MIN_7POINT1_REAR_DELAY    0
-#define FAUDIOFX_REVERB_MIN_POSITION        0
-#define FAUDIOFX_REVERB_MIN_DIFFUSION        0
-#define FAUDIOFX_REVERB_MIN_LOW_EQ_GAIN        0
-#define FAUDIOFX_REVERB_MIN_LOW_EQ_CUTOFF    0
-#define FAUDIOFX_REVERB_MIN_HIGH_EQ_GAIN    0
-#define FAUDIOFX_REVERB_MIN_HIGH_EQ_CUTOFF    0
-#define FAUDIOFX_REVERB_MIN_ROOM_FILTER_FREQ    20.0f
-#define FAUDIOFX_REVERB_MIN_ROOM_FILTER_MAIN    -100.0f
-#define FAUDIOFX_REVERB_MIN_ROOM_FILTER_HF    -100.0f
-#define FAUDIOFX_REVERB_MIN_REFLECTIONS_GAIN    -100.0f
-#define FAUDIOFX_REVERB_MIN_REVERB_GAIN        -100.0f
-#define FAUDIOFX_REVERB_MIN_DECAY_TIME        0.1f
-#define FAUDIOFX_REVERB_MIN_DENSITY        0.0f
-#define FAUDIOFX_REVERB_MIN_ROOM_SIZE        0.0f
+#define FORGE_AUDIO_REVERB_MIN_WET_DRY_MIX        0.0f
+#define FORGE_AUDIO_REVERB_MIN_REFLECTIONS_DELAY    0
+#define FORGE_AUDIO_REVERB_MIN_REVERB_DELAY    0
+#define FORGE_AUDIO_REVERB_MIN_REAR_DELAY        0
+#define FORGE_AUDIO_REVERB_MIN_7_1_SIDE_DELAY    0
+#define FORGE_AUDIO_REVERB_MIN_7_1_REAR_DELAY    0
+#define FORGE_AUDIO_REVERB_MIN_POSITION        0
+#define FORGE_AUDIO_REVERB_MIN_DIFFUSION        0
+#define FORGE_AUDIO_REVERB_MIN_LOW_EQ_GAIN        0
+#define FORGE_AUDIO_REVERB_MIN_LOW_EQ_CUTOFF    0
+#define FORGE_AUDIO_REVERB_MIN_HIGH_EQ_GAIN    0
+#define FORGE_AUDIO_REVERB_MIN_HIGH_EQ_CUTOFF    0
+#define FORGE_AUDIO_REVERB_MIN_ROOM_FILTER_FREQ    20.0f
+#define FORGE_AUDIO_REVERB_MIN_ROOM_FILTER_MAIN    -100.0f
+#define FORGE_AUDIO_REVERB_MIN_ROOM_FILTER_HF    -100.0f
+#define FORGE_AUDIO_REVERB_MIN_REFLECTIONS_GAIN    -100.0f
+#define FORGE_AUDIO_REVERB_MIN_REVERB_GAIN        -100.0f
+#define FORGE_AUDIO_REVERB_MIN_DECAY_TIME        0.1f
+#define FORGE_AUDIO_REVERB_MIN_DENSITY        0.0f
+#define FORGE_AUDIO_REVERB_MIN_ROOM_SIZE        0.0f
 
-#define FAUDIOFX_REVERB_MAX_WET_DRY_MIX        100.0f
-#define FAUDIOFX_REVERB_MAX_REFLECTIONS_DELAY    300
-#define FAUDIOFX_REVERB_MAX_REVERB_DELAY    85
-#define FAUDIOFX_REVERB_MAX_REAR_DELAY        5
-#define FAUDIOFX_REVERB_MAX_7POINT1_SIDE_DELAY    5
-#define FAUDIOFX_REVERB_MAX_7POINT1_REAR_DELAY    20
-#define FAUDIOFX_REVERB_MAX_POSITION        30
-#define FAUDIOFX_REVERB_MAX_DIFFUSION        15
-#define FAUDIOFX_REVERB_MAX_LOW_EQ_GAIN        12
-#define FAUDIOFX_REVERB_MAX_LOW_EQ_CUTOFF    9
-#define FAUDIOFX_REVERB_MAX_HIGH_EQ_GAIN    8
-#define FAUDIOFX_REVERB_MAX_HIGH_EQ_CUTOFF    14
-#define FAUDIOFX_REVERB_MAX_ROOM_FILTER_FREQ    20000.0f
-#define FAUDIOFX_REVERB_MAX_ROOM_FILTER_MAIN    0.0f
-#define FAUDIOFX_REVERB_MAX_ROOM_FILTER_HF    0.0f
-#define FAUDIOFX_REVERB_MAX_REFLECTIONS_GAIN    20.0f
-#define FAUDIOFX_REVERB_MAX_REVERB_GAIN        20.0f
-#define FAUDIOFX_REVERB_MAX_DENSITY        100.0f
-#define FAUDIOFX_REVERB_MAX_ROOM_SIZE        100.0f
+#define FORGE_AUDIO_REVERB_MAX_WET_DRY_MIX        100.0f
+#define FORGE_AUDIO_REVERB_MAX_REFLECTIONS_DELAY    300
+#define FORGE_AUDIO_REVERB_MAX_REVERB_DELAY    85
+#define FORGE_AUDIO_REVERB_MAX_REAR_DELAY        5
+#define FORGE_AUDIO_REVERB_MAX_7_1_SIDE_DELAY    5
+#define FORGE_AUDIO_REVERB_MAX_7_1_REAR_DELAY    20
+#define FORGE_AUDIO_REVERB_MAX_POSITION        30
+#define FORGE_AUDIO_REVERB_MAX_DIFFUSION        15
+#define FORGE_AUDIO_REVERB_MAX_LOW_EQ_GAIN        12
+#define FORGE_AUDIO_REVERB_MAX_LOW_EQ_CUTOFF    9
+#define FORGE_AUDIO_REVERB_MAX_HIGH_EQ_GAIN    8
+#define FORGE_AUDIO_REVERB_MAX_HIGH_EQ_CUTOFF    14
+#define FORGE_AUDIO_REVERB_MAX_ROOM_FILTER_FREQ    20000.0f
+#define FORGE_AUDIO_REVERB_MAX_ROOM_FILTER_MAIN    0.0f
+#define FORGE_AUDIO_REVERB_MAX_ROOM_FILTER_HF    0.0f
+#define FORGE_AUDIO_REVERB_MAX_REFLECTIONS_GAIN    20.0f
+#define FORGE_AUDIO_REVERB_MAX_REVERB_GAIN        20.0f
+#define FORGE_AUDIO_REVERB_MAX_DENSITY        100.0f
+#define FORGE_AUDIO_REVERB_MAX_ROOM_SIZE        100.0f
 
-#define FAUDIOFX_REVERB_DEFAULT_WET_DRY_MIX        100.0f
-#define FAUDIOFX_REVERB_DEFAULT_REFLECTIONS_DELAY    5
-#define FAUDIOFX_REVERB_DEFAULT_REVERB_DELAY        5
-#define FAUDIOFX_REVERB_DEFAULT_REAR_DELAY        5
-#define FAUDIOFX_REVERB_DEFAULT_7POINT1_SIDE_DELAY    5
-#define FAUDIOFX_REVERB_DEFAULT_7POINT1_REAR_DELAY    20
-#define FAUDIOFX_REVERB_DEFAULT_POSITION        6
-#define FAUDIOFX_REVERB_DEFAULT_POSITION_MATRIX        27
-#define FAUDIOFX_REVERB_DEFAULT_EARLY_DIFFUSION        8
-#define FAUDIOFX_REVERB_DEFAULT_LATE_DIFFUSION        8
-#define FAUDIOFX_REVERB_DEFAULT_LOW_EQ_GAIN        8
-#define FAUDIOFX_REVERB_DEFAULT_LOW_EQ_CUTOFF        4
-#define FAUDIOFX_REVERB_DEFAULT_HIGH_EQ_GAIN        8
-#define FAUDIOFX_REVERB_DEFAULT_HIGH_EQ_CUTOFF        4
-#define FAUDIOFX_REVERB_DEFAULT_ROOM_FILTER_FREQ    5000.0f
-#define FAUDIOFX_REVERB_DEFAULT_ROOM_FILTER_MAIN    0.0f
-#define FAUDIOFX_REVERB_DEFAULT_ROOM_FILTER_HF        0.0f
-#define FAUDIOFX_REVERB_DEFAULT_REFLECTIONS_GAIN    0.0f
-#define FAUDIOFX_REVERB_DEFAULT_REVERB_GAIN        0.0f
-#define FAUDIOFX_REVERB_DEFAULT_DECAY_TIME        1.0f
-#define FAUDIOFX_REVERB_DEFAULT_DENSITY            100.0f
-#define FAUDIOFX_REVERB_DEFAULT_ROOM_SIZE        100.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_WET_DRY_MIX        100.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_REFLECTIONS_DELAY    5
+#define FORGE_AUDIO_REVERB_DEFAULT_REVERB_DELAY        5
+#define FORGE_AUDIO_REVERB_DEFAULT_REAR_DELAY        5
+#define FORGE_AUDIO_REVERB_DEFAULT_7_1_SIDE_DELAY    5
+#define FORGE_AUDIO_REVERB_DEFAULT_7_1_REAR_DELAY    20
+#define FORGE_AUDIO_REVERB_DEFAULT_POSITION        6
+#define FORGE_AUDIO_REVERB_DEFAULT_POSITION_MATRIX        27
+#define FORGE_AUDIO_REVERB_DEFAULT_EARLY_DIFFUSION        8
+#define FORGE_AUDIO_REVERB_DEFAULT_LATE_DIFFUSION        8
+#define FORGE_AUDIO_REVERB_DEFAULT_LOW_EQ_GAIN        8
+#define FORGE_AUDIO_REVERB_DEFAULT_LOW_EQ_CUTOFF        4
+#define FORGE_AUDIO_REVERB_DEFAULT_HIGH_EQ_GAIN        8
+#define FORGE_AUDIO_REVERB_DEFAULT_HIGH_EQ_CUTOFF        4
+#define FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_FREQ    5000.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_MAIN    0.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_ROOM_FILTER_HF        0.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_REFLECTIONS_GAIN    0.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_REVERB_GAIN        0.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_DECAY_TIME        1.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_DENSITY            100.0f
+#define FORGE_AUDIO_REVERB_DEFAULT_ROOM_SIZE        100.0f
 
-#define FAUDIOFX_I3DL2_PRESET_DEFAULT \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_DEFAULT \
     {100,-10000,    0,0.0f, 1.00f,0.50f,-10000,0.020f,-10000,0.040f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_GENERIC \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_GENERIC \
     {100, -1000, -100,0.0f, 1.49f,0.83f, -2602,0.007f,   200,0.011f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_PADDEDCELL \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_PADDEDCELL \
     {100, -1000,-6000,0.0f, 0.17f,0.10f, -1204,0.001f,   207,0.002f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_ROOM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_ROOM \
     {100, -1000, -454,0.0f, 0.40f,0.83f, -1646,0.002f,    53,0.003f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_BATHROOM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_BATHROOM \
     {100, -1000,-1200,0.0f, 1.49f,0.54f,  -370,0.007f,  1030,0.011f,100.0f, 60.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_LIVINGROOM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_LIVINGROOM \
     {100, -1000,-6000,0.0f, 0.50f,0.10f, -1376,0.003f, -1104,0.004f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_STONEROOM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_STONEROOM \
     {100, -1000, -300,0.0f, 2.31f,0.64f,  -711,0.012f,    83,0.017f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_AUDITORIUM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_AUDITORIUM \
     {100, -1000, -476,0.0f, 4.32f,0.59f,  -789,0.020f,  -289,0.030f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_CONCERTHALL \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_CONCERTHALL \
     {100, -1000, -500,0.0f, 3.92f,0.70f, -1230,0.020f,    -2,0.029f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_CAVE \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_CAVE \
     {100, -1000,    0,0.0f, 2.91f,1.30f,  -602,0.015f,  -302,0.022f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_ARENA \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_ARENA \
     {100, -1000, -698,0.0f, 7.24f,0.33f, -1166,0.020f,    16,0.030f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_HANGAR \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_HANGAR \
     {100, -1000,-1000,0.0f,10.05f,0.23f,  -602,0.020f,   198,0.030f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_CARPETEDHALLWAY \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_CARPETEDHALLWAY \
     {100, -1000,-4000,0.0f, 0.30f,0.10f, -1831,0.002f, -1630,0.030f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_HALLWAY \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_HALLWAY \
     {100, -1000, -300,0.0f, 1.49f,0.59f, -1219,0.007f,   441,0.011f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_STONECORRIDOR \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_STONECORRIDOR \
     {100, -1000, -237,0.0f, 2.70f,0.79f, -1214,0.013f,   395,0.020f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_ALLEY \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_ALLEY \
     {100, -1000, -270,0.0f, 1.49f,0.86f, -1204,0.007f,    -4,0.011f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_FOREST \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_FOREST \
     {100, -1000,-3300,0.0f, 1.49f,0.54f, -2560,0.162f,  -613,0.088f, 79.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_CITY \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_CITY \
     {100, -1000, -800,0.0f, 1.49f,0.67f, -2273,0.007f, -2217,0.011f, 50.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_MOUNTAINS \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_MOUNTAINS \
     {100, -1000,-2500,0.0f, 1.49f,0.21f, -2780,0.300f, -2014,0.100f, 27.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_QUARRY \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_QUARRY \
     {100, -1000,-1000,0.0f, 1.49f,0.83f,-10000,0.061f,   500,0.025f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_PLAIN \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_PLAIN \
     {100, -1000,-2000,0.0f, 1.49f,0.50f, -2466,0.179f, -2514,0.100f, 21.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_PARKINGLOT \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_PARKINGLOT \
     {100, -1000,    0,0.0f, 1.65f,1.50f, -1363,0.008f, -1153,0.012f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_SEWERPIPE \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_SEWERPIPE \
     {100, -1000,-1000,0.0f, 2.81f,0.14f,   429,0.014f,   648,0.021f, 80.0f, 60.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_UNDERWATER \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_UNDERWATER \
     {100, -1000,-4000,0.0f, 1.49f,0.10f,  -449,0.007f,  1700,0.011f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_SMALLROOM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_SMALLROOM \
     {100, -1000, -600,0.0f, 1.10f,0.83f,  -400,0.005f,   500,0.010f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_MEDIUMROOM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_MEDIUMROOM \
     {100, -1000, -600,0.0f, 1.30f,0.83f, -1000,0.010f,  -200,0.020f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_LARGEROOM \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_LARGEROOM \
     {100, -1000, -600,0.0f, 1.50f,0.83f, -1600,0.020f, -1000,0.040f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_MEDIUMHALL \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_MEDIUMHALL \
     {100, -1000, -600,0.0f, 1.80f,0.70f, -1300,0.015f,  -800,0.030f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_LARGEHALL \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_LARGEHALL \
     {100, -1000, -600,0.0f, 1.80f,0.70f, -2000,0.030f, -1400,0.060f,100.0f,100.0f,5000.0f}
-#define FAUDIOFX_I3DL2_PRESET_PLATE \
+#define FORGE_AUDIO_REVERB_I3DL2_PRESET_PLATE \
     {100, -1000, -200,0.0f, 1.30f,0.90f,     0,0.002f,     0,0.010f,100.0f, 75.0f,5000.0f}
 
 /* Functions */
 
-FORGE_AUDIO_API uint32_t FAudioCreateVolumeMeter(FAPO** ppApo, uint32_t Flags);
-FORGE_AUDIO_API uint32_t FAudioCreateReverb(FAPO** ppApo, uint32_t Flags);
-FORGE_AUDIO_API uint32_t FAudioCreateReverb9(FAPO** ppApo, uint32_t Flags);
+FORGE_AUDIO_API uint32_t forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags);
+FORGE_AUDIO_API uint32_t forge_audio_create_reverb(ForgeApo** ppApo, uint32_t Flags);
+FORGE_AUDIO_API uint32_t forge_audio_create_reverb_7point1(ForgeApo** ppApo, uint32_t Flags);
 
-/* See "extensions/CustomAllocatorEXT.txt" for more information. */
-FORGE_AUDIO_API uint32_t FAudioCreateVolumeMeterWithCustomAllocatorEXT(
-    FAPO** ppApo,
+/* See "extensions/custom allocator.txt" for more information. */
+FORGE_AUDIO_API uint32_t forge_audio_create_volume_meter_with_allocator(
+    ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-FORGE_AUDIO_API uint32_t FAudioCreateReverbWithCustomAllocatorEXT(
-    FAPO** ppApo,
+FORGE_AUDIO_API uint32_t forge_audio_create_reverb_with_allocator(
+    ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-FORGE_AUDIO_API uint32_t FAudioCreateReverb9WithCustomAllocatorEXT(
-    FAPO** ppApo,
+FORGE_AUDIO_API uint32_t forge_audio_create_reverb_7point1_with_allocator(
+    ForgeApo** ppApo,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 
-FORGE_AUDIO_API void ReverbConvertI3DL2ToNative(
-    const FAudioFXReverbI3DL2Parameters *pI3DL2,
-    FAudioFXReverbParameters *pNative
+FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2(
+    const ForgeAudioReverbI3DL2Parameters *pI3DL2,
+    ForgeAudioReverbParameters *pNative
 );
-FORGE_AUDIO_API void ReverbConvertI3DL2ToNative9(
-    const FAudioFXReverbI3DL2Parameters *pI3DL2,
-    FAudioFXReverbParameters9 *pNative,
+FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2_7point1(
+    const ForgeAudioReverbI3DL2Parameters *pI3DL2,
+    ForgeAudioReverbParameters7Point1 *pNative,
     int32_t sevenDotOneReverb
 );
 

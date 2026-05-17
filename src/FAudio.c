@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -1375,12 +1375,12 @@ uint32_t forge_voice_set_effect_chain(
     ForgeVoice *voice,
     const ForgeEffectChain *pEffectChain
 ) {
-    FAPO *fapo;
+    ForgeApo *fapo;
     uint32_t channelCount;
     ForgeVoiceDetails voiceDetails;
-    FAPORegistrationProperties *pProps;
+    ForgeApoProperties *pProps;
     ForgeAudioFormatExtensible srcFmt, dstFmt;
-    FAPOLockForProcessBufferParameters srcLockParams, dstLockParams;
+    ForgeApoLockBuffer srcLockParams, dstLockParams;
 
     LOG_API_ENTER(voice->audio)
 
@@ -1515,7 +1515,7 @@ uint32_t forge_voice_set_effect_chain(
             fapo = voice->effects.desc[i].pEffect;
             if (fapo->GetRegistrationProperties(fapo, &pProps) == 0)
             {
-                voice->effects.inPlaceProcessing[i] = (pProps->Flags & FAPO_FLAG_INPLACE_SUPPORTED) == FAPO_FLAG_INPLACE_SUPPORTED;
+                voice->effects.inPlaceProcessing[i] = (pProps->Flags & FORGE_APO_FLAG_IN_PLACE_SUPPORTED) == FORGE_APO_FLAG_IN_PLACE_SUPPORTED;
                 voice->effects.inPlaceProcessing[i] &= (channelCount == voice->effects.desc[i].OutputChannels);
                 channelCount = voice->effects.desc[i].OutputChannels;
 
@@ -1523,7 +1523,7 @@ uint32_t forge_voice_set_effect_chain(
                  * the chain forces us to do otherwise...
                  */
                 FAudio_assert(
-                    !(pProps->Flags & FAPO_FLAG_INPLACE_REQUIRED) ||
+                    !(pProps->Flags & FORGE_APO_FLAG_IN_PLACE_REQUIRED) ||
                     voice->effects.inPlaceProcessing[i]
                 );
 
@@ -1674,7 +1674,7 @@ uint32_t forge_voice_get_effect_parameters(
     void *pParameters,
     uint32_t ParametersByteSize
 ) {
-    FAPO *fapo;
+    ForgeApo *fapo;
     LOG_API_ENTER(voice->audio)
     FAudio_PlatformLockMutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)

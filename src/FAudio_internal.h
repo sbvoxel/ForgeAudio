@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -435,7 +435,7 @@ struct ForgeVoice
     FAudioFilterState **sendFilterState;
     struct
     {
-        FAPOBufferFlags state;
+        ForgeApoBufferFlags state;
         uint32_t count;
         ForgeEffect *desc;
         void **parameters;
@@ -635,23 +635,44 @@ void FAudio_INTERNAL_debug_fmt(
 
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
 
-/* FAPOFX Creators */
+/* ForgeApoFx Creators */
 
-#define CREATE_FAPOFX_FUNC(effect) \
-    extern uint32_t FAPOFXCreate##effect( \
-        FAPO **pEffect, \
-        const void *pInitData, \
-        uint32_t InitDataByteSize, \
-        ForgeMallocFunc customMalloc, \
-        ForgeFreeFunc customFree, \
-        ForgeReallocFunc customRealloc, \
-        uint8_t legacy \
-    );
-CREATE_FAPOFX_FUNC(EQ)
-CREATE_FAPOFX_FUNC(MasteringLimiter)
-CREATE_FAPOFX_FUNC(Reverb)
-CREATE_FAPOFX_FUNC(Echo)
-#undef CREATE_FAPOFX_FUNC
+extern uint32_t forge_apo_create_eq(
+    ForgeApo **pEffect,
+    const void *pInitData,
+    uint32_t InitDataByteSize,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc,
+    uint8_t legacy
+);
+extern uint32_t forge_apo_create_mastering_limiter(
+    ForgeApo **pEffect,
+    const void *pInitData,
+    uint32_t InitDataByteSize,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc,
+    uint8_t legacy
+);
+extern uint32_t forge_apo_create_reverb(
+    ForgeApo **pEffect,
+    const void *pInitData,
+    uint32_t InitDataByteSize,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc,
+    uint8_t legacy
+);
+extern uint32_t forge_apo_create_echo(
+    ForgeApo **pEffect,
+    const void *pInitData,
+    uint32_t InitDataByteSize,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc,
+    uint8_t legacy
+);
 
 /* SIMD Stuff */
 

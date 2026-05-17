@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,9 +27,9 @@
 #include "forge_apo_fx.h"
 #include "FAudio_internal.h"
 
-/* FXMasteringLimiter FAPO Implementation */
+/* FXMasteringLimiter ForgeApo Implementation */
 
-const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter =
+const ForgeGuid FORGE_APO_FX_ID_MASTERING_LIMITER =
 {
     0xC4137916,
     0x2BE1,
@@ -46,7 +46,7 @@ const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter =
     }
 };
 
-static FAPORegistrationProperties FXMasteringLimiterProperties =
+static ForgeApoProperties FXMasteringLimiterProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -61,11 +61,11 @@ static FAPORegistrationProperties FXMasteringLimiterProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FAPO_FLAG_FRAMERATE_MUST_MATCH |
-        FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH |
-        FAPO_FLAG_BUFFERCOUNT_MUST_MATCH |
-        FAPO_FLAG_INPLACE_SUPPORTED |
-        FAPO_FLAG_INPLACE_REQUIRED
+        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_APO_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -73,7 +73,7 @@ static FAPORegistrationProperties FXMasteringLimiterProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter_LEGACY =
+const ForgeGuid FORGE_APO_FX_ID_MASTERING_LIMITER_LEGACY =
 {
     0xA90BC001,
     0xE897,
@@ -90,7 +90,7 @@ const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter_LEGACY =
     }
 };
 
-static FAPORegistrationProperties FXMasteringLimiterProperties_LEGACY =
+static ForgeApoProperties FXMasteringLimiterProperties_LEGACY =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -105,11 +105,11 @@ static FAPORegistrationProperties FXMasteringLimiterProperties_LEGACY =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FAPO_FLAG_FRAMERATE_MUST_MATCH |
-        FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH |
-        FAPO_FLAG_BUFFERCOUNT_MUST_MATCH |
-        FAPO_FLAG_INPLACE_SUPPORTED |
-        FAPO_FLAG_INPLACE_REQUIRED
+        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_APO_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -117,15 +117,15 @@ static FAPORegistrationProperties FXMasteringLimiterProperties_LEGACY =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct FAPOFXMasteringLimiter
+typedef struct ForgeApoMasteringLimiter
 {
-    FAPOBase base;
+    ForgeApoBase base;
 
     /* TODO */
-} FAPOFXMasteringLimiter;
+} ForgeApoMasteringLimiter;
 
-uint32_t FAPOFXMasteringLimiter_Initialize(
-    FAPOFXMasteringLimiter *fapo,
+uint32_t ForgeApoMasteringLimiter_Initialize(
+    ForgeApoMasteringLimiter *fapo,
     const void* pData,
     uint32_t DataByteSize
 ) {
@@ -142,32 +142,32 @@ uint32_t FAPOFXMasteringLimiter_Initialize(
     return 0;
 }
 
-void FAPOFXMasteringLimiter_Process(
-    FAPOFXMasteringLimiter *fapo,
+void ForgeApoMasteringLimiter_Process(
+    ForgeApoMasteringLimiter *fapo,
     uint32_t InputProcessParameterCount,
-    const FAPOProcessBufferParameters* pInputProcessParameters,
+    const ForgeApoProcessBuffer* pInputProcessParameters,
     uint32_t OutputProcessParameterCount,
-    FAPOProcessBufferParameters* pOutputProcessParameters,
+    ForgeApoProcessBuffer* pOutputProcessParameters,
     int32_t IsEnabled
 ) {
-    FAPOBase_BeginProcess(&fapo->base);
+    forge_apo_base_begin_process(&fapo->base);
 
     /* TODO */
 
-    FAPOBase_EndProcess(&fapo->base);
+    forge_apo_base_end_process(&fapo->base);
 }
 
-void FAPOFXMasteringLimiter_Free(void* fapo)
+void ForgeApoMasteringLimiter_Free(void* fapo)
 {
-    FAPOFXMasteringLimiter *limiter = (FAPOFXMasteringLimiter*) fapo;
+    ForgeApoMasteringLimiter *limiter = (ForgeApoMasteringLimiter*) fapo;
     limiter->base.pFree(limiter->base.m_pParameterBlocks);
     limiter->base.pFree(fapo);
 }
 
 /* Public API */
 
-uint32_t FAPOFXCreateMasteringLimiter(
-    FAPO **pEffect,
+uint32_t forge_apo_create_mastering_limiter(
+    ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
@@ -175,27 +175,27 @@ uint32_t FAPOFXCreateMasteringLimiter(
     ForgeReallocFunc customRealloc,
     uint8_t legacy
 ) {
-    const FAPOFXMasteringLimiterParameters fxdefault =
+    const ForgeApoMasteringLimiterParameters fxdefault =
     {
-        FAPOFXMASTERINGLIMITER_DEFAULT_RELEASE,
-        FAPOFXMASTERINGLIMITER_DEFAULT_LOUDNESS
+        FORGE_APO_MASTERING_LIMITER_DEFAULT_RELEASE,
+        FORGE_APO_MASTERING_LIMITER_DEFAULT_LOUDNESS
     };
 
     /* Allocate... */
-    FAPOFXMasteringLimiter *result = (FAPOFXMasteringLimiter*) customMalloc(
-        sizeof(FAPOFXMasteringLimiter)
+    ForgeApoMasteringLimiter *result = (ForgeApoMasteringLimiter*) customMalloc(
+        sizeof(ForgeApoMasteringLimiter)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(FAPOFXMasteringLimiterParameters) * 3
+        sizeof(ForgeApoMasteringLimiterParameters) * 3
     );
     if (pInitData == NULL)
     {
-        FAudio_zero(params, sizeof(FAPOFXMasteringLimiterParameters) * 3);
+        FAudio_zero(params, sizeof(ForgeApoMasteringLimiterParameters) * 3);
         #define INITPARAMS(offset) \
             FAudio_memcpy( \
-                params + sizeof(FAPOFXMasteringLimiterParameters) * offset, \
+                params + sizeof(ForgeApoMasteringLimiterParameters) * offset, \
                 &fxdefault, \
-                sizeof(FAPOFXMasteringLimiterParameters) \
+                sizeof(ForgeApoMasteringLimiterParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -204,7 +204,7 @@ uint32_t FAPOFXCreateMasteringLimiter(
     }
     else
     {
-        FAudio_assert(InitDataByteSize == sizeof(FAPOFXMasteringLimiterParameters));
+        FAudio_assert(InitDataByteSize == sizeof(ForgeApoMasteringLimiterParameters));
         FAudio_memcpy(params, pInitData, InitDataByteSize);
         FAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
         FAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
@@ -213,19 +213,19 @@ uint32_t FAPOFXCreateMasteringLimiter(
     /* Initialize... */
     FAudio_memcpy(
         &FXMasteringLimiterProperties_LEGACY.clsid,
-        &FAPOFX_CLSID_FXMasteringLimiter_LEGACY,
+        &FORGE_APO_FX_ID_MASTERING_LIMITER_LEGACY,
         sizeof(ForgeGuid)
     );
     FAudio_memcpy(
         &FXMasteringLimiterProperties.clsid,
-        &FAPOFX_CLSID_FXMasteringLimiter,
+        &FORGE_APO_FX_ID_MASTERING_LIMITER,
         sizeof(ForgeGuid)
     );
-    CreateFAPOBaseWithCustomAllocatorEXT(
+    forge_apo_base_init_with_allocator(
         &result->base,
         legacy ? &FXMasteringLimiterProperties_LEGACY : &FXMasteringLimiterProperties,
         params,
-        sizeof(FAPOFXMasteringLimiterParameters),
+        sizeof(ForgeApoMasteringLimiterParameters),
         0,
         customMalloc,
         customFree,
@@ -233,11 +233,11 @@ uint32_t FAPOFXCreateMasteringLimiter(
     );
 
     /* Function table... */
-    result->base.base.Initialize = (InitializeFunc)
-        FAPOFXMasteringLimiter_Initialize;
-    result->base.base.Process = (ProcessFunc)
-        FAPOFXMasteringLimiter_Process;
-    result->base.Destructor = FAPOFXMasteringLimiter_Free;
+    result->base.base.Initialize = (ForgeApoInitializeFunc)
+        ForgeApoMasteringLimiter_Initialize;
+    result->base.base.Process = (ForgeApoProcessFunc)
+        ForgeApoMasteringLimiter_Process;
+    result->base.Destructor = ForgeApoMasteringLimiter_Free;
 
     /* Finally. */
     *pEffect = &result->base.base;

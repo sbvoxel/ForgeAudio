@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,16 +27,16 @@
 #include "forge_apo_base.h"
 #include "FAudio_internal.h"
 
-/* FAPOBase Interface */
+/* ForgeApoBase Interface */
 
-void CreateFAPOBase(
-    FAPOBase *fapo,
-    const FAPORegistrationProperties *pRegistrationProperties,
+void forge_apo_base_init(
+    ForgeApoBase *fapo,
+    const ForgeApoProperties *pRegistrationProperties,
     uint8_t *pParameterBlocks,
     uint32_t uParameterBlockByteSize,
     uint8_t fProducer
 ) {
-    CreateFAPOBaseWithCustomAllocatorEXT(
+    forge_apo_base_init_with_allocator(
         fapo,
         pRegistrationProperties,
         pParameterBlocks,
@@ -48,9 +48,9 @@ void CreateFAPOBase(
     );
 }
 
-void CreateFAPOBaseWithCustomAllocatorEXT(
-    FAPOBase *fapo,
-    const FAPORegistrationProperties *pRegistrationProperties,
+void forge_apo_base_init_with_allocator(
+    ForgeApoBase *fapo,
+    const ForgeApoProperties *pRegistrationProperties,
     uint8_t *pParameterBlocks,
     uint32_t uParameterBlockByteSize,
     uint8_t fProducer,
@@ -59,26 +59,32 @@ void CreateFAPOBaseWithCustomAllocatorEXT(
     ForgeReallocFunc customRealloc
 ) {
     /* Base Classes/Interfaces */
-    #define ASSIGN_VT(name) \
-        fapo->base.name = (name##Func) FAPOBase_##name;
-    ASSIGN_VT(AddRef)
-    ASSIGN_VT(Release)
-    ASSIGN_VT(GetRegistrationProperties)
-    ASSIGN_VT(IsInputFormatSupported)
-    ASSIGN_VT(IsOutputFormatSupported)
-    ASSIGN_VT(Initialize)
-    ASSIGN_VT(Reset)
-    ASSIGN_VT(LockForProcess)
-    ASSIGN_VT(UnlockForProcess)
-    ASSIGN_VT(CalcInputFrames)
-    ASSIGN_VT(CalcOutputFrames)
-    ASSIGN_VT(SetParameters)
-    ASSIGN_VT(GetParameters)
-    #undef ASSIGN_VT
+    fapo->base.AddRef = (ForgeApoAddRefFunc) forge_apo_base_retain;
+    fapo->base.Release = (ForgeApoReleaseFunc) forge_apo_base_release;
+    fapo->base.GetRegistrationProperties = (ForgeApoGetPropertiesFunc)
+        forge_apo_base_get_properties;
+    fapo->base.IsInputFormatSupported = (ForgeApoIsInputFormatSupportedFunc)
+        forge_apo_base_is_input_format_supported;
+    fapo->base.IsOutputFormatSupported = (ForgeApoIsOutputFormatSupportedFunc)
+        forge_apo_base_is_output_format_supported;
+    fapo->base.Initialize = (ForgeApoInitializeFunc) forge_apo_base_initialize;
+    fapo->base.Reset = (ForgeApoResetFunc) forge_apo_base_reset;
+    fapo->base.LockForProcess = (ForgeApoLockForProcessFunc)
+        forge_apo_base_lock_for_process;
+    fapo->base.UnlockForProcess = (ForgeApoUnlockForProcessFunc)
+        forge_apo_base_unlock_for_process;
+    fapo->base.CalcInputFrames = (ForgeApoCalcInputFramesFunc)
+        forge_apo_base_calc_input_frames;
+    fapo->base.CalcOutputFrames = (ForgeApoCalcOutputFramesFunc)
+        forge_apo_base_calc_output_frames;
+    fapo->base.SetParameters = (ForgeApoSetParametersFunc)
+        forge_apo_base_set_parameters;
+    fapo->base.GetParameters = (ForgeApoGetParametersFunc)
+        forge_apo_base_get_parameters;
 
     /* Public Virtual Functions */
     fapo->OnSetParameters = (OnSetParametersFunc)
-        FAPOBase_OnSetParameters;
+        forge_apo_base_on_set_parameters;
 
     /* Private Variables */
     fapo->m_pRegistrationProperties = pRegistrationProperties; /* FIXME */
@@ -104,13 +110,13 @@ void CreateFAPOBaseWithCustomAllocatorEXT(
     fapo->m_lReferenceCount = 1;
 }
 
-int32_t FAPOBase_AddRef(FAPOBase *fapo)
+int32_t forge_apo_base_retain(ForgeApoBase *fapo)
 {
     fapo->m_lReferenceCount += 1;
     return fapo->m_lReferenceCount;
 }
 
-int32_t FAPOBase_Release(FAPOBase *fapo)
+int32_t forge_apo_base_release(ForgeApoBase *fapo)
 {
     fapo->m_lReferenceCount -= 1;
     if (fapo->m_lReferenceCount == 0)
@@ -121,109 +127,109 @@ int32_t FAPOBase_Release(FAPOBase *fapo)
     return fapo->m_lReferenceCount;
 }
 
-uint32_t FAPOBase_GetRegistrationProperties(
-    FAPOBase *fapo,
-    FAPORegistrationProperties **ppRegistrationProperties
+uint32_t forge_apo_base_get_properties(
+    ForgeApoBase *fapo,
+    ForgeApoProperties **ppRegistrationProperties
 ) {
-    *ppRegistrationProperties = (FAPORegistrationProperties*) fapo->pMalloc(
-        sizeof(FAPORegistrationProperties)
+    *ppRegistrationProperties = (ForgeApoProperties*) fapo->pMalloc(
+        sizeof(ForgeApoProperties)
     );
     FAudio_memcpy(
         *ppRegistrationProperties,
         fapo->m_pRegistrationProperties,
-        sizeof(FAPORegistrationProperties)
+        sizeof(ForgeApoProperties)
     );
     return 0;
 }
 
-uint32_t FAPOBase_IsInputFormatSupported(
-    FAPOBase *fapo,
+uint32_t forge_apo_base_is_input_format_supported(
+    ForgeApoBase *fapo,
     const ForgeAudioFormat *pOutputFormat,
     const ForgeAudioFormat *pRequestedInputFormat,
     ForgeAudioFormat **ppSupportedInputFormat
 ) {
-    if (    pRequestedInputFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||
-        pRequestedInputFormat->nChannels < FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS ||
-        pRequestedInputFormat->nChannels > FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS ||
-        pRequestedInputFormat->nSamplesPerSec < FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE ||
-        pRequestedInputFormat->nSamplesPerSec > FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE ||
-        pRequestedInputFormat->wBitsPerSample != FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE    )
+    if (    pRequestedInputFormat->wFormatTag != FORGE_APO_BASE_DEFAULT_FORMAT_TAG ||
+        pRequestedInputFormat->nChannels < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
+        pRequestedInputFormat->nChannels > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
+        pRequestedInputFormat->nSamplesPerSec < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE ||
+        pRequestedInputFormat->nSamplesPerSec > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE ||
+        pRequestedInputFormat->wBitsPerSample != FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE    )
     {
         if (ppSupportedInputFormat != NULL)
         {
             (*ppSupportedInputFormat)->wFormatTag =
-                FAPOBASE_DEFAULT_FORMAT_TAG;
+                FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
             (*ppSupportedInputFormat)->nChannels = FAudio_clamp(
                 pRequestedInputFormat->nChannels,
-                FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS,
-                FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
             (*ppSupportedInputFormat)->nSamplesPerSec = FAudio_clamp(
                 pRequestedInputFormat->nSamplesPerSec,
-                FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE,
-                FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
             );
             (*ppSupportedInputFormat)->wBitsPerSample =
-                FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE;
+                FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FAPO_E_FORMAT_UNSUPPORTED;
+        return FORGE_APO_E_FORMAT_UNSUPPORTED;
     }
     return 0;
 }
 
-uint32_t FAPOBase_IsOutputFormatSupported(
-    FAPOBase *fapo,
+uint32_t forge_apo_base_is_output_format_supported(
+    ForgeApoBase *fapo,
     const ForgeAudioFormat *pInputFormat,
     const ForgeAudioFormat *pRequestedOutputFormat,
     ForgeAudioFormat **ppSupportedOutputFormat
 ) {
-    if (    pRequestedOutputFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||
-        pRequestedOutputFormat->nChannels < FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS ||
-        pRequestedOutputFormat->nChannels > FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS ||
-        pRequestedOutputFormat->nSamplesPerSec < FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE ||
-        pRequestedOutputFormat->nSamplesPerSec > FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE ||
-        pRequestedOutputFormat->wBitsPerSample != FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE    )
+    if (    pRequestedOutputFormat->wFormatTag != FORGE_APO_BASE_DEFAULT_FORMAT_TAG ||
+        pRequestedOutputFormat->nChannels < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
+        pRequestedOutputFormat->nChannels > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
+        pRequestedOutputFormat->nSamplesPerSec < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE ||
+        pRequestedOutputFormat->nSamplesPerSec > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE ||
+        pRequestedOutputFormat->wBitsPerSample != FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE    )
     {
         if (ppSupportedOutputFormat != NULL)
         {
             (*ppSupportedOutputFormat)->wFormatTag =
-                FAPOBASE_DEFAULT_FORMAT_TAG;
+                FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
             (*ppSupportedOutputFormat)->nChannels = FAudio_clamp(
                 pRequestedOutputFormat->nChannels,
-                FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS,
-                FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
             (*ppSupportedOutputFormat)->nSamplesPerSec = FAudio_clamp(
                 pRequestedOutputFormat->nSamplesPerSec,
-                FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE,
-                FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
             );
             (*ppSupportedOutputFormat)->wBitsPerSample =
-                FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE;
+                FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FAPO_E_FORMAT_UNSUPPORTED;
+        return FORGE_APO_E_FORMAT_UNSUPPORTED;
     }
     return 0;
 }
 
-uint32_t FAPOBase_Initialize(
-    FAPOBase *fapo,
+uint32_t forge_apo_base_initialize(
+    ForgeApoBase *fapo,
     const void* pData,
     uint32_t DataByteSize
 ) {
     return 0;
 }
 
-void FAPOBase_Reset(FAPOBase *fapo)
+void forge_apo_base_reset(ForgeApoBase *fapo)
 {
 }
 
-uint32_t FAPOBase_LockForProcess(
-    FAPOBase *fapo,
+uint32_t forge_apo_base_lock_for_process(
+    ForgeApoBase *fapo,
     uint32_t InputLockedParameterCount,
-    const FAPOLockForProcessBufferParameters *pInputLockedParameters,
+    const ForgeApoLockBuffer *pInputLockedParameters,
     uint32_t OutputLockedParameterCount,
-    const FAPOLockForProcessBufferParameters *pOutputLockedParameters
+    const ForgeApoLockBuffer *pOutputLockedParameters
 ) {
     /* Verify parameter counts... */
     if (    InputLockedParameterCount < fapo->m_pRegistrationProperties->MinInputBufferCount ||
@@ -242,11 +248,11 @@ uint32_t FAPOBase_LockForProcess(
         { \
             return FORGE_AUDIO_E_INVALID_ARG; \
         }
-    VERIFY_FORMAT_FLAG(FAPO_FLAG_CHANNELS_MUST_MATCH, nChannels)
-    VERIFY_FORMAT_FLAG(FAPO_FLAG_FRAMERATE_MUST_MATCH, nSamplesPerSec)
-    VERIFY_FORMAT_FLAG(FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH, wBitsPerSample)
+    VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_CHANNELS_MUST_MATCH, nChannels)
+    VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH, nSamplesPerSec)
+    VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH, wBitsPerSample)
     #undef VERIFY_FORMAT_FLAG
-    if (    (fapo->m_pRegistrationProperties->Flags & FAPO_FLAG_BUFFERCOUNT_MUST_MATCH) &&
+    if (    (fapo->m_pRegistrationProperties->Flags & FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH) &&
         (InputLockedParameterCount != OutputLockedParameterCount)    )
     {
         return FORGE_AUDIO_E_INVALID_ARG;
@@ -255,92 +261,92 @@ uint32_t FAPOBase_LockForProcess(
     return 0;
 }
 
-void FAPOBase_UnlockForProcess(FAPOBase *fapo)
+void forge_apo_base_unlock_for_process(ForgeApoBase *fapo)
 {
     fapo->m_fIsLocked = 0;
 }
 
-uint32_t FAPOBase_CalcInputFrames(FAPOBase *fapo, uint32_t OutputFrameCount)
+uint32_t forge_apo_base_calc_input_frames(ForgeApoBase *fapo, uint32_t OutputFrameCount)
 {
     return OutputFrameCount;
 }
 
-uint32_t FAPOBase_CalcOutputFrames(FAPOBase *fapo, uint32_t InputFrameCount)
+uint32_t forge_apo_base_calc_output_frames(ForgeApoBase *fapo, uint32_t InputFrameCount)
 {
     return InputFrameCount;
 }
 
-uint32_t FAPOBase_ValidateFormatDefault(
-    FAPOBase *fapo,
+uint32_t forge_apo_base_validate_default_format(
+    ForgeApoBase *fapo,
     ForgeAudioFormat *pFormat,
     uint8_t fOverwrite
 ) {
-    if (    pFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||
-        pFormat->nChannels < FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS ||
-        pFormat->nChannels > FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS ||
-        pFormat->nSamplesPerSec < FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE ||
-        pFormat->nSamplesPerSec > FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE ||
-        pFormat->wBitsPerSample != FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE    )
+    if (    pFormat->wFormatTag != FORGE_APO_BASE_DEFAULT_FORMAT_TAG ||
+        pFormat->nChannels < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
+        pFormat->nChannels > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
+        pFormat->nSamplesPerSec < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE ||
+        pFormat->nSamplesPerSec > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE ||
+        pFormat->wBitsPerSample != FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE    )
     {
         if (fOverwrite)
         {
             pFormat->wFormatTag =
-                FAPOBASE_DEFAULT_FORMAT_TAG;
+                FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
             pFormat->nChannels = FAudio_clamp(
                 pFormat->nChannels,
-                FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS,
-                FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
             pFormat->nSamplesPerSec = FAudio_clamp(
                 pFormat->nSamplesPerSec,
-                FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE,
-                FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
             );
             pFormat->wBitsPerSample =
-                FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE;
+                FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FAPO_E_FORMAT_UNSUPPORTED;
+        return FORGE_APO_E_FORMAT_UNSUPPORTED;
     }
     return 0;
 }
 
-uint32_t FAPOBase_ValidateFormatPair(
-    FAPOBase *fapo,
+uint32_t forge_apo_base_validate_format_pair(
+    ForgeApoBase *fapo,
     const ForgeAudioFormat *pSupportedFormat,
     ForgeAudioFormat *pRequestedFormat,
     uint8_t fOverwrite
 ) {
-    if (    pRequestedFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||
-        pRequestedFormat->nChannels < FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS ||
-        pRequestedFormat->nChannels > FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS ||
-        pRequestedFormat->nSamplesPerSec < FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE ||
-        pRequestedFormat->nSamplesPerSec > FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE ||
-        pRequestedFormat->wBitsPerSample != FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE    )
+    if (    pRequestedFormat->wFormatTag != FORGE_APO_BASE_DEFAULT_FORMAT_TAG ||
+        pRequestedFormat->nChannels < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
+        pRequestedFormat->nChannels > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
+        pRequestedFormat->nSamplesPerSec < FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE ||
+        pRequestedFormat->nSamplesPerSec > FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE ||
+        pRequestedFormat->wBitsPerSample != FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE    )
     {
         if (fOverwrite)
         {
             pRequestedFormat->wFormatTag =
-                FAPOBASE_DEFAULT_FORMAT_TAG;
+                FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
             pRequestedFormat->nChannels = FAudio_clamp(
                 pRequestedFormat->nChannels,
-                FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS,
-                FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
             pRequestedFormat->nSamplesPerSec = FAudio_clamp(
                 pRequestedFormat->nSamplesPerSec,
-                FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE,
-                FAPOBASE_DEFAULT_FORMAT_MAX_FRAMERATE
+                FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
+                FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
             );
             pRequestedFormat->wBitsPerSample =
-                FAPOBASE_DEFAULT_FORMAT_BITSPERSAMPLE;
+                FORGE_APO_BASE_DEFAULT_FORMAT_BITS_PER_SAMPLE;
         }
-        return FAPO_E_FORMAT_UNSUPPORTED;
+        return FORGE_APO_E_FORMAT_UNSUPPORTED;
     }
     return 0;
 }
 
-void FAPOBase_ProcessThru(
-    FAPOBase *fapo,
+void forge_apo_base_process_through(
+    ForgeApoBase *fapo,
     void* pInputBuffer,
     float *pOutputBuffer,
     uint32_t FrameCount,
@@ -377,8 +383,8 @@ void FAPOBase_ProcessThru(
     }
 }
 
-void FAPOBase_SetParameters(
-    FAPOBase *fapo,
+void forge_apo_base_set_parameters(
+    ForgeApoBase *fapo,
     const void* pParameters,
     uint32_t ParameterByteSize
 ) {
@@ -410,8 +416,8 @@ void FAPOBase_SetParameters(
     );
 }
 
-void FAPOBase_GetParameters(
-    FAPOBase *fapo,
+void forge_apo_base_get_parameters(
+    ForgeApoBase *fapo,
     void* pParameters,
     uint32_t ParameterByteSize
 ) {
@@ -423,27 +429,27 @@ void FAPOBase_GetParameters(
     );
 }
 
-void FAPOBase_OnSetParameters(
-    FAPOBase *fapo,
+void forge_apo_base_on_set_parameters(
+    ForgeApoBase *fapo,
     const void* parameters,
     uint32_t parametersSize
 ) {
 }
 
-uint8_t FAPOBase_ParametersChanged(FAPOBase *fapo)
+uint8_t forge_apo_base_parameters_changed(ForgeApoBase *fapo)
 {
     /* Internal will get updated when SetParameters is called */
     return fapo->m_pCurrentParametersInternal != fapo->m_pCurrentParameters;
 }
 
-uint8_t* FAPOBase_BeginProcess(FAPOBase *fapo)
+uint8_t* forge_apo_base_begin_process(ForgeApoBase *fapo)
 {
     /* Set the latest block as "current", this is what Process will use now */
     fapo->m_pCurrentParameters = fapo->m_pCurrentParametersInternal;
     return fapo->m_pCurrentParameters;
 }
 
-void FAPOBase_EndProcess(FAPOBase *fapo)
+void forge_apo_base_end_process(ForgeApoBase *fapo)
 {
     /* I'm 100% sure my parameter block increment is wrong... */
 }

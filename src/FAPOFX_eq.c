@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,9 +27,9 @@
 #include "forge_apo_fx.h"
 #include "FAudio_internal.h"
 
-/* FXEQ FAPO Implementation */
+/* FXEQ ForgeApo Implementation */
 
-const ForgeGuid FAPOFX_CLSID_FXEQ =
+const ForgeGuid FORGE_APO_FX_ID_EQ =
 {
     0xF5E01117,
     0xD6C4,
@@ -46,7 +46,7 @@ const ForgeGuid FAPOFX_CLSID_FXEQ =
     }
 };
 
-static FAPORegistrationProperties FXEQProperties =
+static ForgeApoProperties FXEQProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -61,11 +61,11 @@ static FAPORegistrationProperties FXEQProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FAPO_FLAG_FRAMERATE_MUST_MATCH |
-        FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH |
-        FAPO_FLAG_BUFFERCOUNT_MUST_MATCH |
-        FAPO_FLAG_INPLACE_SUPPORTED |
-        FAPO_FLAG_INPLACE_REQUIRED
+        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_APO_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -73,7 +73,7 @@ static FAPORegistrationProperties FXEQProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-const ForgeGuid FAPOFX_CLSID_FXEQ_LEGACY =
+const ForgeGuid FORGE_APO_FX_ID_EQ_LEGACY =
 {
     0xA90BC001,
     0xE897,
@@ -90,7 +90,7 @@ const ForgeGuid FAPOFX_CLSID_FXEQ_LEGACY =
     }
 };
 
-static FAPORegistrationProperties FXEQProperties_LEGACY =
+static ForgeApoProperties FXEQProperties_LEGACY =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -105,11 +105,11 @@ static FAPORegistrationProperties FXEQProperties_LEGACY =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FAPO_FLAG_FRAMERATE_MUST_MATCH |
-        FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH |
-        FAPO_FLAG_BUFFERCOUNT_MUST_MATCH |
-        FAPO_FLAG_INPLACE_SUPPORTED |
-        FAPO_FLAG_INPLACE_REQUIRED
+        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_APO_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -117,15 +117,15 @@ static FAPORegistrationProperties FXEQProperties_LEGACY =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct FAPOFXEQ
+typedef struct ForgeApoEq
 {
-    FAPOBase base;
+    ForgeApoBase base;
 
     /* TODO */
-} FAPOFXEQ;
+} ForgeApoEq;
 
-uint32_t FAPOFXEQ_Initialize(
-    FAPOFXEQ *fapo,
+uint32_t FORGE_APO_EQ_Initialize(
+    ForgeApoEq *fapo,
     const void* pData,
     uint32_t DataByteSize
 ) {
@@ -142,32 +142,32 @@ uint32_t FAPOFXEQ_Initialize(
     return 0;
 }
 
-void FAPOFXEQ_Process(
-    FAPOFXEQ *fapo,
+void FORGE_APO_EQ_Process(
+    ForgeApoEq *fapo,
     uint32_t InputProcessParameterCount,
-    const FAPOProcessBufferParameters* pInputProcessParameters,
+    const ForgeApoProcessBuffer* pInputProcessParameters,
     uint32_t OutputProcessParameterCount,
-    FAPOProcessBufferParameters* pOutputProcessParameters,
+    ForgeApoProcessBuffer* pOutputProcessParameters,
     int32_t IsEnabled
 ) {
-    FAPOBase_BeginProcess(&fapo->base);
+    forge_apo_base_begin_process(&fapo->base);
 
     /* TODO */
 
-    FAPOBase_EndProcess(&fapo->base);
+    forge_apo_base_end_process(&fapo->base);
 }
 
-void FAPOFXEQ_Free(void* fapo)
+void FORGE_APO_EQ_Free(void* fapo)
 {
-    FAPOFXEQ *eq = (FAPOFXEQ*) fapo;
+    ForgeApoEq *eq = (ForgeApoEq*) fapo;
     eq->base.pFree(eq->base.m_pParameterBlocks);
     eq->base.pFree(fapo);
 }
 
 /* Public API */
 
-uint32_t FAPOFXCreateEQ(
-    FAPO **pEffect,
+uint32_t forge_apo_create_eq(
+    ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
@@ -175,37 +175,37 @@ uint32_t FAPOFXCreateEQ(
     ForgeReallocFunc customRealloc,
     uint8_t legacy
 ) {
-    const FAPOFXEQParameters fxdefault =
+    const ForgeApoEqParameters fxdefault =
     {
-        FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_0,
-        FAPOFXEQ_DEFAULT_GAIN,
-        FAPOFXEQ_DEFAULT_BANDWIDTH,
-        FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_1,
-        FAPOFXEQ_DEFAULT_GAIN,
-        FAPOFXEQ_DEFAULT_BANDWIDTH,
-        FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_2,
-        FAPOFXEQ_DEFAULT_GAIN,
-        FAPOFXEQ_DEFAULT_BANDWIDTH,
-        FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_3,
-        FAPOFXEQ_DEFAULT_GAIN,
-        FAPOFXEQ_DEFAULT_BANDWIDTH
+        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_0,
+        FORGE_APO_EQ_DEFAULT_GAIN,
+        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
+        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_1,
+        FORGE_APO_EQ_DEFAULT_GAIN,
+        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
+        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_2,
+        FORGE_APO_EQ_DEFAULT_GAIN,
+        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
+        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_3,
+        FORGE_APO_EQ_DEFAULT_GAIN,
+        FORGE_APO_EQ_DEFAULT_BANDWIDTH
     };
 
     /* Allocate... */
-    FAPOFXEQ *result = (FAPOFXEQ*) customMalloc(
-        sizeof(FAPOFXEQ)
+    ForgeApoEq *result = (ForgeApoEq*) customMalloc(
+        sizeof(ForgeApoEq)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(FAPOFXEQParameters) * 3
+        sizeof(ForgeApoEqParameters) * 3
     );
     if (pInitData == NULL)
     {
-        FAudio_zero(params, sizeof(FAPOFXEQParameters) * 3);
+        FAudio_zero(params, sizeof(ForgeApoEqParameters) * 3);
         #define INITPARAMS(offset) \
             FAudio_memcpy( \
-                params + sizeof(FAPOFXEQParameters) * offset, \
+                params + sizeof(ForgeApoEqParameters) * offset, \
                 &fxdefault, \
-                sizeof(FAPOFXEQParameters) \
+                sizeof(ForgeApoEqParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -214,7 +214,7 @@ uint32_t FAPOFXCreateEQ(
     }
     else
     {
-        FAudio_assert(InitDataByteSize == sizeof(FAPOFXEQParameters));
+        FAudio_assert(InitDataByteSize == sizeof(ForgeApoEqParameters));
         FAudio_memcpy(params, pInitData, InitDataByteSize);
         FAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
         FAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
@@ -223,19 +223,19 @@ uint32_t FAPOFXCreateEQ(
     /* Initialize... */
     FAudio_memcpy(
         &FXEQProperties_LEGACY.clsid,
-        &FAPOFX_CLSID_FXEQ_LEGACY,
+        &FORGE_APO_FX_ID_EQ_LEGACY,
         sizeof(ForgeGuid)
     );
     FAudio_memcpy(
         &FXEQProperties.clsid,
-        &FAPOFX_CLSID_FXEQ,
+        &FORGE_APO_FX_ID_EQ,
         sizeof(ForgeGuid)
     );
-    CreateFAPOBaseWithCustomAllocatorEXT(
+    forge_apo_base_init_with_allocator(
         &result->base,
         legacy ? &FXEQProperties_LEGACY : &FXEQProperties,
         params,
-        sizeof(FAPOFXEQParameters),
+        sizeof(ForgeApoEqParameters),
         0,
         customMalloc,
         customFree,
@@ -243,11 +243,11 @@ uint32_t FAPOFXCreateEQ(
     );
 
     /* Function table... */
-    result->base.base.Initialize = (InitializeFunc)
-        FAPOFXEQ_Initialize;
-    result->base.base.Process = (ProcessFunc)
-        FAPOFXEQ_Process;
-    result->base.Destructor = FAPOFXEQ_Free;
+    result->base.base.Initialize = (ForgeApoInitializeFunc)
+        FORGE_APO_EQ_Initialize;
+    result->base.base.Process = (ForgeApoProcessFunc)
+        FORGE_APO_EQ_Process;
+    result->base.Destructor = FORGE_APO_EQ_Free;
 
     /* Finally. */
     *pEffect = &result->base.base;

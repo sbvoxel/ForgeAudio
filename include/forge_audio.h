@@ -152,14 +152,14 @@ typedef struct ForgeSendList
     ForgeSend *pSends;
 } ForgeSendList;
 
-#ifndef FAPO_DECL
-#define FAPO_DECL
-typedef struct FAPO FAPO;
-#endif /* FAPO_DECL */
+#ifndef FORGE_APO_DECL
+#define FORGE_APO_DECL
+typedef struct ForgeApo ForgeApo;
+#endif /* FORGE_APO_DECL */
 
 typedef struct ForgeEffect
 {
-    FAPO *pEffect;
+    ForgeApo *pEffect;
     int32_t InitialState; /* 1 - Enabled, 0 - Disabled */
     uint32_t OutputChannels;
 } ForgeEffect;
@@ -277,7 +277,7 @@ typedef struct ForgeXMA2FormatEx
 #define FORGE_AUDIO_E_UNSUPPORTED_FORMAT    0x88890008
 #define FORGE_AUDIO_E_INVALID_CALL        0x88960001
 #define FORGE_AUDIO_E_DEVICE_INVALIDATED    0x88960004
-#define FAPO_E_FORMAT_UNSUPPORTED    0x88970001
+#define FORGE_APO_E_FORMAT_UNSUPPORTED    0x88970001
 
 #define FORGE_AUDIO_MAX_BUFFER_BYTES        0x80000000
 #define FORGE_AUDIO_MAX_QUEUED_BUFFERS    64
@@ -528,7 +528,7 @@ FORGE_AUDIO_API void forge_audio_unregister_callback(
  * pCallback:        Voice callbacks, see ForgeVoiceCallback documentation.
  * pSendList:        List of output voices. If NULL, defaults to master.
  *            All output voices must have the same sample rate!
- * pEffectChain:    List of FAPO effects. This value can be NULL.
+ * pEffectChain:    List of ForgeApo effects. This value can be NULL.
  *
  * Returns 0 on success.
  */
@@ -545,7 +545,7 @@ FORGE_AUDIO_API uint32_t forge_audio_create_source_voice(
 
 /* Creates a "submix" voice, used to mix/process input voices.
  * The typical use case for this is to perform CPU-intensive tasks on large
- * groups of voices all at once. Examples include resampling and FAPO effects.
+ * groups of voices all at once. Examples include resampling and ForgeApo effects.
  *
  * ppSubmixVoice:    Filled with the submix voice pointer.
  * InputChannels:    Input voices will convert to this channel count.
@@ -557,7 +557,7 @@ FORGE_AUDIO_API uint32_t forge_audio_create_source_voice(
  *            stage 0 will process first, then stage 1, 2, and so on.
  * pSendList:        List of output voices. If NULL, defaults to master.
  *            All output voices must have the same sample rate!
- * pEffectChain:    List of FAPO effects. This value can be NULL.
+ * pEffectChain:    List of ForgeApo effects. This value can be NULL.
  *
  * Returns 0 on success.
  */
@@ -580,7 +580,7 @@ FORGE_AUDIO_API uint32_t forge_audio_create_submix_voice(
  * InputSampleRate:    Device sample rate. Can be FORGE_AUDIO_DEFAULT_SAMPLERATE.
  * Flags:        This value must be 0.
  * DeviceIndex:        0 for the default device. See forge_audio_get_device_count.
- * pEffectChain:    List of FAPO effects. This value can be NULL.
+ * pEffectChain:    List of ForgeApo effects. This value can be NULL.
  *
  * Returns 0 on success.
  */
@@ -682,7 +682,7 @@ FORGE_AUDIO_API uint32_t forge_voice_set_outputs(
 
 /* Change/Remove the effect chain for this voice.
  *
- * pEffectChain:    List of FAPO effects. This value can be NULL.
+ * pEffectChain:    List of ForgeApo effects. This value can be NULL.
  *            Note that the final channel counts for this chain MUST
  *            match the input/output channel count that was
  *            determined at voice creation time!
@@ -733,11 +733,11 @@ FORGE_AUDIO_API void forge_voice_get_effect_state(
     int32_t *pEnabled
 );
 
-/* Submits a block of memory to be sent to FAPO::SetParameters.
+/* Submits a block of memory to be sent to ForgeApo::SetParameters.
  *
  * EffectIndex:        The index of the effect (based on the chain order).
- * pParameters:        The values to be copied and submitted to the FAPO.
- * ParametersByteSize:    This should match what the FAPO expects!
+ * pParameters:        The values to be copied and submitted to the ForgeApo.
+ * ParametersByteSize:    This should match what the ForgeApo expects!
  * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns 0 on success.
@@ -750,11 +750,11 @@ FORGE_AUDIO_API uint32_t forge_voice_set_effect_parameters(
     uint32_t OperationSet
 );
 
-/* Requests the latest parameters from FAPO::GetParameters.
+/* Requests the latest parameters from ForgeApo::GetParameters.
  *
  * EffectIndex:        The index of the effect (based on the chain order).
- * pParameters:        Filled with the latest parameter values from the FAPO.
- * ParametersByteSize:    This should match what the FAPO expects!
+ * pParameters:        Filled with the latest parameter values from the ForgeApo.
+ * ParametersByteSize:    This should match what the ForgeApo expects!
  *
  * Returns 0 on success.
  */

@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -666,27 +666,27 @@ static inline float *FAudio_INTERNAL_ProcessEffectChain(
     float *buffer,
     uint32_t *samples
 ) {
-    FAPO *fapo;
-    FAPOProcessBufferParameters srcParams, dstParams;
+    ForgeApo *fapo;
+    ForgeApoProcessBuffer srcParams, dstParams;
 
     LOG_FUNC_ENTER(voice->audio)
 
     /* Set up the buffer to be written into */
     srcParams.pBuffer = buffer;
-    srcParams.BufferFlags = FAPO_BUFFER_SILENT;
+    srcParams.BufferFlags = FORGE_APO_BUFFER_SILENT;
     srcParams.ValidFrameCount = *samples;
     for (uint32_t i = 0; i < srcParams.ValidFrameCount; i += 1)
     {
         if (buffer[i] != 0.0f) /* Arbitrary! */
         {
-            srcParams.BufferFlags = FAPO_BUFFER_VALID;
+            srcParams.BufferFlags = FORGE_APO_BUFFER_VALID;
             break;
         }
     }
 
     /* Initialize output parameters to something sane */
     dstParams.pBuffer = srcParams.pBuffer;
-    dstParams.BufferFlags = FAPO_BUFFER_VALID;
+    dstParams.BufferFlags = FORGE_APO_BUFFER_VALID;
     dstParams.ValidFrameCount = srcParams.ValidFrameCount;
 
     /* Update parameters, process! */
@@ -854,7 +854,7 @@ static void FAudio_INTERNAL_MixSource(ForgeSourceVoice *voice)
         FAudio_PlatformUnlockMutex(voice->src.bufferLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
 
-        if (voice->effects.count > 0 && voice->effects.state != FAPO_BUFFER_SILENT)
+        if (voice->effects.count > 0 && voice->effects.state != FORGE_APO_BUFFER_SILENT)
         {
             /* do not stop while the effect chain generates a non-silent buffer */
             FAudio_INTERNAL_ResizeResampleCache(
@@ -1474,7 +1474,7 @@ void FAudio_INTERNAL_AllocEffectChain(
     const ForgeEffectChain *pEffectChain
 ) {
     LOG_FUNC_ENTER(voice->audio)
-    voice->effects.state = FAPO_BUFFER_VALID;
+    voice->effects.state = FORGE_APO_BUFFER_VALID;
     voice->effects.count = pEffectChain->EffectCount;
     if (voice->effects.count == 0)
     {

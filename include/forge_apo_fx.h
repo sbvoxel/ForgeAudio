@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudio
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -29,7 +29,7 @@
 
 #include "forge_apo.h"
 
-#define FAPOFXAPI FORGE_AUDIO_API
+#define FORGE_APO_FX_API FORGE_AUDIO_API
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,20 +37,20 @@ extern "C" {
 
 /* GUIDs */
 
-/* "Legacy" GUIDs are from XAPOFX <= 1.5. They were removed in XAudio 2.8 and later. */
-extern const ForgeGuid FAPOFX_CLSID_FXEQ, FAPOFX_CLSID_FXEQ_LEGACY;
-extern const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter, FAPOFX_CLSID_FXMasteringLimiter_LEGACY;
-extern const ForgeGuid FAPOFX_CLSID_FXReverb, FAPOFX_CLSID_FXReverb_LEGACY;
-extern const ForgeGuid FAPOFX_CLSID_FXEcho, FAPOFX_CLSID_FXEcho_LEGACY;
+/* Legacy IDs are retained for old content that references them directly. */
+extern const ForgeGuid FORGE_APO_FX_ID_EQ, FORGE_APO_FX_ID_EQ_LEGACY;
+extern const ForgeGuid FORGE_APO_FX_ID_MASTERING_LIMITER, FORGE_APO_FX_ID_MASTERING_LIMITER_LEGACY;
+extern const ForgeGuid FORGE_APO_FX_ID_REVERB, FORGE_APO_FX_ID_REVERB_LEGACY;
+extern const ForgeGuid FORGE_APO_FX_ID_ECHO, FORGE_APO_FX_ID_ECHO_LEGACY;
 
 /* Structures */
 
 #pragma pack(push, 1)
 
-/* See FAPOFXEQ_* constants below.
+/* See FORGE_APO_EQ_* constants below.
  * FrequencyCenter is in Hz, Gain is amplitude ratio, Bandwidth is Q factor.
  */
-typedef struct FAPOFXEQParameters
+typedef struct ForgeApoEqParameters
 {
     float FrequencyCenter0;
     float Gain0;
@@ -64,104 +64,104 @@ typedef struct FAPOFXEQParameters
     float FrequencyCenter3;
     float Gain3;
     float Bandwidth3;
-} FAPOFXEQParameters;
+} ForgeApoEqParameters;
 
-/* See FAPOFXMASTERINGLIMITER_* constants below. */
-typedef struct FAPOFXMasteringLimiterParameters
+/* See FORGE_APO_MASTERING_LIMITER_* constants below. */
+typedef struct ForgeApoMasteringLimiterParameters
 {
     uint32_t Release;    /* In milliseconds */
     uint32_t Loudness;    /* In... uh, MSDN doesn't actually say what. */
-} FAPOFXMasteringLimiterParameters;
+} ForgeApoMasteringLimiterParameters;
 
-/* See FAPOFXREVERB_* constants below.
+/* See FORGE_APO_REVERB_* constants below.
  * Both parameters are arbitrary and should be treated subjectively.
  */
-typedef struct FAPOFXReverbParameters
+typedef struct ForgeApoReverbParameters
 {
     float Diffusion;
     float RoomSize;
-} FAPOFXReverbParameters;
+} ForgeApoReverbParameters;
 
-/* See FAPOFXECHO_* constants below. */
-typedef struct FAPOFXEchoParameters
+/* See FORGE_APO_ECHO_* constants below. */
+typedef struct ForgeApoEchoParameters
 {
     float WetDryMix;    /* Percentage of processed signal vs original */
     float Feedback;        /* Percentage to feed back into input */
     float Delay;        /* In milliseconds */
-} FAPOFXEchoParameters;
+} ForgeApoEchoParameters;
 
 #pragma pack(pop)
 
 /* Constants */
 
-#define FAPOFXEQ_MIN_FRAMERATE 22000
-#define FAPOFXEQ_MAX_FRAMERATE 48000
+#define FORGE_APO_EQ_MIN_SAMPLE_RATE 22000
+#define FORGE_APO_EQ_MAX_SAMPLE_RATE 48000
 
-#define FAPOFXEQ_MIN_FREQUENCY_CENTER        20.0f
-#define FAPOFXEQ_MAX_FREQUENCY_CENTER        20000.0f
-#define FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_0    100.0f
-#define FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_1    800.0f
-#define FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_2    2000.0f
-#define FAPOFXEQ_DEFAULT_FREQUENCY_CENTER_3    10000.0f
+#define FORGE_APO_EQ_MIN_FREQUENCY_CENTER        20.0f
+#define FORGE_APO_EQ_MAX_FREQUENCY_CENTER        20000.0f
+#define FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_0    100.0f
+#define FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_1    800.0f
+#define FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_2    2000.0f
+#define FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_3    10000.0f
 
-#define FAPOFXEQ_MIN_GAIN    0.126f
-#define FAPOFXEQ_MAX_GAIN    7.94f
-#define FAPOFXEQ_DEFAULT_GAIN    1.0f
+#define FORGE_APO_EQ_MIN_GAIN    0.126f
+#define FORGE_APO_EQ_MAX_GAIN    7.94f
+#define FORGE_APO_EQ_DEFAULT_GAIN    1.0f
 
-#define FAPOFXEQ_MIN_BANDWIDTH        0.1f
-#define FAPOFXEQ_MAX_BANDWIDTH        2.0f
-#define FAPOFXEQ_DEFAULT_BANDWIDTH    1.0f
+#define FORGE_APO_EQ_MIN_BANDWIDTH        0.1f
+#define FORGE_APO_EQ_MAX_BANDWIDTH        2.0f
+#define FORGE_APO_EQ_DEFAULT_BANDWIDTH    1.0f
 
-#define FAPOFXMASTERINGLIMITER_MIN_RELEASE    1
-#define FAPOFXMASTERINGLIMITER_MAX_RELEASE    20
-#define FAPOFXMASTERINGLIMITER_DEFAULT_RELEASE    6
+#define FORGE_APO_MASTERING_LIMITER_MIN_RELEASE    1
+#define FORGE_APO_MASTERING_LIMITER_MAX_RELEASE    20
+#define FORGE_APO_MASTERING_LIMITER_DEFAULT_RELEASE    6
 
-#define FAPOFXMASTERINGLIMITER_MIN_LOUDNESS    1
-#define FAPOFXMASTERINGLIMITER_MAX_LOUDNESS    1800
-#define FAPOFXMASTERINGLIMITER_DEFAULT_LOUDNESS    1000
+#define FORGE_APO_MASTERING_LIMITER_MIN_LOUDNESS    1
+#define FORGE_APO_MASTERING_LIMITER_MAX_LOUDNESS    1800
+#define FORGE_APO_MASTERING_LIMITER_DEFAULT_LOUDNESS    1000
 
-#define FAPOFXREVERB_MIN_DIFFUSION    0.0f
-#define FAPOFXREVERB_MAX_DIFFUSION    1.0f
-#define FAPOFXREVERB_DEFAULT_DIFFUSION    0.9f
+#define FORGE_APO_REVERB_MIN_DIFFUSION    0.0f
+#define FORGE_APO_REVERB_MAX_DIFFUSION    1.0f
+#define FORGE_APO_REVERB_DEFAULT_DIFFUSION    0.9f
 
-#define FAPOFXREVERB_MIN_ROOMSIZE    0.0001f
-#define FAPOFXREVERB_MAX_ROOMSIZE    1.0f
-#define FAPOFXREVERB_DEFAULT_ROOMSIZE    0.6f
+#define FORGE_APO_REVERB_MIN_ROOM_SIZE    0.0001f
+#define FORGE_APO_REVERB_MAX_ROOM_SIZE    1.0f
+#define FORGE_APO_REVERB_DEFAULT_ROOM_SIZE    0.6f
 
-#define FAPOFXECHO_MIN_WETDRYMIX    0.0f
-#define FAPOFXECHO_MAX_WETDRYMIX    1.0f
-#define FAPOFXECHO_DEFAULT_WETDRYMIX    0.5f
+#define FORGE_APO_ECHO_MIN_WET_DRY_MIX    0.0f
+#define FORGE_APO_ECHO_MAX_WET_DRY_MIX    1.0f
+#define FORGE_APO_ECHO_DEFAULT_WET_DRY_MIX    0.5f
 
-#define FAPOFXECHO_MIN_FEEDBACK        0.0f
-#define FAPOFXECHO_MAX_FEEDBACK        1.0f
-#define FAPOFXECHO_DEFAULT_FEEDBACK    0.5f
+#define FORGE_APO_ECHO_MIN_FEEDBACK        0.0f
+#define FORGE_APO_ECHO_MAX_FEEDBACK        1.0f
+#define FORGE_APO_ECHO_DEFAULT_FEEDBACK    0.5f
 
-#define FAPOFXECHO_MIN_DELAY        1.0f
-#define FAPOFXECHO_MAX_DELAY        2000.0f
-#define FAPOFXECHO_DEFAULT_DELAY    500.0f
+#define FORGE_APO_ECHO_MIN_DELAY        1.0f
+#define FORGE_APO_ECHO_MAX_DELAY        2000.0f
+#define FORGE_APO_ECHO_DEFAULT_DELAY    500.0f
 
 /* Functions */
 
-/* Creates an effect from the pre-made FAPOFX effect library.
+/* Creates an effect from the pre-made ForgeApoFx effect library.
  *
- * clsid:        A reference to one of the FAPOFX_CLSID_* GUIDs
- * pEffect:        Filled with the resulting FAPO object
+ * clsid:        A reference to one of the FORGE_APO_FX_ID_* GUIDs
+ * pEffect:        Filled with the resulting ForgeApo object
  * pInitData:        Starting parameters, pass NULL to use the default values
  * InitDataByteSize:    Parameter struct size, pass 0 if pInitData is NULL
  *
  * Returns 0 on success.
  */
-FAPOFXAPI uint32_t FAPOFX_CreateFX(
+FORGE_APO_FX_API uint32_t forge_apo_create_effect(
     const ForgeGuid *clsid,
-    FAPO **pEffect,
+    ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize
 );
 
-/* See "extensions/CustomAllocatorEXT.txt" for more details. */
-FAPOFXAPI uint32_t FAPOFX_CreateFXWithCustomAllocatorEXT(
+/* See "extensions/custom allocator.txt" for more details. */
+FORGE_APO_FX_API uint32_t forge_apo_create_effect_with_allocator(
     const ForgeGuid *clsid,
-    FAPO **pEffect,
+    ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,

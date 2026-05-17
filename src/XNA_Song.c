@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -336,12 +336,12 @@ FORGE_AUDIO_API uint32_t XNA_GetSongEnded()
 
 FORGE_AUDIO_API void XNA_EnableVisualization(uint32_t enable)
 {
-    /* TODO: Enable/Disable FAPO effect */
+    /* TODO: Enable/Disable ForgeApo effect */
 }
 
 FORGE_AUDIO_API uint32_t XNA_VisualizationEnabled()
 {
-    /* TODO: Query FAPO effect enabled */
+    /* TODO: Query ForgeApo effect enabled */
     return 0;
 }
 
@@ -350,5 +350,5 @@ FORGE_AUDIO_API void XNA_GetSongVisualizationData(
     float *samples,
     uint32_t count
 ) {
-    /* TODO: Visualization FAPO that reads in Song samples, FFT analysis */
+    /* TODO: Visualization ForgeApo that reads in Song samples, FFT analysis */
 }

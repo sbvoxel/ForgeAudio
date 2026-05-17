@@ -1,4 +1,4 @@
-/* ForgeAudioEngine - XAudio Reimplementation for FNA
+/* ForgeAudioEngine
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,9 +27,9 @@
 #include "forge_apo_fx.h"
 #include "FAudio_internal.h"
 
-/* FXReverb FAPO Implementation */
+/* FXReverb ForgeApo Implementation */
 
-const ForgeGuid FAPOFX_CLSID_FXReverb =
+const ForgeGuid FORGE_APO_FX_ID_REVERB =
 {
     0x7D9ACA56,
     0xCB68,
@@ -46,7 +46,7 @@ const ForgeGuid FAPOFX_CLSID_FXReverb =
     }
 };
 
-static FAPORegistrationProperties FXReverbProperties =
+static ForgeApoProperties FXReverbProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -61,11 +61,11 @@ static FAPORegistrationProperties FXReverbProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FAPO_FLAG_FRAMERATE_MUST_MATCH |
-        FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH |
-        FAPO_FLAG_BUFFERCOUNT_MUST_MATCH |
-        FAPO_FLAG_INPLACE_SUPPORTED |
-        FAPO_FLAG_INPLACE_REQUIRED
+        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_APO_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -73,7 +73,7 @@ static FAPORegistrationProperties FXReverbProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-const ForgeGuid FAPOFX_CLSID_FXReverb_LEGACY =
+const ForgeGuid FORGE_APO_FX_ID_REVERB_LEGACY =
 {
     0xA90BC001,
     0xE897,
@@ -90,7 +90,7 @@ const ForgeGuid FAPOFX_CLSID_FXReverb_LEGACY =
     }
 };
 
-static FAPORegistrationProperties FXReverbProperties_LEGACY =
+static ForgeApoProperties FXReverbProperties_LEGACY =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -105,11 +105,11 @@ static FAPORegistrationProperties FXReverbProperties_LEGACY =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FAPO_FLAG_FRAMERATE_MUST_MATCH |
-        FAPO_FLAG_BITSPERSAMPLE_MUST_MATCH |
-        FAPO_FLAG_BUFFERCOUNT_MUST_MATCH |
-        FAPO_FLAG_INPLACE_SUPPORTED |
-        FAPO_FLAG_INPLACE_REQUIRED
+        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_APO_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -117,15 +117,15 @@ static FAPORegistrationProperties FXReverbProperties_LEGACY =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct FAPOFXReverb
+typedef struct ForgeApoReverb
 {
-    FAPOBase base;
+    ForgeApoBase base;
 
     /* TODO */
-} FAPOFXReverb;
+} ForgeApoReverb;
 
-uint32_t FAPOFXReverb_Initialize(
-    FAPOFXReverb *fapo,
+uint32_t ForgeApoReverb_Initialize(
+    ForgeApoReverb *fapo,
     const void* pData,
     uint32_t DataByteSize
 ) {
@@ -142,32 +142,32 @@ uint32_t FAPOFXReverb_Initialize(
     return 0;
 }
 
-void FAPOFXReverb_Process(
-    FAPOFXReverb *fapo,
+void ForgeApoReverb_Process(
+    ForgeApoReverb *fapo,
     uint32_t InputProcessParameterCount,
-    const FAPOProcessBufferParameters* pInputProcessParameters,
+    const ForgeApoProcessBuffer* pInputProcessParameters,
     uint32_t OutputProcessParameterCount,
-    FAPOProcessBufferParameters* pOutputProcessParameters,
+    ForgeApoProcessBuffer* pOutputProcessParameters,
     int32_t IsEnabled
 ) {
-    FAPOBase_BeginProcess(&fapo->base);
+    forge_apo_base_begin_process(&fapo->base);
 
     /* TODO */
 
-    FAPOBase_EndProcess(&fapo->base);
+    forge_apo_base_end_process(&fapo->base);
 }
 
-void FAPOFXReverb_Free(void* fapo)
+void ForgeApoReverb_Free(void* fapo)
 {
-    FAPOFXReverb *reverb = (FAPOFXReverb*) fapo;
+    ForgeApoReverb *reverb = (ForgeApoReverb*) fapo;
     reverb->base.pFree(reverb->base.m_pParameterBlocks);
     reverb->base.pFree(fapo);
 }
 
 /* Public API */
 
-uint32_t FAPOFXCreateReverb(
-    FAPO **pEffect,
+uint32_t forge_apo_create_reverb(
+    ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
@@ -175,27 +175,27 @@ uint32_t FAPOFXCreateReverb(
     ForgeReallocFunc customRealloc,
     uint8_t legacy
 ) {
-    const FAPOFXReverbParameters fxdefault =
+    const ForgeApoReverbParameters fxdefault =
     {
-        FAPOFXREVERB_DEFAULT_DIFFUSION,
-        FAPOFXREVERB_DEFAULT_ROOMSIZE,
+        FORGE_APO_REVERB_DEFAULT_DIFFUSION,
+        FORGE_APO_REVERB_DEFAULT_ROOM_SIZE,
     };
 
     /* Allocate... */
-    FAPOFXReverb *result = (FAPOFXReverb*) customMalloc(
-        sizeof(FAPOFXReverb)
+    ForgeApoReverb *result = (ForgeApoReverb*) customMalloc(
+        sizeof(ForgeApoReverb)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(FAPOFXReverbParameters) * 3
+        sizeof(ForgeApoReverbParameters) * 3
     );
     if (pInitData == NULL)
     {
-        FAudio_zero(params, sizeof(FAPOFXReverbParameters) * 3);
+        FAudio_zero(params, sizeof(ForgeApoReverbParameters) * 3);
         #define INITPARAMS(offset) \
             FAudio_memcpy( \
-                params + sizeof(FAPOFXReverbParameters) * offset, \
+                params + sizeof(ForgeApoReverbParameters) * offset, \
                 &fxdefault, \
-                sizeof(FAPOFXReverbParameters) \
+                sizeof(ForgeApoReverbParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -204,7 +204,7 @@ uint32_t FAPOFXCreateReverb(
     }
     else
     {
-        FAudio_assert(InitDataByteSize == sizeof(FAPOFXReverbParameters));
+        FAudio_assert(InitDataByteSize == sizeof(ForgeApoReverbParameters));
         FAudio_memcpy(params, pInitData, InitDataByteSize);
         FAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
         FAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
@@ -213,19 +213,19 @@ uint32_t FAPOFXCreateReverb(
     /* Initialize... */
     FAudio_memcpy(
         &FXReverbProperties_LEGACY.clsid,
-        &FAPOFX_CLSID_FXReverb_LEGACY,
+        &FORGE_APO_FX_ID_REVERB_LEGACY,
         sizeof(ForgeGuid)
     );
     FAudio_memcpy(
         &FXReverbProperties.clsid,
-        &FAPOFX_CLSID_FXReverb,
+        &FORGE_APO_FX_ID_REVERB,
         sizeof(ForgeGuid)
     );
-    CreateFAPOBaseWithCustomAllocatorEXT(
+    forge_apo_base_init_with_allocator(
         &result->base,
         legacy ? &FXReverbProperties_LEGACY : &FXReverbProperties,
         params,
-        sizeof(FAPOFXReverbParameters),
+        sizeof(ForgeApoReverbParameters),
         0,
         customMalloc,
         customFree,
@@ -233,11 +233,11 @@ uint32_t FAPOFXCreateReverb(
     );
 
     /* Function table... */
-    result->base.base.Initialize = (InitializeFunc)
-        FAPOFXReverb_Initialize;
-    result->base.base.Process = (ProcessFunc)
-        FAPOFXReverb_Process;
-    result->base.Destructor = FAPOFXReverb_Free;
+    result->base.base.Initialize = (ForgeApoInitializeFunc)
+        ForgeApoReverb_Initialize;
+    result->base.base.Process = (ForgeApoProcessFunc)
+        ForgeApoReverb_Process;
+    result->base.Destructor = ForgeApoReverb_Free;
 
     /* Finally. */
     *pEffect = &result->base.base;
