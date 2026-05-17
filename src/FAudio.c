@@ -44,7 +44,6 @@
         } \
     }
 MAKE_SUBFORMAT_GUID(PCM, 1);
-MAKE_SUBFORMAT_GUID(ADPCM, 2);
 MAKE_SUBFORMAT_GUID(IEEE_FLOAT, 3);
 MAKE_SUBFORMAT_GUID(XMAUDIO2, FAUDIO_FORMAT_XMAUDIO2);
 MAKE_SUBFORMAT_GUID(WMAUDIO2, FAUDIO_FORMAT_WMAUDIO2);
@@ -62,6 +61,81 @@ static void FAudio_DUMPVOICE_WriteBuffer(
     const uint32_t size
 );
 #endif /* FAUDIO_DUMP_VOICES */
+
+static uint8_t FAudio_INTERNAL_ValidateUncompressedFormat(
+    FAudio *audio,
+    const FAudioWaveFormatEx *format
+) {
+    const FAudioWaveFormatEx *base = format;
+    uint8_t isPCM = 0;
+    uint8_t isFloat = 0;
+    uint32_t expectedBlockAlign;
+
+    if (format->wFormatTag == FAUDIO_FORMAT_EXTENSIBLE)
+    {
+        const FAudioWaveFormatExtensible *ext = (const FAudioWaveFormatExtensible*) format;
+
+        if (FAudio_memcmp(&ext->SubFormat, &DATAFORMAT_SUBTYPE_PCM, sizeof(FAudioGUID)) == 0)
+        {
+            isPCM = 1;
+        }
+        else if (FAudio_memcmp(&ext->SubFormat, &DATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(FAudioGUID)) == 0)
+        {
+            isFloat = 1;
+        }
+        else
+        {
+            return 1;
+        }
+    }
+    else if (format->wFormatTag == FAUDIO_FORMAT_PCM)
+    {
+        isPCM = 1;
+    }
+    else if (format->wFormatTag == FAUDIO_FORMAT_IEEE_FLOAT)
+    {
+        isFloat = 1;
+    }
+    else
+    {
+        return 1;
+    }
+
+    if (base->nChannels == 0 || base->nBlockAlign == 0 || base->wBitsPerSample % 8 != 0)
+    {
+        LOG_ERROR(audio, "%s", "Invalid PCM source format block alignment");
+        return 0;
+    }
+
+    if (isPCM &&    base->wBitsPerSample != 8 &&
+            base->wBitsPerSample != 16 &&
+            base->wBitsPerSample != 24 &&
+            base->wBitsPerSample != 32    )
+    {
+        LOG_ERROR(audio, "Unsupported PCM bit depth: %u", base->wBitsPerSample);
+        return 0;
+    }
+
+    if (isFloat && base->wBitsPerSample != 32)
+    {
+        LOG_ERROR(audio, "Unsupported float PCM bit depth: %u", base->wBitsPerSample);
+        return 0;
+    }
+
+    expectedBlockAlign = base->nChannels * (base->wBitsPerSample / 8);
+    if (base->nBlockAlign != expectedBlockAlign)
+    {
+        LOG_ERROR(
+            audio,
+            "Invalid PCM block alignment: got %u, expected %u",
+            base->nBlockAlign,
+            expectedBlockAlign
+        )
+        return 0;
+    }
+
+    return 1;
+}
 
 /* FAudio Version */
 
@@ -309,6 +383,11 @@ uint32_t FAudio_CreateSourceVoice(
         return FAUDIO_E_INVALID_CALL;
     }
 
+    if (!FAudio_INTERNAL_ValidateUncompressedFormat(audio, pSourceFormat))
+    {
+        return FAUDIO_E_INVALID_CALL;
+    }
+
     *ppSourceVoice = (FAudioSourceVoice*) audio->pMalloc(sizeof(FAudioVoice));
     FAudio_zero(*ppSourceVoice, sizeof(FAudioSourceVoice));
     (*ppSourceVoice)->audio = audio;
@@ -367,35 +446,6 @@ uint32_t FAudio_CreateSourceVoice(
         }
         (*ppSourceVoice)->src.format = &fmtex->Format;
     }
-    else if (pSourceFormat->wFormatTag == FAUDIO_FORMAT_MSADPCM)
-    {
-        FAudioADPCMWaveFormat *fmtex = (FAudioADPCMWaveFormat*) audio->pMalloc(
-            sizeof(FAudioADPCMWaveFormat)
-        );
-
-        /* Copy what we can, ideally the sizes match! */
-        size_t cbSize = sizeof(FAudioWaveFormatEx) + pSourceFormat->cbSize;
-        FAudio_memcpy(
-            fmtex,
-            pSourceFormat,
-            FAudio_min(cbSize, sizeof(FAudioADPCMWaveFormat))
-        );
-        if (cbSize < sizeof(FAudioADPCMWaveFormat))
-        {
-            FAudio_zero(
-                ((uint8_t*) fmtex) + cbSize,
-                sizeof(FAudioADPCMWaveFormat) - cbSize
-            );
-        }
-
-        /* XAudio2 does not validate this input! */
-        fmtex->wfx.cbSize = sizeof(FAudioADPCMWaveFormat) - sizeof(FAudioWaveFormatEx);
-        fmtex->wSamplesPerBlock = ((
-            fmtex->wfx.nBlockAlign / fmtex->wfx.nChannels
-        ) - 6) * 2;
-        (*ppSourceVoice)->src.format = &fmtex->wfx;
-        (*ppSourceVoice)->src.samples_per_block = fmtex->wSamplesPerBlock;
-    }
     else if (pSourceFormat->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
     {
         FAudioXMA2WaveFormat *fmtex = (FAudioXMA2WaveFormat*) audio->pMalloc(
@@ -413,14 +463,13 @@ uint32_t FAudio_CreateSourceVoice(
         {
             FAudio_zero(
                 ((uint8_t*) fmtex) + cbSize,
-                sizeof(FAudioADPCMWaveFormat) - cbSize
+                sizeof(FAudioXMA2WaveFormat) - cbSize
             );
         }
 
         /* Does XAudio2 validate this input?! */
         fmtex->wfx.cbSize = sizeof(FAudioXMA2WaveFormat) - sizeof(FAudioWaveFormatEx);
         (*ppSourceVoice)->src.format = &fmtex->wfx;
-        (*ppSourceVoice)->src.samples_per_block = fmtex->dwSamplesEncoded / fmtex->wBlockCount;
     }
     else
     {
@@ -473,7 +522,6 @@ uint32_t FAudio_CreateSourceVoice(
                 FAudio_assert(0 && "Unrecognized wBitsPerSample!");
             }
             #undef DECODER
-            (*ppSourceVoice)->src.samples_per_block = 1;
         }
         else if (COMPARE_GUID(IEEE_FLOAT))
         {
@@ -492,7 +540,6 @@ uint32_t FAudio_CreateSourceVoice(
             {
                 (*ppSourceVoice)->src.decode = FAudio_INTERNAL_DecodePCM32F;
             }
-            (*ppSourceVoice)->src.samples_per_block = 1;
         }
         else if (    COMPARE_GUID(WMAUDIO2) ||
                 COMPARE_GUID(WMAUDIO3) ||
@@ -509,12 +556,6 @@ uint32_t FAudio_CreateSourceVoice(
     {
         FAudio_assert(0 && "XMA2 is not supported!");
         (*ppSourceVoice)->src.decode = FAudio_INTERNAL_DecodeWMAERROR;
-    }
-    else if ((*ppSourceVoice)->src.format->wFormatTag == FAUDIO_FORMAT_MSADPCM)
-    {
-        (*ppSourceVoice)->src.decode = ((*ppSourceVoice)->src.format->nChannels == 2) ?
-            FAudio_INTERNAL_DecodeStereoMSADPCM :
-            FAudio_INTERNAL_DecodeMonoMSADPCM;
     }
     else
     {
@@ -2386,7 +2427,6 @@ static void destroy_voice(FAudioVoice *voice)
 		voice->audio->pFree(voice->src.queued_buffers);
 		voice->audio->pFree(voice->src.flush_buffers);
 		voice->audio->pFree(voice->src.format);
-		voice->audio->pFree(voice->src.unaligned_data);
 		LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
 		FAudio_PlatformDestroyMutex(voice->src.bufferLock);
 #ifdef HAVE_WMADEC
@@ -2608,9 +2648,7 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
     const FAudioBuffer *pBuffer,
     const FAudioBufferWMA *pBufferWMA
 ) {
-    const uint32_t samples_per_block = voice->src.samples_per_block;
     const uint32_t block_size = voice->src.format->nBlockAlign;
-	uint32_t adpcmMask;
 	uint32_t playBegin, playLength, loopBegin, loopLength, bufferLength;
 	struct queued_buffer *entry;
 
@@ -2631,6 +2669,27 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
 
     FAudio_assert(voice->type == FAUDIO_VOICE_SOURCE);
 
+    if (block_size == 0)
+    {
+        LOG_ERROR(voice->audio, "%s", "Source voice has zero block alignment");
+        LOG_API_EXIT(voice->audio)
+        return FAUDIO_E_INVALID_CALL;
+    }
+
+    if (pBufferWMA == NULL &&
+        voice->src.format->wFormatTag != FAUDIO_FORMAT_XMAUDIO2 &&
+        pBuffer->AudioBytes % block_size != 0)
+    {
+        LOG_ERROR(
+            voice->audio,
+            "PCM source buffer AudioBytes must be a multiple of nBlockAlign: %u %% %u",
+            pBuffer->AudioBytes,
+            block_size
+        )
+        LOG_API_EXIT(voice->audio)
+        return FAUDIO_E_INVALID_CALL;
+    }
+
     /* Start off with whatever they just sent us... */
     playBegin = pBuffer->PlayBegin;
     playLength = pBuffer->PlayLength;
@@ -2644,15 +2703,7 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
         return FAUDIO_E_INVALID_CALL;
     }
 
-	if (voice->src.format->wFormatTag == FAUDIO_FORMAT_MSADPCM)
-	{
-		FAudioADPCMWaveFormat *fmtex = (FAudioADPCMWaveFormat*) voice->src.format;
-		bufferLength =
-			pBuffer->AudioBytes /
-			fmtex->wfx.nBlockAlign *
-			fmtex->wSamplesPerBlock;
-	}
-	else if (voice->src.format->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
+	if (voice->src.format->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
 	{
 		FAudioXMA2WaveFormat *fmtex = (FAudioXMA2WaveFormat*) voice->src.format;
 		bufferLength = fmtex->dwSamplesEncoded;
@@ -2713,16 +2764,7 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
         }
     }
 
-    /* For ADPCM, round down to the nearest sample block size */
-    if (voice->src.format->wFormatTag == FAUDIO_FORMAT_MSADPCM)
-    {
-        adpcmMask = ((FAudioADPCMWaveFormat*) voice->src.format)->wSamplesPerBlock;
-        playBegin -= playBegin % adpcmMask;
-        playLength -= playLength % adpcmMask;
-        loopBegin -= loopBegin % adpcmMask;
-        loopLength -= loopLength % adpcmMask;
-    }
-    else if (pBufferWMA != NULL || voice->src.format->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
+    if (pBufferWMA != NULL || voice->src.format->wFormatTag == FAUDIO_FORMAT_XMAUDIO2)
     {
         /* WMA only supports looping the whole buffer */
         loopBegin = 0;
@@ -2755,22 +2797,22 @@ uint32_t FAudioSourceVoice_SubmitSourceBuffer(
     {
         if (playLength != 0)
         {
-            entry->play_bytes = playLength / samples_per_block * block_size;
+            entry->play_bytes = playLength * block_size;
         }
         else
         {
-            entry->play_bytes = pBuffer->AudioBytes - (playBegin / samples_per_block * block_size);
+            entry->play_bytes = pBuffer->AudioBytes - (playBegin * block_size);
         }
 
         if (loopLength != 0)
         {
-            entry->loop_bytes = loopLength / samples_per_block * block_size;
+            entry->loop_bytes = loopLength * block_size;
         }
         else
         {
             entry->loop_bytes = entry->play_bytes
-                + (playBegin / samples_per_block * block_size)
-                - (loopBegin / samples_per_block * block_size);
+                + (playBegin * block_size)
+                - (loopBegin * block_size);
         }
     }
 

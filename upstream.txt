@@ -27,9 +27,13 @@ Reviewed 2026-05-17:
             97d79f0 / d4b4bc5 / 6c8702c / d4abf94 / f38246a /
             d85a524 / 66917dc / 2db47fe / 2a85be6 / f8f47bf /
             6717210 / 5b0bff4 / 1fcf26b:
-            source queued-buffer rewrite, unaligned buffer handling, callback
-            state fixes, loop validation fixes, flush accounting fixes, and
-            direct ADPCM decoding fixes.
+            source queued-buffer rewrite, callback state fixes, loop
+            validation fixes, and flush accounting fixes. ADPCM-specific
+            direct-decoding fixes are intentionally not retained because
+            ForgeAudio removed Microsoft ADPCM source voice support and public
+            ADPCM format surface. Upstream's unaligned submitted-buffer carry
+            behavior is also not retained; ForgeAudio now requires PCM source
+            buffers to contain complete frames.
 
     Skipped for now:
         FACT commits: FACT has been removed.

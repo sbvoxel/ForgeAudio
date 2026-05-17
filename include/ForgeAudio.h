@@ -144,42 +144,6 @@ typedef struct FAudioWaveFormatExtensible
     FAudioGUID SubFormat;
 } FAudioWaveFormatExtensible;
 
-typedef struct FAudioADPCMCoefSet
-{
-    int16_t iCoef1;
-    int16_t iCoef2;
-} FAudioADPCMCoefSet;
-
-typedef struct FAudioADPCMWaveFormat
-{
-    FAudioWaveFormatEx wfx;
-    uint16_t wSamplesPerBlock;
-    uint16_t wNumCoef;
-
-    /* MSVC warns on empty arrays in structs */
-    #ifdef _MSC_VER
-    #pragma warning(push)
-    #pragma warning(disable: 4200)
-    #endif
-
-    FAudioADPCMCoefSet aCoef[];
-    /* MSADPCM has 7 coefficient pairs:
-     * {
-     *    { 256,    0 },
-     *    { 512, -256 },
-     *    {   0,    0 },
-     *    { 192,   64 },
-     *    { 240,    0 },
-     *    { 460, -208 },
-     *    { 392, -232 }
-     * }
-     */
-
-    #ifdef _MSC_VER
-    #pragma warning(pop)
-    #endif
-} FAudioADPCMWaveFormat;
-
 typedef struct FAudioDeviceDetails
 {
     int16_t DeviceID[256]; /* Win32 wchar_t */
@@ -471,7 +435,6 @@ typedef struct FAudioXMA2WaveFormatEx
 #endif
 
 #define FAUDIO_FORMAT_PCM        1
-#define FAUDIO_FORMAT_MSADPCM        2
 #define FAUDIO_FORMAT_IEEE_FLOAT    3
 #define FAUDIO_FORMAT_WMAUDIO2        0x0161
 #define FAUDIO_FORMAT_WMAUDIO3        0x0162

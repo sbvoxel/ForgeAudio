@@ -90,8 +90,6 @@ const char* audio_format_str(const uint16_t format)
 {
     if (format == FAUDIO_FORMAT_PCM)              //      1
         return "FAUDIO_FORMAT_PCM";
-    if (format == FAUDIO_FORMAT_MSADPCM)          //      2
-        return "FAUDIO_FORMAT_MSADPCM";
     if (format == FAUDIO_FORMAT_IEEE_FLOAT)       //      3
         return "FAUDIO_FORMAT_IEEE_FLOAT";
     if (format == FAUDIO_FORMAT_WMAUDIO2)         // 0x0161
