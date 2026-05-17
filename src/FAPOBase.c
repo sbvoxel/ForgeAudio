@@ -24,7 +24,7 @@
  *
  */
 
-#include "ForgeAPOBase.h"
+#include "forge_apo_base.h"
 #include "FAudio_internal.h"
 
 /* FAPOBase Interface */

@@ -28,8 +28,8 @@
  * https://docs.microsoft.com/en-us/windows/desktop/api/x3daudio/
  */
 
-#ifndef F3DAUDIO_H
-#define F3DAUDIO_H
+#ifndef FORGE_3D_AUDIO_H
+#define FORGE_3D_AUDIO_H
 
 #ifdef _WIN32
 #define F3DAUDIOAPI __declspec(dllexport)
@@ -257,4 +257,4 @@ F3DAUDIOAPI void F3DAudioCalculate(
 }
 #endif /* __cplusplus */
 
-#endif /* F3DAUDIO_H */
+#endif /* FORGE_3D_AUDIO_H */

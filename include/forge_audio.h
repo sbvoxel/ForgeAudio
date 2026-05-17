@@ -24,8 +24,8 @@
  *
  */
 
-#ifndef FAUDIO_H
-#define FAUDIO_H
+#ifndef FORGE_AUDIO_H
+#define FORGE_AUDIO_H
 
 #ifdef _WIN32
 #define FAUDIOAPI __declspec(dllexport)
@@ -1345,4 +1345,4 @@ FAUDIOAPI uint32_t XNA_GetSongEnded();
 }
 #endif /* __cplusplus */
 
-#endif /* FAUDIO_H */
+#endif /* FORGE_AUDIO_H */

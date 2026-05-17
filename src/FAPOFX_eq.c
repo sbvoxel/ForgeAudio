@@ -24,7 +24,7 @@
  *
  */
 
-#include "ForgeAPOFX.h"
+#include "forge_apo_fx.h"
 #include "FAudio_internal.h"
 
 /* FXEQ FAPO Implementation */

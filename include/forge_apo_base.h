@@ -64,10 +64,10 @@
  * result->base.Destructor = MyFAPO_Free;
  */
 
-#ifndef FAPOBASE_H
-#define FAPOBASE_H
+#ifndef FORGE_APO_BASE_H
+#define FORGE_APO_BASE_H
 
-#include "ForgeAPO.h"
+#include "forge_apo.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -259,4 +259,4 @@ FAPOAPI void FAPOBase_EndProcess(FAPOBase *fapo);
 }
 #endif /* __cplusplus */
 
-#endif /* FAPOBASE_H */
+#endif /* FORGE_APO_BASE_H */

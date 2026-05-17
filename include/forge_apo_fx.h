@@ -24,10 +24,10 @@
  *
  */
 
-#ifndef FAPOFX_H
-#define FAPOFX_H
+#ifndef FORGE_APO_FX_H
+#define FORGE_APO_FX_H
 
-#include "ForgeAPO.h"
+#include "forge_apo.h"
 
 #define FAPOFXAPI FAUDIOAPI
 
@@ -173,4 +173,4 @@ FAPOFXAPI uint32_t FAPOFX_CreateFXWithCustomAllocatorEXT(
 }
 #endif /* __cplusplus */
 
-#endif /* FAPOFX_H */
+#endif /* FORGE_APO_FX_H */

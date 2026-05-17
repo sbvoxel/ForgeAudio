@@ -31,10 +31,10 @@
  * parameters for XAudio 2.9's 7.1 Reverb effect!
  */
 
-#ifndef FAUDIOFX_H
-#define FAUDIOFX_H
+#ifndef FORGE_AUDIO_FX_H
+#define FORGE_AUDIO_FX_H
 
-#include "ForgeAudio.h"
+#include "forge_audio.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -303,4 +303,4 @@ FAUDIOAPI void ReverbConvertI3DL2ToNative9(
 }
 #endif /* __cplusplus */
 
-#endif /* FAUDIOFX_H */
+#endif /* FORGE_AUDIO_FX_H */

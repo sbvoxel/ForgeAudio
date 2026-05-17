@@ -36,10 +36,10 @@
  * it is explicitly requested by the application.
  */
 
-#ifndef FAPO_H
-#define FAPO_H
+#ifndef FORGE_APO_H
+#define FORGE_APO_H
 
-#include "ForgeAudio.h"
+#include "forge_audio.h"
 
 #define FAPOAPI FAUDIOAPI
 #define FAPOCALL FAUDIOCALL
@@ -202,4 +202,4 @@ struct FAPO
 }
 #endif /* __cplusplus */
 
-#endif /* FAPO_H */
+#endif /* FORGE_APO_H */

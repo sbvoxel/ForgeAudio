@@ -48,12 +48,12 @@ endif()
 # Source lists
 add_library(ForgeAudio
     # Public Headers
-    include/Forge3DAudio.h
-    include/ForgeAPOBase.h
-    include/ForgeAPOFX.h
-    include/ForgeAPO.h
-    include/ForgeAudioFX.h
-    include/ForgeAudio.h
+    include/forge_3d_audio.h
+    include/forge_apo_base.h
+    include/forge_apo_fx.h
+    include/forge_apo.h
+    include/forge_audio_fx.h
+    include/forge_audio.h
     # Internal Headers
     src/FAudio_internal.h
     src/stb_modified.h

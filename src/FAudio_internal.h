@@ -24,8 +24,8 @@
  *
  */
 
-#include "ForgeAudio.h"
-#include "ForgeAPOBase.h"
+#include "forge_audio.h"
+#include "forge_apo_base.h"
 #include <stdarg.h>
 #include <stdbool.h>
 
