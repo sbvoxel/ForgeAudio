@@ -255,30 +255,30 @@ typedef struct ForgeAudioReverbI3DL2Parameters
 
 /* Functions */
 
-/* These return caller-owned ForgeApo objects. Destroy with forge_apo_destroy,
+/* These return caller-owned ForgeEffect objects. Destroy with forge_effect_destroy,
  * or transfer to a voice effect chain.
  */
-FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeApo** apo, uint32_t Flags);
-FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeApo** apo, uint32_t Flags);
-FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeApo** apo, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter(ForgeEffect** effect, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t Flags);
+FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t Flags);
 
 /* See "extensions/custom allocator.txt" for more information. */
 FORGE_AUDIO_API ForgeResult forge_audio_create_volume_meter_with_allocator(
-    ForgeApo** apo,
+    ForgeEffect** effect,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_with_allocator(
-    ForgeApo** apo,
+    ForgeEffect** effect,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
 FORGE_AUDIO_API ForgeResult forge_audio_create_reverb_7point1_with_allocator(
-    ForgeApo** apo,
+    ForgeEffect** effect,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,

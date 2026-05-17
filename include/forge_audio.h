@@ -146,22 +146,22 @@ typedef struct ForgeSendList
     ForgeSend *sends;
 } ForgeSendList;
 
-#ifndef FORGE_APO_DECL
-#define FORGE_APO_DECL
-typedef struct ForgeApo ForgeApo;
-#endif /* FORGE_APO_DECL */
+#ifndef FORGE_EFFECT_DECL
+#define FORGE_EFFECT_DECL
+typedef struct ForgeEffect ForgeEffect;
+#endif /* FORGE_EFFECT_DECL */
 
-typedef struct ForgeEffect
+typedef struct ForgeEffectDesc
 {
-    ForgeApo *effect;
+    ForgeEffect *effect;
     int32_t InitialState; /* 1 - Enabled, 0 - Disabled */
     uint32_t OutputChannels;
-} ForgeEffect;
+} ForgeEffectDesc;
 
 typedef struct ForgeEffectChain
 {
     uint32_t EffectCount;
-    ForgeEffect *effects;
+    ForgeEffectDesc *effects;
 } ForgeEffectChain;
 
 typedef struct ForgeFilterParameters
@@ -276,7 +276,7 @@ typedef enum ForgeResult
     ForgeResultUnsupportedFormat = -2004287480,
     ForgeResultInvalidCall = -2003435519,
     ForgeResultDeviceInvalidated = -2003435516,
-    ForgeResultApoFormatUnsupported = -2003369983
+    ForgeResultEffectFormatUnsupported = -2003369983
 } ForgeResult;
 
 /* Constants */
@@ -521,10 +521,10 @@ FORGE_AUDIO_API void forge_audio_unregister_callback(
  * callback:        Voice callbacks, see ForgeVoiceCallback documentation.
  * send_list:        List of output voices. If NULL, defaults to master.
  *            All output voices must have the same sample rate!
- * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
- *            On success, ownership of every ForgeApo in the chain is transferred
+ * effect_chain:    List of caller-owned ForgeEffect effects. This value can be NULL.
+ *            On success, ownership of every ForgeEffect in the chain is transferred
  *            to the voice. On failure, ownership remains with the caller.
- *            Sharing one ForgeApo object across multiple voices is unsupported.
+ *            Sharing one ForgeEffect object across multiple voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -541,7 +541,7 @@ FORGE_AUDIO_API ForgeResult forge_audio_create_source_voice(
 
 /* Creates a "submix" voice, used to mix/process input voices.
  * The typical use case for this is to perform CPU-intensive tasks on large
- * groups of voices all at once. Examples include resampling and ForgeApo effects.
+ * groups of voices all at once. Examples include resampling and ForgeEffect effects.
  *
  * submix_voice:    Filled with the submix voice pointer.
  * InputChannels:    Input voices will convert to this channel count.
@@ -553,10 +553,10 @@ FORGE_AUDIO_API ForgeResult forge_audio_create_source_voice(
  *            stage 0 will process first, then stage 1, 2, and so on.
  * send_list:        List of output voices. If NULL, defaults to master.
  *            All output voices must have the same sample rate!
- * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
- *            On success, ownership of every ForgeApo in the chain is transferred
+ * effect_chain:    List of caller-owned ForgeEffect effects. This value can be NULL.
+ *            On success, ownership of every ForgeEffect in the chain is transferred
  *            to the voice. On failure, ownership remains with the caller.
- *            Sharing one ForgeApo object across multiple voices is unsupported.
+ *            Sharing one ForgeEffect object across multiple voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -579,10 +579,10 @@ FORGE_AUDIO_API ForgeResult forge_audio_create_submix_voice(
  * InputSampleRate:    Device sample rate. Can be FORGE_AUDIO_DEFAULT_SAMPLERATE.
  * Flags:        This value must be 0.
  * DeviceIndex:        0 for the default device. See forge_audio_get_device_count.
- * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
- *            On success, ownership of every ForgeApo in the chain is transferred
+ * effect_chain:    List of caller-owned ForgeEffect effects. This value can be NULL.
+ *            On success, ownership of every ForgeEffect in the chain is transferred
  *            to the voice. On failure, ownership remains with the caller.
- *            Sharing one ForgeApo object across multiple voices is unsupported.
+ *            Sharing one ForgeEffect object across multiple voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -684,14 +684,14 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_outputs(
 
 /* Change/Remove the effect chain for this voice.
  *
- * effect_chain:    List of caller-owned ForgeApo effects. This value can be NULL.
+ * effect_chain:    List of caller-owned ForgeEffect effects. This value can be NULL.
  *            Note that the final channel counts for this chain MUST
  *            match the input/output channel count that was
  *            determined at voice creation time!
- *            On success, ownership of every ForgeApo in the new chain is
+ *            On success, ownership of every ForgeEffect in the new chain is
  *            transferred to the voice. On failure, ownership remains with the
  *            caller and the current chain is unchanged. Passing NULL destroys
- *            the current chain. Sharing one ForgeApo object across multiple
+ *            the current chain. Sharing one ForgeEffect object across multiple
  *            voices is unsupported.
  *
  * Returns ForgeResultSuccess on success.
@@ -738,11 +738,11 @@ FORGE_AUDIO_API void forge_voice_get_effect_state(
     int32_t *enabled
 );
 
-/* Submits a block of memory to be sent to ForgeApo::SetParameters.
+/* Submits a block of memory to be sent to ForgeEffect::SetParameters.
  *
  * EffectIndex:        The index of the effect (based on the chain order).
- * parameters:        The values to be copied and submitted to the ForgeApo.
- * ParametersByteSize:    This should match what the ForgeApo expects!
+ * parameters:        The values to be copied and submitted to the ForgeEffect.
+ * ParametersByteSize:    This should match what the ForgeEffect expects!
  * OperationSet:    See forge_audio_commit_operation_set. Default is FORGE_AUDIO_COMMIT_NOW.
  *
  * Returns ForgeResultSuccess on success.
@@ -755,11 +755,11 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_effect_parameters(
     uint32_t OperationSet
 );
 
-/* Requests the latest parameters from ForgeApo::GetParameters.
+/* Requests the latest parameters from ForgeEffect::GetParameters.
  *
  * EffectIndex:        The index of the effect (based on the chain order).
- * parameters:        Filled with the latest parameter values from the ForgeApo.
- * ParametersByteSize:    This should match what the ForgeApo expects!
+ * parameters:        Filled with the latest parameter values from the ForgeEffect.
+ * ParametersByteSize:    This should match what the ForgeEffect expects!
  *
  * Returns ForgeResultSuccess on success.
  */

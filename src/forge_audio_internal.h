@@ -25,7 +25,7 @@
  */
 
 #include "forge_audio.h"
-#include "forge_apo_base.h"
+#include "forge_effect_base.h"
 #include <stdarg.h>
 #include <stdbool.h>
 
@@ -433,9 +433,9 @@ struct ForgeVoice
     ForgeAudioFilterState **sendFilterState;
     struct
     {
-        ForgeApoBufferFlags state;
+        ForgeEffectBufferFlags state;
         uint32_t count;
-        ForgeEffect *desc;
+        ForgeEffectDesc *desc;
         void **parameters;
         uint32_t *parameterSizes;
         uint8_t *parameterUpdates;
@@ -633,34 +633,34 @@ void ForgeAudio_Internal_debug_fmt(
 
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
 
-/* ForgeApoFx Creators */
+/* ForgeEffectFx Creators */
 
-extern ForgeResult forge_apo_create_eq(
-    ForgeApo **effect,
+extern ForgeResult forge_effect_create_eq(
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-extern ForgeResult forge_apo_create_mastering_limiter(
-    ForgeApo **effect,
+extern ForgeResult forge_effect_create_mastering_limiter(
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-extern ForgeResult forge_apo_create_reverb(
-    ForgeApo **effect,
+extern ForgeResult forge_effect_create_reverb(
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 );
-extern ForgeResult forge_apo_create_echo(
-    ForgeApo **effect,
+extern ForgeResult forge_effect_create_echo(
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,

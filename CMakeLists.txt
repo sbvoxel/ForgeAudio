@@ -50,9 +50,9 @@ endif()
 add_library(ForgeAudio
     # Public Headers
     include/forge_3d_audio.h
-    include/forge_apo_base.h
-    include/forge_apo_fx.h
-    include/forge_apo.h
+    include/forge_effect_base.h
+    include/forge_effect_fx.h
+    include/forge_effect.h
     include/forge_audio_fx.h
     include/forge_audio.h
     # Internal Headers
@@ -62,12 +62,12 @@ add_library(ForgeAudio
     src/qoa_decoder.h
     # Source Files
     src/forge_spatial_audio.c
-    src/forge_apo_base.c
-    src/forge_apo_fx.c
-    src/forge_apo_fx_echo.c
-    src/forge_apo_fx_eq.c
-    src/forge_apo_fx_mastering_limiter.c
-    src/forge_apo_fx_reverb.c
+    src/forge_effect_base.c
+    src/forge_effect_fx.c
+    src/forge_effect_fx_echo.c
+    src/forge_effect_fx_eq.c
+    src/forge_effect_fx_mastering_limiter.c
+    src/forge_effect_fx_reverb.c
     src/forge_audio.c
     src/forge_audio_fx_reverb.c
     src/forge_audio_fx_volume_meter.c

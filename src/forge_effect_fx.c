@@ -24,16 +24,16 @@
  *
  */
 
-#include "forge_apo_fx.h"
+#include "forge_effect_fx.h"
 #include "forge_audio_internal.h"
 
-ForgeResult forge_apo_create_effect(
+ForgeResult forge_effect_create(
     const ForgeGuid *clsid,
-    ForgeApo **effect,
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize
 ) {
-    return forge_apo_create_effect_with_allocator(
+    return forge_effect_create_with_allocator(
         clsid,
         effect,
         init_data,
@@ -44,9 +44,9 @@ ForgeResult forge_apo_create_effect(
     );
 }
 
-ForgeResult forge_apo_create_effect_with_allocator(
+ForgeResult forge_effect_create_with_allocator(
     const ForgeGuid *clsid,
-    ForgeApo **effect,
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
@@ -65,13 +65,13 @@ ForgeResult forge_apo_create_effect_with_allocator(
             customRealloc \
         ); \
     }
-    CHECK_AND_RETURN(FORGE_APO_FX_ID_EQ, forge_apo_create_eq)
+    CHECK_AND_RETURN(FORGE_EFFECT_FX_ID_EQ, forge_effect_create_eq)
     CHECK_AND_RETURN(
-        FORGE_APO_FX_ID_MASTERING_LIMITER,
-        forge_apo_create_mastering_limiter
+        FORGE_EFFECT_FX_ID_MASTERING_LIMITER,
+        forge_effect_create_mastering_limiter
     )
-    CHECK_AND_RETURN(FORGE_APO_FX_ID_REVERB, forge_apo_create_reverb)
-    CHECK_AND_RETURN(FORGE_APO_FX_ID_ECHO, forge_apo_create_echo)
+    CHECK_AND_RETURN(FORGE_EFFECT_FX_ID_REVERB, forge_effect_create_reverb)
+    CHECK_AND_RETURN(FORGE_EFFECT_FX_ID_ECHO, forge_effect_create_echo)
 #undef CHECK_AND_RETURN
     return ForgeResultFailed;
 }

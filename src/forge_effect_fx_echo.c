@@ -24,12 +24,12 @@
  *
  */
 
-#include "forge_apo_fx.h"
+#include "forge_effect_fx.h"
 #include "forge_audio_internal.h"
 
-/* FXEcho ForgeApo Implementation */
+/* FXEcho ForgeEffect Implementation */
 
-const ForgeGuid FORGE_APO_FX_ID_ECHO =
+const ForgeGuid FORGE_EFFECT_FX_ID_ECHO =
 {
     0x5039D740,
     0xF736,
@@ -46,7 +46,7 @@ const ForgeGuid FORGE_APO_FX_ID_ECHO =
     }
 };
 
-static ForgeApoProperties FXEchoProperties =
+static ForgeEffectProperties FXEchoProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -61,11 +61,11 @@ static ForgeApoProperties FXEchoProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
-        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
-        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
-        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
-        FORGE_APO_FLAG_IN_PLACE_REQUIRED
+        FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -73,21 +73,21 @@ static ForgeApoProperties FXEchoProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct ForgeApoEcho
+typedef struct ForgeEffectEcho
 {
-    ForgeApoBase base;
+    ForgeEffectBase base;
 
     /* TODO */
-} ForgeApoEcho;
+} ForgeEffectEcho;
 
-ForgeResult ForgeApoEcho_Initialize(
-    ForgeApoEcho *fapo,
+ForgeResult ForgeEffectEcho_Initialize(
+    ForgeEffectEcho *effect,
     const void* data,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            fapo->base.parameter_blocks + DataByteSize * offset, \
+            effect->base.parameter_blocks + DataByteSize * offset, \
             data, \
             DataByteSize \
         );
@@ -98,60 +98,60 @@ ForgeResult ForgeApoEcho_Initialize(
     return 0;
 }
 
-void ForgeApoEcho_Process(
-    ForgeApoEcho *fapo,
+void ForgeEffectEcho_Process(
+    ForgeEffectEcho *effect,
     uint32_t InputProcessParameterCount,
-    const ForgeApoProcessBuffer* input_process_parameters,
+    const ForgeEffectProcessBuffer* input_process_parameters,
     uint32_t OutputProcessParameterCount,
-    ForgeApoProcessBuffer* output_process_parameters,
+    ForgeEffectProcessBuffer* output_process_parameters,
     int32_t IsEnabled
 ) {
-    forge_apo_base_begin_process(&fapo->base);
+    forge_effect_base_begin_process(&effect->base);
 
     /* TODO */
 
-    forge_apo_base_end_process(&fapo->base);
+    forge_effect_base_end_process(&effect->base);
 }
 
-void ForgeApoEcho_Free(void* fapo)
+void ForgeEffectEcho_Free(void* effect)
 {
-    ForgeApoEcho *echo = (ForgeApoEcho*) fapo;
+    ForgeEffectEcho *echo = (ForgeEffectEcho*) effect;
     echo->base.free_func(echo->base.parameter_blocks);
-    echo->base.free_func(fapo);
+    echo->base.free_func(effect);
 }
 
 /* Public API */
 
-ForgeResult forge_apo_create_echo(
-    ForgeApo **effect,
+ForgeResult forge_effect_create_echo(
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-    const ForgeApoEchoParameters fxdefault =
+    const ForgeEffectEchoParameters fxdefault =
     {
-        FORGE_APO_ECHO_DEFAULT_WET_DRY_MIX,
-        FORGE_APO_ECHO_DEFAULT_FEEDBACK,
-        FORGE_APO_ECHO_DEFAULT_DELAY
+        FORGE_EFFECT_ECHO_DEFAULT_WET_DRY_MIX,
+        FORGE_EFFECT_ECHO_DEFAULT_FEEDBACK,
+        FORGE_EFFECT_ECHO_DEFAULT_DELAY
     };
 
     /* Allocate... */
-    ForgeApoEcho *result = (ForgeApoEcho*) customMalloc(
-        sizeof(ForgeApoEcho)
+    ForgeEffectEcho *result = (ForgeEffectEcho*) customMalloc(
+        sizeof(ForgeEffectEcho)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(ForgeApoEchoParameters) * 3
+        sizeof(ForgeEffectEchoParameters) * 3
     );
     if (init_data == NULL)
     {
-        ForgeAudio_zero(params, sizeof(ForgeApoEchoParameters) * 3);
+        ForgeAudio_zero(params, sizeof(ForgeEffectEchoParameters) * 3);
         #define INITPARAMS(offset) \
             ForgeAudio_memcpy( \
-                params + sizeof(ForgeApoEchoParameters) * offset, \
+                params + sizeof(ForgeEffectEchoParameters) * offset, \
                 &fxdefault, \
-                sizeof(ForgeApoEchoParameters) \
+                sizeof(ForgeEffectEchoParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -160,7 +160,7 @@ ForgeResult forge_apo_create_echo(
     }
     else
     {
-        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeApoEchoParameters));
+        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeEffectEchoParameters));
         ForgeAudio_memcpy(params, init_data, InitDataByteSize);
         ForgeAudio_memcpy(params + InitDataByteSize, init_data, InitDataByteSize);
         ForgeAudio_memcpy(params + (InitDataByteSize * 2), init_data, InitDataByteSize);
@@ -169,14 +169,14 @@ ForgeResult forge_apo_create_echo(
     /* Initialize... */
     ForgeAudio_memcpy(
         &FXEchoProperties.clsid,
-        &FORGE_APO_FX_ID_ECHO,
+        &FORGE_EFFECT_FX_ID_ECHO,
         sizeof(ForgeGuid)
     );
-    forge_apo_base_init_with_allocator(
+    forge_effect_base_init_with_allocator(
         &result->base,
         &FXEchoProperties,
         params,
-        sizeof(ForgeApoEchoParameters),
+        sizeof(ForgeEffectEchoParameters),
         0,
         customMalloc,
         customFree,
@@ -184,11 +184,11 @@ ForgeResult forge_apo_create_echo(
     );
 
     /* Function table... */
-    result->base.base.Initialize = (ForgeApoInitializeFunc)
-        ForgeApoEcho_Initialize;
-    result->base.base.Process = (ForgeApoProcessFunc)
-        ForgeApoEcho_Process;
-    result->base.Destructor = ForgeApoEcho_Free;
+    result->base.base.Initialize = (ForgeEffectInitializeFunc)
+        ForgeEffectEcho_Initialize;
+    result->base.base.Process = (ForgeEffectProcessFunc)
+        ForgeEffectEcho_Process;
+    result->base.Destructor = ForgeEffectEcho_Free;
 
     /* Finally. */
     *effect = &result->base.base;

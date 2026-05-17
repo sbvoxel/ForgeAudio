@@ -336,12 +336,12 @@ FORGE_AUDIO_API uint32_t XNA_GetSongEnded()
 
 FORGE_AUDIO_API void XNA_EnableVisualization(uint32_t enable)
 {
-    /* TODO: Enable/Disable ForgeApo effect */
+    /* TODO: Enable/Disable ForgeEffect effect */
 }
 
 FORGE_AUDIO_API uint32_t XNA_VisualizationEnabled()
 {
-    /* TODO: Query ForgeApo effect enabled */
+    /* TODO: Query ForgeEffect effect enabled */
     return 0;
 }
 
@@ -350,5 +350,5 @@ FORGE_AUDIO_API void XNA_GetSongVisualizationData(
     float *samples,
     uint32_t count
 ) {
-    /* TODO: Visualization ForgeApo that reads in Song samples, FFT analysis */
+    /* TODO: Visualization ForgeEffect that reads in Song samples, FFT analysis */
 }

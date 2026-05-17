@@ -1137,7 +1137,7 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(
 
 #undef OUTPUT_SAMPLE
 
-/* Reverb ForgeApo Implementation */
+/* Reverb ForgeEffect Implementation */
 
 const ForgeGuid FORGE_AUDIO_FX_ID_REVERB = /* 2.7 */
 {
@@ -1156,7 +1156,7 @@ const ForgeGuid FORGE_AUDIO_FX_ID_REVERB = /* 2.7 */
     }
 };
 
-static ForgeApoProperties ReverbProperties =
+static ForgeEffectProperties ReverbProperties =
 {
     /* .clsid = */ {0},
     /*.FriendlyName = */
@@ -1170,10 +1170,10 @@ static ForgeApoProperties ReverbProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */ (
-        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
-        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
-        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
-        FORGE_APO_FLAG_IN_PLACE_SUPPORTED
+        FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */ 1,
@@ -1183,7 +1183,7 @@ static ForgeApoProperties ReverbProperties =
 
 typedef struct ForgeAudioFxReverb
 {
-    ForgeApoBase base;
+    ForgeEffectBase base;
 
     uint16_t inChannels;
     uint16_t outChannels;
@@ -1231,7 +1231,7 @@ static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
 }
 
 ForgeResult ForgeAudioFxReverb_IsInputFormatSupported(
-    ForgeApoBase *fapo,
+    ForgeEffectBase *effect,
     const ForgeAudioFormat *output_format,
     const ForgeAudioFormat *requested_input_format,
     ForgeAudioFormat **supported_input_format
@@ -1286,7 +1286,7 @@ ForgeResult ForgeAudioFxReverb_IsInputFormatSupported(
 
 
 ForgeResult ForgeAudioFxReverb_IsOutputFormatSupported(
-    ForgeApoBase *fapo,
+    ForgeEffectBase *effect,
     const ForgeAudioFormat *input_format,
     const ForgeAudioFormat *requested_output_format,
     ForgeAudioFormat **supported_output_format
@@ -1339,13 +1339,13 @@ ForgeResult ForgeAudioFxReverb_IsOutputFormatSupported(
 }
 
 ForgeResult ForgeAudioFxReverb_Initialize(
-    ForgeAudioFxReverb *fapo,
+    ForgeAudioFxReverb *effect,
     const void* data,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            fapo->base.parameter_blocks + DataByteSize * offset, \
+            effect->base.parameter_blocks + DataByteSize * offset, \
             data, \
             DataByteSize \
         );
@@ -1357,24 +1357,24 @@ ForgeResult ForgeAudioFxReverb_Initialize(
 }
 
 ForgeResult ForgeAudioFxReverb_LockForProcess(
-    ForgeAudioFxReverb *fapo,
+    ForgeAudioFxReverb *effect,
     uint32_t InputLockedParameterCount,
-    const ForgeApoLockBuffer *input_locked_parameters,
+    const ForgeEffectLockBuffer *input_locked_parameters,
     uint32_t OutputLockedParameterCount,
-    const ForgeApoLockBuffer *output_locked_parameters
+    const ForgeEffectLockBuffer *output_locked_parameters
 ) {
     ForgeResult result;
 
     /* Reverb specific validation */
     if (!IsFloatFormat(input_locked_parameters->format))
     {
-        return ForgeResultApoFormatUnsupported;
+        return ForgeResultEffectFormatUnsupported;
     }
 
     if (    input_locked_parameters->format->sample_rate < FORGE_AUDIO_REVERB_MIN_SAMPLE_RATE ||
         input_locked_parameters->format->sample_rate > FORGE_AUDIO_REVERB_MAX_SAMPLE_RATE    )
     {
-        return ForgeResultApoFormatUnsupported;
+        return ForgeResultEffectFormatUnsupported;
     }
 
     if (!(    (input_locked_parameters->format->channels == 1 &&
@@ -1386,11 +1386,11 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
         (input_locked_parameters->format->channels == 6 &&
             output_locked_parameters->format->channels == 6)))
     {
-        return ForgeResultApoFormatUnsupported;
+        return ForgeResultEffectFormatUnsupported;
     }
 
-    result = forge_apo_base_lock_for_process(
-        &fapo->base,
+    result = forge_effect_base_lock_for_process(
+        &effect->base,
         InputLockedParameterCount,
         input_locked_parameters,
         OutputLockedParameterCount,
@@ -1402,49 +1402,49 @@ ForgeResult ForgeAudioFxReverb_LockForProcess(
     }
 
     /* Save the things we care about */
-    fapo->inChannels = input_locked_parameters->format->channels;
-    fapo->outChannels = output_locked_parameters->format->channels;
-    fapo->sampleRate = output_locked_parameters->format->sample_rate;
-    fapo->inBlockAlign = input_locked_parameters->format->block_align;
-    fapo->outBlockAlign = output_locked_parameters->format->block_align;
+    effect->inChannels = input_locked_parameters->format->channels;
+    effect->outChannels = output_locked_parameters->format->channels;
+    effect->sampleRate = output_locked_parameters->format->sample_rate;
+    effect->inBlockAlign = input_locked_parameters->format->block_align;
+    effect->outBlockAlign = output_locked_parameters->format->block_align;
 
     /* Create the network */
     DspReverb_Create(
-        &fapo->reverb,
-        fapo->sampleRate,
-        fapo->inChannels,
-        fapo->outChannels,
-        fapo->base.malloc_func
+        &effect->reverb,
+        effect->sampleRate,
+        effect->inChannels,
+        effect->outChannels,
+        effect->base.malloc_func
     );
 
     /* Initialize the effect to a default setting */
-    if (fapo->apiVersion == 9)
+    if (effect->apiVersion == 9)
     {
         DspReverb_SetParameters9(
-            &fapo->reverb,
-            (ForgeAudioReverbParameters7Point1*) fapo->base.parameter_blocks
+            &effect->reverb,
+            (ForgeAudioReverbParameters7Point1*) effect->base.parameter_blocks
         );
     }
     else
     {
         DspReverb_SetParameters(
-            &fapo->reverb,
-            (ForgeAudioReverbParameters*) fapo->base.parameter_blocks
+            &effect->reverb,
+            (ForgeAudioReverbParameters*) effect->base.parameter_blocks
         );
     }
 
     return 0;
 }
 
-void ForgeAudioFxReverb_UnlockForProcess(ForgeAudioFxReverb *fapo)
+void ForgeAudioFxReverb_UnlockForProcess(ForgeAudioFxReverb *effect)
 {
-    DspReverb_Destroy(&fapo->reverb, fapo->base.free_func);
-    ForgeAudio_zero(&fapo->reverb, sizeof(DspReverb));
-    forge_apo_base_unlock_for_process(&fapo->base);
+    DspReverb_Destroy(&effect->reverb, effect->base.free_func);
+    ForgeAudio_zero(&effect->reverb, sizeof(DspReverb));
+    forge_effect_base_unlock_for_process(&effect->base);
 }
 
 static inline void ForgeAudioFxReverb_CopyBuffer(
-    ForgeAudioFxReverb *fapo,
+    ForgeAudioFxReverb *effect,
     float *restrict buffer_in,
     float *restrict buffer_out,
     size_t frames_in
@@ -1456,18 +1456,18 @@ static inline void ForgeAudioFxReverb_CopyBuffer(
     }
     
     /* equal channel count */
-    if (fapo->inBlockAlign == fapo->outBlockAlign)
+    if (effect->inBlockAlign == effect->outBlockAlign)
     {
         ForgeAudio_memcpy(
             buffer_out,
             buffer_in,
-            fapo->inBlockAlign * frames_in
+            effect->inBlockAlign * frames_in
         );
         return;
     }
 
     /* 1 -> 5.1 */
-    if (fapo->inChannels == 1 && fapo->outChannels == 6)
+    if (effect->inChannels == 1 && effect->outChannels == 6)
     {
         const float *in_end = buffer_in + frames_in;
         while (buffer_in < in_end)
@@ -1483,7 +1483,7 @@ static inline void ForgeAudioFxReverb_CopyBuffer(
     }
 
     /* 2 -> 5.1 */
-    if (fapo->inChannels == 2 && fapo->outChannels == 6)
+    if (effect->inChannels == 2 && effect->outChannels == 6)
     {
         const float *in_end = buffer_in + (frames_in * 2);
         while (buffer_in < in_end)
@@ -1499,36 +1499,36 @@ static inline void ForgeAudioFxReverb_CopyBuffer(
     }
 
     ForgeAudio_assert(0 && "Unsupported channel combination");
-    ForgeAudio_zero(buffer_out, fapo->outBlockAlign * frames_in);
+    ForgeAudio_zero(buffer_out, effect->outBlockAlign * frames_in);
 }
 
 void ForgeAudioFxReverb_Process(
-    ForgeAudioFxReverb *fapo,
+    ForgeAudioFxReverb *effect,
     uint32_t InputProcessParameterCount,
-    const ForgeApoProcessBuffer* input_process_parameters,
+    const ForgeEffectProcessBuffer* input_process_parameters,
     uint32_t OutputProcessParameterCount,
-    ForgeApoProcessBuffer* output_process_parameters,
+    ForgeEffectProcessBuffer* output_process_parameters,
     int32_t IsEnabled
 ) {
     ForgeAudioReverbParameters *params;
-    uint8_t update_params = forge_apo_base_parameters_changed(&fapo->base);
+    uint8_t update_params = forge_effect_base_parameters_changed(&effect->base);
     float total;
 
-    params = (ForgeAudioReverbParameters*) forge_apo_base_begin_process(&fapo->base);
+    params = (ForgeAudioReverbParameters*) forge_effect_base_begin_process(&effect->base);
 
     /* Update parameters before doing anything else  */
     if (update_params)
     {
-        if (fapo->apiVersion == 9)
+        if (effect->apiVersion == 9)
         {
             DspReverb_SetParameters9(
-                &fapo->reverb,
+                &effect->reverb,
                 (ForgeAudioReverbParameters7Point1*) params
             );
         }
         else
         {
-            DspReverb_SetParameters(&fapo->reverb, params);
+            DspReverb_SetParameters(&effect->reverb, params);
         }
     }
     
@@ -1537,39 +1537,39 @@ void ForgeAudioFxReverb_Process(
     {
         output_process_parameters->BufferFlags = input_process_parameters->BufferFlags;
 
-        if (output_process_parameters->BufferFlags != FORGE_APO_BUFFER_SILENT)
+        if (output_process_parameters->BufferFlags != FORGE_EFFECT_BUFFER_SILENT)
         {
             ForgeAudioFxReverb_CopyBuffer(
-                fapo,
+                effect,
                 (float*) input_process_parameters->buffer,
                 (float*) output_process_parameters->buffer,
                 input_process_parameters->ValidFrameCount
             );
         }
 
-        forge_apo_base_end_process(&fapo->base);
+        forge_effect_base_end_process(&effect->base);
         return;
     }
     
     /* Use a silent buffer when no input buffer is available to play the effect tail. */
-    if (input_process_parameters->BufferFlags == FORGE_APO_BUFFER_SILENT)
+    if (input_process_parameters->BufferFlags == FORGE_EFFECT_BUFFER_SILENT)
     {
         /* Make sure input data is usable. FIXME: Is this required? */
         ForgeAudio_zero(
             input_process_parameters->buffer,
-            input_process_parameters->ValidFrameCount * fapo->inBlockAlign
+            input_process_parameters->ValidFrameCount * effect->inBlockAlign
         );
     }
 
     /* Run reverb effect */
     #define PROCESS(pin, pout) \
         DspReverb_INTERNAL_Process_##pin##_to_##pout( \
-            &fapo->reverb, \
+            &effect->reverb, \
             (float*) input_process_parameters->buffer, \
             (float*) output_process_parameters->buffer, \
-            input_process_parameters->ValidFrameCount * fapo->inChannels \
+            input_process_parameters->ValidFrameCount * effect->inChannels \
         )
-    switch (fapo->reverb.out_channels)
+    switch (effect->reverb.out_channels)
     {
         case 1:
             total = PROCESS(1, 1);
@@ -1578,11 +1578,11 @@ void ForgeAudioFxReverb_Process(
             total = PROCESS(2, 2);
             break;
         default: /* 5.1 */
-            if (fapo->reverb.in_channels == 1)
+            if (effect->reverb.in_channels == 1)
             {
                 total = PROCESS(1, 5p1);
             }
-            else if (fapo->reverb.in_channels == 2)
+            else if (effect->reverb.in_channels == 2)
             {
                 total = PROCESS(2, 5p1);
             }
@@ -1596,57 +1596,57 @@ void ForgeAudioFxReverb_Process(
 
     /* Set BufferFlags to silent so PLAY_TAILS knows when to stop */
     output_process_parameters->BufferFlags = (total < 0.0000001f) ?
-        FORGE_APO_BUFFER_SILENT :
-        FORGE_APO_BUFFER_VALID;
+        FORGE_EFFECT_BUFFER_SILENT :
+        FORGE_EFFECT_BUFFER_VALID;
 
-    forge_apo_base_end_process(&fapo->base);
+    forge_effect_base_end_process(&effect->base);
 }
 
-void ForgeAudioFxReverb_Reset(ForgeAudioFxReverb *fapo)
+void ForgeAudioFxReverb_Reset(ForgeAudioFxReverb *effect)
 {
     int32_t i, c;
-    forge_apo_base_reset(&fapo->base);
+    forge_effect_base_reset(&effect->base);
 
     /* Reset the cached state of the reverb filter */
-    DspDelay_Reset(&fapo->reverb.early_delay);
+    DspDelay_Reset(&effect->reverb.early_delay);
 
     for (i = 0; i < REVERB_COUNT_APF_IN; i += 1)
     {
-        DspAllPass_Reset(&fapo->reverb.apf_in[i]);
+        DspAllPass_Reset(&effect->reverb.apf_in[i]);
     }
 
-    for (c = 0; c < fapo->reverb.reverb_channels; c += 1)
+    for (c = 0; c < effect->reverb.reverb_channels; c += 1)
     {
-        DspDelay_Reset(&fapo->reverb.channel[c].reverb_delay);
+        DspDelay_Reset(&effect->reverb.channel[c].reverb_delay);
 
         for (i = 0; i < REVERB_COUNT_COMB; i += 1)
         {
-            DspCombShelving_Reset(&fapo->reverb.channel[c].lpf_comb[i]);
+            DspCombShelving_Reset(&effect->reverb.channel[c].lpf_comb[i]);
         }
 
-        DspBiQuad_Reset(&fapo->reverb.channel[c].room_high_shelf);
+        DspBiQuad_Reset(&effect->reverb.channel[c].room_high_shelf);
 
         for (i = 0; i < REVERB_COUNT_APF_OUT; i += 1)
         {
-            DspAllPass_Reset(&fapo->reverb.channel[c].apf_out[i]);
+            DspAllPass_Reset(&effect->reverb.channel[c].apf_out[i]);
         }
     }
 }
 
-void ForgeAudioFxReverb_Free(void* fapo)
+void ForgeAudioFxReverb_Free(void* effect)
 {
-    ForgeAudioFxReverb *reverb = (ForgeAudioFxReverb*) fapo;
+    ForgeAudioFxReverb *reverb = (ForgeAudioFxReverb*) effect;
     DspReverb_Destroy(&reverb->reverb, reverb->base.free_func);
     reverb->base.free_func(reverb->base.parameter_blocks);
-    reverb->base.free_func(fapo);
+    reverb->base.free_func(effect);
 }
 
 /* Public API (Version 7) */
 
-ForgeResult forge_audio_create_reverb(ForgeApo** apo, uint32_t Flags)
+ForgeResult forge_audio_create_reverb(ForgeEffect** effect, uint32_t Flags)
 {
     return forge_audio_create_reverb_with_allocator(
-        apo,
+        effect,
         Flags,
         ForgeAudio_malloc,
         ForgeAudio_free,
@@ -1655,7 +1655,7 @@ ForgeResult forge_audio_create_reverb(ForgeApo** apo, uint32_t Flags)
 }
 
 ForgeResult forge_audio_create_reverb_with_allocator(
-    ForgeApo** apo,
+    ForgeEffect** effect,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -1700,7 +1700,7 @@ ForgeResult forge_audio_create_reverb_with_allocator(
         &FORGE_AUDIO_FX_ID_REVERB,
         sizeof(ForgeGuid)
     );
-    forge_apo_base_init_with_allocator(
+    forge_effect_base_init_with_allocator(
         &result->base,
         &ReverbProperties,
         params,
@@ -1717,18 +1717,18 @@ ForgeResult forge_audio_create_reverb_with_allocator(
     ForgeAudio_zero(&result->reverb, sizeof(DspReverb));
 
     /* Function table... */
-    result->base.base.LockForProcess = (ForgeApoLockForProcessFunc)
+    result->base.base.LockForProcess = (ForgeEffectLockForProcessFunc)
         ForgeAudioFxReverb_LockForProcess;
-    result->base.base.UnlockForProcess = (ForgeApoUnlockForProcessFunc)
+    result->base.base.UnlockForProcess = (ForgeEffectUnlockForProcessFunc)
         ForgeAudioFxReverb_UnlockForProcess;
-    result->base.base.IsInputFormatSupported = (ForgeApoIsInputFormatSupportedFunc)
+    result->base.base.IsInputFormatSupported = (ForgeEffectIsInputFormatSupportedFunc)
         ForgeAudioFxReverb_IsInputFormatSupported;
-    result->base.base.IsOutputFormatSupported = (ForgeApoIsOutputFormatSupportedFunc)
+    result->base.base.IsOutputFormatSupported = (ForgeEffectIsOutputFormatSupportedFunc)
         ForgeAudioFxReverb_IsOutputFormatSupported;
-    result->base.base.Initialize = (ForgeApoInitializeFunc)
+    result->base.base.Initialize = (ForgeEffectInitializeFunc)
         ForgeAudioFxReverb_Initialize;
-    result->base.base.Reset = (ForgeApoResetFunc) ForgeAudioFxReverb_Reset;
-    result->base.base.Process = (ForgeApoProcessFunc) ForgeAudioFxReverb_Process;
+    result->base.base.Reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
+    result->base.base.Process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
     result->base.Destructor = ForgeAudioFxReverb_Free;
 
     /* Prepare the default parameters */
@@ -1739,7 +1739,7 @@ ForgeResult forge_audio_create_reverb_with_allocator(
     );
 
     /* Finally. */
-    *apo = &result->base.base;
+    *effect = &result->base.base;
     return 0;
 }
 
@@ -1815,10 +1815,10 @@ void forge_audio_reverb_convert_i3dl2(
 
 /* Public API (Version 9) */
 
-ForgeResult forge_audio_create_reverb_7point1(ForgeApo** apo, uint32_t Flags)
+ForgeResult forge_audio_create_reverb_7point1(ForgeEffect** effect, uint32_t Flags)
 {
     return forge_audio_create_reverb_7point1_with_allocator(
-        apo,
+        effect,
         Flags,
         ForgeAudio_malloc,
         ForgeAudio_free,
@@ -1827,7 +1827,7 @@ ForgeResult forge_audio_create_reverb_7point1(ForgeApo** apo, uint32_t Flags)
 }
 
 ForgeResult forge_audio_create_reverb_7point1_with_allocator(
-    ForgeApo** apo,
+    ForgeEffect** effect,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -1873,7 +1873,7 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
         &FORGE_AUDIO_FX_ID_REVERB,
         sizeof(ForgeGuid)
     );
-    forge_apo_base_init_with_allocator(
+    forge_effect_base_init_with_allocator(
         &result->base,
         &ReverbProperties,
         params,
@@ -1890,18 +1890,18 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     ForgeAudio_zero(&result->reverb, sizeof(DspReverb));
 
     /* Function table... */
-    result->base.base.LockForProcess = (ForgeApoLockForProcessFunc)
+    result->base.base.LockForProcess = (ForgeEffectLockForProcessFunc)
         ForgeAudioFxReverb_LockForProcess;
-    result->base.base.UnlockForProcess = (ForgeApoUnlockForProcessFunc)
+    result->base.base.UnlockForProcess = (ForgeEffectUnlockForProcessFunc)
         ForgeAudioFxReverb_UnlockForProcess;
-    result->base.base.IsInputFormatSupported = (ForgeApoIsInputFormatSupportedFunc)
+    result->base.base.IsInputFormatSupported = (ForgeEffectIsInputFormatSupportedFunc)
         ForgeAudioFxReverb_IsInputFormatSupported;
-    result->base.base.IsOutputFormatSupported = (ForgeApoIsOutputFormatSupportedFunc)
+    result->base.base.IsOutputFormatSupported = (ForgeEffectIsOutputFormatSupportedFunc)
         ForgeAudioFxReverb_IsOutputFormatSupported;
-    result->base.base.Initialize = (ForgeApoInitializeFunc)
+    result->base.base.Initialize = (ForgeEffectInitializeFunc)
         ForgeAudioFxReverb_Initialize;
-    result->base.base.Reset = (ForgeApoResetFunc) ForgeAudioFxReverb_Reset;
-    result->base.base.Process = (ForgeApoProcessFunc) ForgeAudioFxReverb_Process;
+    result->base.base.Reset = (ForgeEffectResetFunc) ForgeAudioFxReverb_Reset;
+    result->base.base.Process = (ForgeEffectProcessFunc) ForgeAudioFxReverb_Process;
     result->base.Destructor = ForgeAudioFxReverb_Free;
 
     /* Prepare the default parameters */
@@ -1912,7 +1912,7 @@ ForgeResult forge_audio_create_reverb_7point1_with_allocator(
     );
 
     /* Finally. */
-    *apo = &result->base.base;
+    *effect = &result->base.base;
     return 0;
 }
 

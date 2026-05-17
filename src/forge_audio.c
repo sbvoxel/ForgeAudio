@@ -1384,14 +1384,14 @@ ForgeResult forge_voice_set_effect_chain(
     ForgeVoice *voice,
     const ForgeEffectChain *effect_chain
 ) {
-    ForgeApo *fapo;
+    ForgeEffect *effect;
     ForgeResult result;
     uint32_t lockedEffects;
     uint32_t channelCount;
     ForgeVoiceDetails voiceDetails;
-    ForgeApoProperties *props;
+    ForgeEffectProperties *props;
     ForgeAudioFormatExtensible srcFmt, dstFmt;
-    ForgeApoLockBuffer srcLockParams, dstLockParams;
+    ForgeEffectLockBuffer srcLockParams, dstLockParams;
     uint8_t hasEffectChain;
 
     LOG_API_ENTER(voice->audio)
@@ -1482,15 +1482,15 @@ ForgeResult forge_voice_set_effect_chain(
         lockedEffects = 0;
         for (uint32_t i = 0; i < effect_chain->EffectCount; i += 1)
         {
-            fapo = effect_chain->effects[i].effect;
+            effect = effect_chain->effects[i].effect;
 
             /* ... then we get this effect's format... */
             dstFmt.Format.channels = effect_chain->effects[i].OutputChannels;
             dstFmt.Format.block_align = dstFmt.Format.channels * (dstFmt.Format.bits_per_sample / 8);
             dstFmt.Format.average_bytes_per_second = dstFmt.Format.sample_rate * dstFmt.Format.block_align;
 
-            result = fapo->LockForProcess(
-                fapo,
+            result = effect->LockForProcess(
+                effect,
                 1,
                 &srcLockParams,
                 1,
@@ -1534,10 +1534,10 @@ ForgeResult forge_voice_set_effect_chain(
         channelCount = voiceDetails.InputChannels;
         for (uint32_t i = 0; i < voice->effects.count; i += 1)
         {
-            fapo = voice->effects.desc[i].effect;
-            if (fapo->GetRegistrationProperties(fapo, &props) == 0)
+            effect = voice->effects.desc[i].effect;
+            if (effect->GetRegistrationProperties(effect, &props) == 0)
             {
-                voice->effects.inPlaceProcessing[i] = (props->Flags & FORGE_APO_FLAG_IN_PLACE_SUPPORTED) == FORGE_APO_FLAG_IN_PLACE_SUPPORTED;
+                voice->effects.inPlaceProcessing[i] = (props->Flags & FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED) == FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED;
                 voice->effects.inPlaceProcessing[i] &= (channelCount == voice->effects.desc[i].OutputChannels);
                 channelCount = voice->effects.desc[i].OutputChannels;
 
@@ -1545,7 +1545,7 @@ ForgeResult forge_voice_set_effect_chain(
                  * the chain forces us to do otherwise...
                  */
                 ForgeAudio_assert(
-                    !(props->Flags & FORGE_APO_FLAG_IN_PLACE_REQUIRED) ||
+                    !(props->Flags & FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED) ||
                     voice->effects.inPlaceProcessing[i]
                 );
 
@@ -1696,12 +1696,12 @@ ForgeResult forge_voice_get_effect_parameters(
     void *parameters,
     uint32_t ParametersByteSize
 ) {
-    ForgeApo *fapo;
+    ForgeEffect *effect;
     LOG_API_ENTER(voice->audio)
     ForgeAudio_PlatformLockMutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
-    fapo = voice->effects.desc[EffectIndex].effect;
-    fapo->GetParameters(fapo, parameters, ParametersByteSize);
+    effect = voice->effects.desc[EffectIndex].effect;
+    effect->GetParameters(effect, parameters, ParametersByteSize);
     ForgeAudio_PlatformUnlockMutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
     LOG_API_EXIT(voice->audio)

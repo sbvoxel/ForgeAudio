@@ -24,34 +24,34 @@
  *
  */
 
-#include "forge_apo_fx.h"
+#include "forge_effect_fx.h"
 #include "forge_audio_internal.h"
 
-/* FXReverb ForgeApo Implementation */
+/* FXMasteringLimiter ForgeEffect Implementation */
 
-const ForgeGuid FORGE_APO_FX_ID_REVERB =
+const ForgeGuid FORGE_EFFECT_FX_ID_MASTERING_LIMITER =
 {
-    0x7D9ACA56,
-    0xCB68,
-    0x4807,
+    0xC4137916,
+    0x2BE1,
+    0x46FD,
     {
-        0xB6,
-        0x32,
-        0xB1,
-        0x37,
-        0x35,
-        0x2E,
         0x85,
-        0x96
+        0x99,
+        0x44,
+        0x15,
+        0x36,
+        0xF4,
+        0x98,
+        0x56
     }
 };
 
-static ForgeApoProperties FXReverbProperties =
+static ForgeEffectProperties FXMasteringLimiterProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
     {
-        'F', 'X', 'R', 'e', 'v', 'e', 'r', 'b', '\0'
+        'F', 'X', 'M', 'a', 's', 't', 'e', 'r', 'i', 'n', 'g', 'L', 'i', 'm', 'i', 't', 'e', 'r', '\0'
     },
     /*.CopyrightInfo = */
     {
@@ -61,11 +61,11 @@ static ForgeApoProperties FXReverbProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
-        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
-        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
-        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
-        FORGE_APO_FLAG_IN_PLACE_REQUIRED
+        FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -73,21 +73,21 @@ static ForgeApoProperties FXReverbProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct ForgeApoReverb
+typedef struct ForgeEffectMasteringLimiter
 {
-    ForgeApoBase base;
+    ForgeEffectBase base;
 
     /* TODO */
-} ForgeApoReverb;
+} ForgeEffectMasteringLimiter;
 
-ForgeResult ForgeApoReverb_Initialize(
-    ForgeApoReverb *fapo,
+ForgeResult ForgeEffectMasteringLimiter_Initialize(
+    ForgeEffectMasteringLimiter *effect,
     const void* data,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            fapo->base.parameter_blocks + DataByteSize * offset, \
+            effect->base.parameter_blocks + DataByteSize * offset, \
             data, \
             DataByteSize \
         );
@@ -98,59 +98,59 @@ ForgeResult ForgeApoReverb_Initialize(
     return 0;
 }
 
-void ForgeApoReverb_Process(
-    ForgeApoReverb *fapo,
+void ForgeEffectMasteringLimiter_Process(
+    ForgeEffectMasteringLimiter *effect,
     uint32_t InputProcessParameterCount,
-    const ForgeApoProcessBuffer* input_process_parameters,
+    const ForgeEffectProcessBuffer* input_process_parameters,
     uint32_t OutputProcessParameterCount,
-    ForgeApoProcessBuffer* output_process_parameters,
+    ForgeEffectProcessBuffer* output_process_parameters,
     int32_t IsEnabled
 ) {
-    forge_apo_base_begin_process(&fapo->base);
+    forge_effect_base_begin_process(&effect->base);
 
     /* TODO */
 
-    forge_apo_base_end_process(&fapo->base);
+    forge_effect_base_end_process(&effect->base);
 }
 
-void ForgeApoReverb_Free(void* fapo)
+void ForgeEffectMasteringLimiter_Free(void* effect)
 {
-    ForgeApoReverb *reverb = (ForgeApoReverb*) fapo;
-    reverb->base.free_func(reverb->base.parameter_blocks);
-    reverb->base.free_func(fapo);
+    ForgeEffectMasteringLimiter *limiter = (ForgeEffectMasteringLimiter*) effect;
+    limiter->base.free_func(limiter->base.parameter_blocks);
+    limiter->base.free_func(effect);
 }
 
 /* Public API */
 
-ForgeResult forge_apo_create_reverb(
-    ForgeApo **effect,
+ForgeResult forge_effect_create_mastering_limiter(
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-    const ForgeApoReverbParameters fxdefault =
+    const ForgeEffectMasteringLimiterParameters fxdefault =
     {
-        FORGE_APO_REVERB_DEFAULT_DIFFUSION,
-        FORGE_APO_REVERB_DEFAULT_ROOM_SIZE,
+        FORGE_EFFECT_MASTERING_LIMITER_DEFAULT_RELEASE,
+        FORGE_EFFECT_MASTERING_LIMITER_DEFAULT_LOUDNESS
     };
 
     /* Allocate... */
-    ForgeApoReverb *result = (ForgeApoReverb*) customMalloc(
-        sizeof(ForgeApoReverb)
+    ForgeEffectMasteringLimiter *result = (ForgeEffectMasteringLimiter*) customMalloc(
+        sizeof(ForgeEffectMasteringLimiter)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(ForgeApoReverbParameters) * 3
+        sizeof(ForgeEffectMasteringLimiterParameters) * 3
     );
     if (init_data == NULL)
     {
-        ForgeAudio_zero(params, sizeof(ForgeApoReverbParameters) * 3);
+        ForgeAudio_zero(params, sizeof(ForgeEffectMasteringLimiterParameters) * 3);
         #define INITPARAMS(offset) \
             ForgeAudio_memcpy( \
-                params + sizeof(ForgeApoReverbParameters) * offset, \
+                params + sizeof(ForgeEffectMasteringLimiterParameters) * offset, \
                 &fxdefault, \
-                sizeof(ForgeApoReverbParameters) \
+                sizeof(ForgeEffectMasteringLimiterParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -159,7 +159,7 @@ ForgeResult forge_apo_create_reverb(
     }
     else
     {
-        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeApoReverbParameters));
+        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeEffectMasteringLimiterParameters));
         ForgeAudio_memcpy(params, init_data, InitDataByteSize);
         ForgeAudio_memcpy(params + InitDataByteSize, init_data, InitDataByteSize);
         ForgeAudio_memcpy(params + (InitDataByteSize * 2), init_data, InitDataByteSize);
@@ -167,15 +167,15 @@ ForgeResult forge_apo_create_reverb(
 
     /* Initialize... */
     ForgeAudio_memcpy(
-        &FXReverbProperties.clsid,
-        &FORGE_APO_FX_ID_REVERB,
+        &FXMasteringLimiterProperties.clsid,
+        &FORGE_EFFECT_FX_ID_MASTERING_LIMITER,
         sizeof(ForgeGuid)
     );
-    forge_apo_base_init_with_allocator(
+    forge_effect_base_init_with_allocator(
         &result->base,
-        &FXReverbProperties,
+        &FXMasteringLimiterProperties,
         params,
-        sizeof(ForgeApoReverbParameters),
+        sizeof(ForgeEffectMasteringLimiterParameters),
         0,
         customMalloc,
         customFree,
@@ -183,11 +183,11 @@ ForgeResult forge_apo_create_reverb(
     );
 
     /* Function table... */
-    result->base.base.Initialize = (ForgeApoInitializeFunc)
-        ForgeApoReverb_Initialize;
-    result->base.base.Process = (ForgeApoProcessFunc)
-        ForgeApoReverb_Process;
-    result->base.Destructor = ForgeApoReverb_Free;
+    result->base.base.Initialize = (ForgeEffectInitializeFunc)
+        ForgeEffectMasteringLimiter_Initialize;
+    result->base.base.Process = (ForgeEffectProcessFunc)
+        ForgeEffectMasteringLimiter_Process;
+    result->base.Destructor = ForgeEffectMasteringLimiter_Free;
 
     /* Finally. */
     *effect = &result->base.base;

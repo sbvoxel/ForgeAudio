@@ -27,7 +27,7 @@
 #include "forge_audio_fx.h"
 #include "forge_audio_internal.h"
 
-/* Volume Meter ForgeApo Implementation */
+/* Volume Meter ForgeEffect Implementation */
 
 const ForgeGuid FORGE_AUDIO_FX_ID_VOLUME_METER = /* 2.7 */
 {
@@ -46,7 +46,7 @@ const ForgeGuid FORGE_AUDIO_FX_ID_VOLUME_METER = /* 2.7 */
     }
 };
 
-static ForgeApoProperties VolumeMeterProperties =
+static ForgeEffectProperties VolumeMeterProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -61,12 +61,12 @@ static ForgeApoProperties VolumeMeterProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FORGE_APO_FLAG_CHANNELS_MUST_MATCH |
-        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
-        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
-        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
-        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
-        FORGE_APO_FLAG_IN_PLACE_REQUIRED
+        FORGE_EFFECT_FLAG_CHANNELS_MUST_MATCH |
+        FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -76,25 +76,25 @@ static ForgeApoProperties VolumeMeterProperties =
 
 typedef struct ForgeAudioFxVolumeMeter
 {
-    ForgeApoBase base;
+    ForgeEffectBase base;
     uint16_t channels;
 } ForgeAudioFxVolumeMeter;
 
 ForgeResult ForgeAudioFxVolumeMeter_LockForProcess(
-    ForgeAudioFxVolumeMeter *fapo,
+    ForgeAudioFxVolumeMeter *effect,
     uint32_t InputLockedParameterCount,
-    const ForgeApoLockBuffer *input_locked_parameters,
+    const ForgeEffectLockBuffer *input_locked_parameters,
     uint32_t OutputLockedParameterCount,
-    const ForgeApoLockBuffer *output_locked_parameters
+    const ForgeEffectLockBuffer *output_locked_parameters
 ) {
     ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
-        fapo->base.parameter_blocks;
+        effect->base.parameter_blocks;
 
     /* Verify parameter counts... */
-    if (    InputLockedParameterCount < fapo->base.registration_properties->MinInputBufferCount ||
-        InputLockedParameterCount > fapo->base.registration_properties->MaxInputBufferCount ||
-        OutputLockedParameterCount < fapo->base.registration_properties->MinOutputBufferCount ||
-        OutputLockedParameterCount > fapo->base.registration_properties->MaxOutputBufferCount    )
+    if (    InputLockedParameterCount < effect->base.registration_properties->MinInputBufferCount ||
+        InputLockedParameterCount > effect->base.registration_properties->MaxInputBufferCount ||
+        OutputLockedParameterCount < effect->base.registration_properties->MinOutputBufferCount ||
+        OutputLockedParameterCount > effect->base.registration_properties->MaxOutputBufferCount    )
     {
         return ForgeResultInvalidArgument;
     }
@@ -102,51 +102,51 @@ ForgeResult ForgeAudioFxVolumeMeter_LockForProcess(
 
     /* Validate input/output formats */
     #define VERIFY_FORMAT_FLAG(flag, prop) \
-        if (    (fapo->base.registration_properties->Flags & flag) && \
+        if (    (effect->base.registration_properties->Flags & flag) && \
             (input_locked_parameters->format->prop != output_locked_parameters->format->prop)    ) \
         { \
             return ForgeResultInvalidArgument; \
         }
-    VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_CHANNELS_MUST_MATCH, channels)
-    VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH, sample_rate)
-    VERIFY_FORMAT_FLAG(FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH, bits_per_sample)
+    VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_CHANNELS_MUST_MATCH, channels)
+    VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH, sample_rate)
+    VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH, bits_per_sample)
     #undef VERIFY_FORMAT_FLAG
-    if (    (fapo->base.registration_properties->Flags & FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH) &&
+    if (    (effect->base.registration_properties->Flags & FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH) &&
         (InputLockedParameterCount != OutputLockedParameterCount)    )
     {
         return ForgeResultInvalidArgument;
     }
 
     /* Allocate volume meter arrays */
-    fapo->channels = input_locked_parameters->format->channels;
-    levels[0].peak_levels = (float*) fapo->base.malloc_func(
-        fapo->channels * sizeof(float) * 6
+    effect->channels = input_locked_parameters->format->channels;
+    levels[0].peak_levels = (float*) effect->base.malloc_func(
+        effect->channels * sizeof(float) * 6
     );
-    ForgeAudio_zero(levels[0].peak_levels, fapo->channels * sizeof(float) * 6);
-    levels[0].rms_levels = levels[0].peak_levels + fapo->channels;
-    levels[1].peak_levels = levels[0].peak_levels + (fapo->channels * 2);
-    levels[1].rms_levels = levels[0].peak_levels + (fapo->channels * 3);
-    levels[2].peak_levels = levels[0].peak_levels + (fapo->channels * 4);
-    levels[2].rms_levels = levels[0].peak_levels + (fapo->channels * 5);
+    ForgeAudio_zero(levels[0].peak_levels, effect->channels * sizeof(float) * 6);
+    levels[0].rms_levels = levels[0].peak_levels + effect->channels;
+    levels[1].peak_levels = levels[0].peak_levels + (effect->channels * 2);
+    levels[1].rms_levels = levels[0].peak_levels + (effect->channels * 3);
+    levels[2].peak_levels = levels[0].peak_levels + (effect->channels * 4);
+    levels[2].rms_levels = levels[0].peak_levels + (effect->channels * 5);
 
-    fapo->base.is_locked = 1;
+    effect->base.is_locked = 1;
     return 0;
 }
 
-void ForgeAudioFxVolumeMeter_UnlockForProcess(ForgeAudioFxVolumeMeter *fapo)
+void ForgeAudioFxVolumeMeter_UnlockForProcess(ForgeAudioFxVolumeMeter *effect)
 {
     ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
-        fapo->base.parameter_blocks;
-    fapo->base.free_func(levels[0].peak_levels);
-    fapo->base.is_locked = 0;
+        effect->base.parameter_blocks;
+    effect->base.free_func(levels[0].peak_levels);
+    effect->base.is_locked = 0;
 }
 
 void ForgeAudioFxVolumeMeter_Process(
-    ForgeAudioFxVolumeMeter *fapo,
+    ForgeAudioFxVolumeMeter *effect,
     uint32_t InputProcessParameterCount,
-    const ForgeApoProcessBuffer* input_process_parameters,
+    const ForgeEffectProcessBuffer* input_process_parameters,
     uint32_t OutputProcessParameterCount,
-    ForgeApoProcessBuffer* output_process_parameters,
+    ForgeEffectProcessBuffer* output_process_parameters,
     int32_t IsEnabled
 ) {
     float peak;
@@ -154,15 +154,15 @@ void ForgeAudioFxVolumeMeter_Process(
     float *buffer;
     uint32_t i, j;
     ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
-        forge_apo_base_begin_process(&fapo->base);
+        forge_effect_base_begin_process(&effect->base);
 
     /* TODO: This could probably be SIMD-ified... */
-    for (i = 0; i < fapo->channels; i += 1)
+    for (i = 0; i < effect->channels; i += 1)
     {
         peak = 0.0f;
         total = 0.0f;
         buffer = ((float*) input_process_parameters->buffer) + i;
-        for (j = 0; j < input_process_parameters->ValidFrameCount; j += 1, buffer += fapo->channels)
+        for (j = 0; j < input_process_parameters->ValidFrameCount; j += 1, buffer += effect->channels)
         {
             const float sampleAbs = ForgeAudio_fabsf(*buffer);
             if (sampleAbs > peak)
@@ -177,18 +177,18 @@ void ForgeAudioFxVolumeMeter_Process(
         );
     }
 
-    forge_apo_base_end_process(&fapo->base);
+    forge_effect_base_end_process(&effect->base);
 }
 
 void ForgeAudioFxVolumeMeter_GetParameters(
-    ForgeAudioFxVolumeMeter *fapo,
+    ForgeAudioFxVolumeMeter *effect,
     ForgeAudioFxVolumeMeterLevels *parameters,
     uint32_t ParameterByteSize
 ) {
     ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
-        fapo->base.current_parameters;
+        effect->base.current_parameters;
     ForgeAudio_assert(ParameterByteSize == sizeof(ForgeAudioFxVolumeMeterLevels));
-    ForgeAudio_assert(parameters->ChannelCount == fapo->channels);
+    ForgeAudio_assert(parameters->ChannelCount == effect->channels);
 
     /* Copy what's current as of the last Process */
     if (parameters->peak_levels != NULL)
@@ -196,7 +196,7 @@ void ForgeAudioFxVolumeMeter_GetParameters(
         ForgeAudio_memcpy(
             parameters->peak_levels,
             levels->peak_levels,
-            fapo->channels * sizeof(float)
+            effect->channels * sizeof(float)
         );
     }
     if (parameters->rms_levels != NULL)
@@ -204,24 +204,24 @@ void ForgeAudioFxVolumeMeter_GetParameters(
         ForgeAudio_memcpy(
             parameters->rms_levels,
             levels->rms_levels,
-            fapo->channels * sizeof(float)
+            effect->channels * sizeof(float)
         );
     }
 }
 
-void ForgeAudioFxVolumeMeter_Free(void* fapo)
+void ForgeAudioFxVolumeMeter_Free(void* effect)
 {
-    ForgeAudioFxVolumeMeter *volumemeter = (ForgeAudioFxVolumeMeter*) fapo;
+    ForgeAudioFxVolumeMeter *volumemeter = (ForgeAudioFxVolumeMeter*) effect;
     volumemeter->base.free_func(volumemeter->base.parameter_blocks);
-    volumemeter->base.free_func(fapo);
+    volumemeter->base.free_func(effect);
 }
 
 /* Public API */
 
-ForgeResult forge_audio_create_volume_meter(ForgeApo** apo, uint32_t Flags)
+ForgeResult forge_audio_create_volume_meter(ForgeEffect** effect, uint32_t Flags)
 {
     return forge_audio_create_volume_meter_with_allocator(
-        apo,
+        effect,
         Flags,
         ForgeAudio_malloc,
         ForgeAudio_free,
@@ -230,7 +230,7 @@ ForgeResult forge_audio_create_volume_meter(ForgeApo** apo, uint32_t Flags)
 }
 
 ForgeResult forge_audio_create_volume_meter_with_allocator(
-    ForgeApo** apo,
+    ForgeEffect** effect,
     uint32_t Flags,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
@@ -251,7 +251,7 @@ ForgeResult forge_audio_create_volume_meter_with_allocator(
         &FORGE_AUDIO_FX_ID_VOLUME_METER,
         sizeof(ForgeGuid)
     );
-    forge_apo_base_init_with_allocator(
+    forge_effect_base_init_with_allocator(
         &result->base,
         &VolumeMeterProperties,
         params,
@@ -263,17 +263,17 @@ ForgeResult forge_audio_create_volume_meter_with_allocator(
     );
 
     /* Function table... */
-    result->base.base.LockForProcess = (ForgeApoLockForProcessFunc)
+    result->base.base.LockForProcess = (ForgeEffectLockForProcessFunc)
         ForgeAudioFxVolumeMeter_LockForProcess;
-    result->base.base.UnlockForProcess = (ForgeApoUnlockForProcessFunc)
+    result->base.base.UnlockForProcess = (ForgeEffectUnlockForProcessFunc)
         ForgeAudioFxVolumeMeter_UnlockForProcess;
-    result->base.base.Process = (ForgeApoProcessFunc)
+    result->base.base.Process = (ForgeEffectProcessFunc)
         ForgeAudioFxVolumeMeter_Process;
-    result->base.base.GetParameters = (ForgeApoGetParametersFunc)
+    result->base.base.GetParameters = (ForgeEffectGetParametersFunc)
         ForgeAudioFxVolumeMeter_GetParameters;
     result->base.Destructor = ForgeAudioFxVolumeMeter_Free;
 
     /* Finally. */
-    *apo = &result->base.base;
+    *effect = &result->base.base;
     return 0;
 }

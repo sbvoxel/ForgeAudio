@@ -24,12 +24,12 @@
  *
  */
 
-#include "forge_apo_fx.h"
+#include "forge_effect_fx.h"
 #include "forge_audio_internal.h"
 
-/* FXEQ ForgeApo Implementation */
+/* FXEQ ForgeEffect Implementation */
 
-const ForgeGuid FORGE_APO_FX_ID_EQ =
+const ForgeGuid FORGE_EFFECT_FX_ID_EQ =
 {
     0xF5E01117,
     0xD6C4,
@@ -46,7 +46,7 @@ const ForgeGuid FORGE_APO_FX_ID_EQ =
     }
 };
 
-static ForgeApoProperties FXEQProperties =
+static ForgeEffectProperties FXEQProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
@@ -61,11 +61,11 @@ static ForgeApoProperties FXEQProperties =
     /*.MajorVersion = */ 0,
     /*.MinorVersion = */ 0,
     /*.Flags = */(
-        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
-        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
-        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
-        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
-        FORGE_APO_FLAG_IN_PLACE_REQUIRED
+        FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
+        FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
+        FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED |
+        FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED
     ),
     /*.MinInputBufferCount = */ 1,
     /*.MaxInputBufferCount = */  1,
@@ -73,21 +73,21 @@ static ForgeApoProperties FXEQProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct ForgeApoEq
+typedef struct ForgeEffectEq
 {
-    ForgeApoBase base;
+    ForgeEffectBase base;
 
     /* TODO */
-} ForgeApoEq;
+} ForgeEffectEq;
 
-ForgeResult FORGE_APO_EQ_Initialize(
-    ForgeApoEq *fapo,
+ForgeResult FORGE_EFFECT_EQ_Initialize(
+    ForgeEffectEq *effect,
     const void* data,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
         ForgeAudio_memcpy( \
-            fapo->base.parameter_blocks + DataByteSize * offset, \
+            effect->base.parameter_blocks + DataByteSize * offset, \
             data, \
             DataByteSize \
         );
@@ -98,69 +98,69 @@ ForgeResult FORGE_APO_EQ_Initialize(
     return 0;
 }
 
-void FORGE_APO_EQ_Process(
-    ForgeApoEq *fapo,
+void FORGE_EFFECT_EQ_Process(
+    ForgeEffectEq *effect,
     uint32_t InputProcessParameterCount,
-    const ForgeApoProcessBuffer* input_process_parameters,
+    const ForgeEffectProcessBuffer* input_process_parameters,
     uint32_t OutputProcessParameterCount,
-    ForgeApoProcessBuffer* output_process_parameters,
+    ForgeEffectProcessBuffer* output_process_parameters,
     int32_t IsEnabled
 ) {
-    forge_apo_base_begin_process(&fapo->base);
+    forge_effect_base_begin_process(&effect->base);
 
     /* TODO */
 
-    forge_apo_base_end_process(&fapo->base);
+    forge_effect_base_end_process(&effect->base);
 }
 
-void FORGE_APO_EQ_Free(void* fapo)
+void FORGE_EFFECT_EQ_Free(void* effect)
 {
-    ForgeApoEq *eq = (ForgeApoEq*) fapo;
+    ForgeEffectEq *eq = (ForgeEffectEq*) effect;
     eq->base.free_func(eq->base.parameter_blocks);
-    eq->base.free_func(fapo);
+    eq->base.free_func(effect);
 }
 
 /* Public API */
 
-ForgeResult forge_apo_create_eq(
-    ForgeApo **effect,
+ForgeResult forge_effect_create_eq(
+    ForgeEffect **effect,
     const void *init_data,
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-    const ForgeApoEqParameters fxdefault =
+    const ForgeEffectEqParameters fxdefault =
     {
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_0,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_1,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_2,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_3,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH
+        FORGE_EFFECT_EQ_DEFAULT_FREQUENCY_CENTER_0,
+        FORGE_EFFECT_EQ_DEFAULT_GAIN,
+        FORGE_EFFECT_EQ_DEFAULT_BANDWIDTH,
+        FORGE_EFFECT_EQ_DEFAULT_FREQUENCY_CENTER_1,
+        FORGE_EFFECT_EQ_DEFAULT_GAIN,
+        FORGE_EFFECT_EQ_DEFAULT_BANDWIDTH,
+        FORGE_EFFECT_EQ_DEFAULT_FREQUENCY_CENTER_2,
+        FORGE_EFFECT_EQ_DEFAULT_GAIN,
+        FORGE_EFFECT_EQ_DEFAULT_BANDWIDTH,
+        FORGE_EFFECT_EQ_DEFAULT_FREQUENCY_CENTER_3,
+        FORGE_EFFECT_EQ_DEFAULT_GAIN,
+        FORGE_EFFECT_EQ_DEFAULT_BANDWIDTH
     };
 
     /* Allocate... */
-    ForgeApoEq *result = (ForgeApoEq*) customMalloc(
-        sizeof(ForgeApoEq)
+    ForgeEffectEq *result = (ForgeEffectEq*) customMalloc(
+        sizeof(ForgeEffectEq)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(ForgeApoEqParameters) * 3
+        sizeof(ForgeEffectEqParameters) * 3
     );
     if (init_data == NULL)
     {
-        ForgeAudio_zero(params, sizeof(ForgeApoEqParameters) * 3);
+        ForgeAudio_zero(params, sizeof(ForgeEffectEqParameters) * 3);
         #define INITPARAMS(offset) \
             ForgeAudio_memcpy( \
-                params + sizeof(ForgeApoEqParameters) * offset, \
+                params + sizeof(ForgeEffectEqParameters) * offset, \
                 &fxdefault, \
-                sizeof(ForgeApoEqParameters) \
+                sizeof(ForgeEffectEqParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -169,7 +169,7 @@ ForgeResult forge_apo_create_eq(
     }
     else
     {
-        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeApoEqParameters));
+        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeEffectEqParameters));
         ForgeAudio_memcpy(params, init_data, InitDataByteSize);
         ForgeAudio_memcpy(params + InitDataByteSize, init_data, InitDataByteSize);
         ForgeAudio_memcpy(params + (InitDataByteSize * 2), init_data, InitDataByteSize);
@@ -178,14 +178,14 @@ ForgeResult forge_apo_create_eq(
     /* Initialize... */
     ForgeAudio_memcpy(
         &FXEQProperties.clsid,
-        &FORGE_APO_FX_ID_EQ,
+        &FORGE_EFFECT_FX_ID_EQ,
         sizeof(ForgeGuid)
     );
-    forge_apo_base_init_with_allocator(
+    forge_effect_base_init_with_allocator(
         &result->base,
         &FXEQProperties,
         params,
-        sizeof(ForgeApoEqParameters),
+        sizeof(ForgeEffectEqParameters),
         0,
         customMalloc,
         customFree,
@@ -193,11 +193,11 @@ ForgeResult forge_apo_create_eq(
     );
 
     /* Function table... */
-    result->base.base.Initialize = (ForgeApoInitializeFunc)
-        FORGE_APO_EQ_Initialize;
-    result->base.base.Process = (ForgeApoProcessFunc)
-        FORGE_APO_EQ_Process;
-    result->base.Destructor = FORGE_APO_EQ_Free;
+    result->base.base.Initialize = (ForgeEffectInitializeFunc)
+        FORGE_EFFECT_EQ_Initialize;
+    result->base.base.Process = (ForgeEffectProcessFunc)
+        FORGE_EFFECT_EQ_Process;
+    result->base.Destructor = FORGE_EFFECT_EQ_Free;
 
     /* Finally. */
     *effect = &result->base.base;

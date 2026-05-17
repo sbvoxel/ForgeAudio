@@ -666,33 +666,33 @@ static inline float *ForgeAudio_Internal_ProcessEffectChain(
     float *buffer,
     uint32_t *samples
 ) {
-    ForgeApo *fapo;
-    ForgeApoProcessBuffer srcParams, dstParams;
+    ForgeEffect *effect;
+    ForgeEffectProcessBuffer srcParams, dstParams;
 
     LOG_FUNC_ENTER(voice->audio)
 
     /* Set up the buffer to be written into */
     srcParams.buffer = buffer;
-    srcParams.BufferFlags = FORGE_APO_BUFFER_SILENT;
+    srcParams.BufferFlags = FORGE_EFFECT_BUFFER_SILENT;
     srcParams.ValidFrameCount = *samples;
     for (uint32_t i = 0; i < srcParams.ValidFrameCount; i += 1)
     {
         if (buffer[i] != 0.0f) /* Arbitrary! */
         {
-            srcParams.BufferFlags = FORGE_APO_BUFFER_VALID;
+            srcParams.BufferFlags = FORGE_EFFECT_BUFFER_VALID;
             break;
         }
     }
 
     /* Initialize output parameters to something sane */
     dstParams.buffer = srcParams.buffer;
-    dstParams.BufferFlags = FORGE_APO_BUFFER_VALID;
+    dstParams.BufferFlags = FORGE_EFFECT_BUFFER_VALID;
     dstParams.ValidFrameCount = srcParams.ValidFrameCount;
 
     /* Update parameters, process! */
     for (uint32_t i = 0; i < voice->effects.count; i += 1)
     {
-        fapo = voice->effects.desc[i].effect;
+        effect = voice->effects.desc[i].effect;
 
         if (!voice->effects.inPlaceProcessing[i])
         {
@@ -720,16 +720,16 @@ static inline float *ForgeAudio_Internal_ProcessEffectChain(
 
         if (voice->effects.parameterUpdates[i])
         {
-            fapo->SetParameters(
-                fapo,
+            effect->SetParameters(
+                effect,
                 voice->effects.parameters[i],
                 voice->effects.parameterSizes[i]
             );
             voice->effects.parameterUpdates[i] = 0;
         }
 
-        fapo->Process(
-            fapo,
+        effect->Process(
+            effect,
             1,
             &srcParams,
             1,
@@ -854,7 +854,7 @@ static void ForgeAudio_Internal_MixSource(ForgeSourceVoice *voice)
         ForgeAudio_PlatformUnlockMutex(voice->src.bufferLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
 
-        if (voice->effects.count > 0 && voice->effects.state != FORGE_APO_BUFFER_SILENT)
+        if (voice->effects.count > 0 && voice->effects.state != FORGE_EFFECT_BUFFER_SILENT)
         {
             /* do not stop while the effect chain generates a non-silent buffer */
             ForgeAudio_Internal_ResizeResampleCache(
@@ -1474,7 +1474,7 @@ void ForgeAudio_Internal_AllocEffectChain(
     const ForgeEffectChain *effect_chain
 ) {
     LOG_FUNC_ENTER(voice->audio)
-    voice->effects.state = FORGE_APO_BUFFER_VALID;
+    voice->effects.state = FORGE_EFFECT_BUFFER_VALID;
     voice->effects.count = effect_chain->EffectCount;
     if (voice->effects.count == 0)
     {
@@ -1482,13 +1482,13 @@ void ForgeAudio_Internal_AllocEffectChain(
         return;
     }
 
-    voice->effects.desc = (ForgeEffect*) voice->audio->malloc_func(
-        voice->effects.count * sizeof(ForgeEffect)
+    voice->effects.desc = (ForgeEffectDesc*) voice->audio->malloc_func(
+        voice->effects.count * sizeof(ForgeEffectDesc)
     );
     ForgeAudio_memcpy(
         voice->effects.desc,
         effect_chain->effects,
-        voice->effects.count * sizeof(ForgeEffect)
+        voice->effects.count * sizeof(ForgeEffectDesc)
     );
     #define ALLOC_EFFECT_PROPERTY(prop, type) \
         voice->effects.prop = (type*) voice->audio->malloc_func( \
@@ -1518,7 +1518,7 @@ void ForgeAudio_Internal_FreeEffectChain(ForgeVoice *voice)
     for (uint32_t i = 0; i < voice->effects.count; i += 1)
     {
         voice->effects.desc[i].effect->UnlockForProcess(voice->effects.desc[i].effect);
-        forge_apo_destroy(voice->effects.desc[i].effect);
+        forge_effect_destroy(voice->effects.desc[i].effect);
     }
 
     voice->audio->free_func(voice->effects.desc);
