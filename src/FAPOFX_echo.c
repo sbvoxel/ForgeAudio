@@ -73,50 +73,6 @@ static ForgeApoProperties FXEchoProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-const ForgeGuid FORGE_APO_FX_ID_ECHO_LEGACY =
-{
-    0xA90BC001,
-    0xE897,
-    0xE897,
-    {
-        0x74,
-        0x39,
-        0x43,
-        0x55,
-        0x00,
-        0x00,
-        0x00,
-        0x03
-    }
-};
-
-static ForgeApoProperties FXEchoProperties_LEGACY =
-{
-    /* .clsid = */ {0},
-    /* .FriendlyName = */
-    {
-        'F', 'X', 'E', 'c', 'h', 'o', '\0'
-    },
-    /*.CopyrightInfo = */
-    {
-        'C', 'o', 'p', 'y', 'r', 'i', 'g', 'h', 't', ' ', '(', 'c', ')',
-        'E', 't', 'h', 'a', 'n', ' ', 'L', 'e', 'e', '\0'
-    },
-    /*.MajorVersion = */ 0,
-    /*.MinorVersion = */ 0,
-    /*.Flags = */(
-        FORGE_APO_FLAG_SAMPLE_RATE_MUST_MATCH |
-        FORGE_APO_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
-        FORGE_APO_FLAG_BUFFER_COUNT_MUST_MATCH |
-        FORGE_APO_FLAG_IN_PLACE_SUPPORTED |
-        FORGE_APO_FLAG_IN_PLACE_REQUIRED
-    ),
-    /*.MinInputBufferCount = */ 1,
-    /*.MaxInputBufferCount = */  1,
-    /*.MinOutputBufferCount = */ 1,
-    /*.MaxOutputBufferCount =*/ 1
-};
-
 typedef struct ForgeApoEcho
 {
     ForgeApoBase base;
@@ -172,8 +128,7 @@ uint32_t forge_apo_create_echo(
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc,
-    uint8_t legacy
+    ForgeReallocFunc customRealloc
 ) {
     const ForgeApoEchoParameters fxdefault =
     {
@@ -213,18 +168,13 @@ uint32_t forge_apo_create_echo(
 
     /* Initialize... */
     FAudio_memcpy(
-        &FXEchoProperties_LEGACY.clsid,
-        &FORGE_APO_FX_ID_ECHO_LEGACY,
-        sizeof(ForgeGuid)
-    );
-    FAudio_memcpy(
         &FXEchoProperties.clsid,
         &FORGE_APO_FX_ID_ECHO,
         sizeof(ForgeGuid)
     );
     forge_apo_base_init_with_allocator(
         &result->base,
-        legacy ? &FXEchoProperties_LEGACY : &FXEchoProperties,
+        &FXEchoProperties,
         params,
         sizeof(ForgeApoEchoParameters),
         0,

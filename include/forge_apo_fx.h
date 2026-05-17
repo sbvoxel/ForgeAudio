@@ -37,11 +37,10 @@ extern "C" {
 
 /* GUIDs */
 
-/* Legacy IDs are retained for old content that references them directly. */
-extern const ForgeGuid FORGE_APO_FX_ID_EQ, FORGE_APO_FX_ID_EQ_LEGACY;
-extern const ForgeGuid FORGE_APO_FX_ID_MASTERING_LIMITER, FORGE_APO_FX_ID_MASTERING_LIMITER_LEGACY;
-extern const ForgeGuid FORGE_APO_FX_ID_REVERB, FORGE_APO_FX_ID_REVERB_LEGACY;
-extern const ForgeGuid FORGE_APO_FX_ID_ECHO, FORGE_APO_FX_ID_ECHO_LEGACY;
+extern const ForgeGuid FORGE_APO_FX_ID_EQ;
+extern const ForgeGuid FORGE_APO_FX_ID_MASTERING_LIMITER;
+extern const ForgeGuid FORGE_APO_FX_ID_REVERB;
+extern const ForgeGuid FORGE_APO_FX_ID_ECHO;
 
 /* Structures */
 

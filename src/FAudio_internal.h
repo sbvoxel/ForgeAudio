@@ -643,8 +643,7 @@ extern uint32_t forge_apo_create_eq(
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc,
-    uint8_t legacy
+    ForgeReallocFunc customRealloc
 );
 extern uint32_t forge_apo_create_mastering_limiter(
     ForgeApo **pEffect,
@@ -652,8 +651,7 @@ extern uint32_t forge_apo_create_mastering_limiter(
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc,
-    uint8_t legacy
+    ForgeReallocFunc customRealloc
 );
 extern uint32_t forge_apo_create_reverb(
     ForgeApo **pEffect,
@@ -661,8 +659,7 @@ extern uint32_t forge_apo_create_reverb(
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc,
-    uint8_t legacy
+    ForgeReallocFunc customRealloc
 );
 extern uint32_t forge_apo_create_echo(
     ForgeApo **pEffect,
@@ -670,8 +667,7 @@ extern uint32_t forge_apo_create_echo(
     uint32_t InitDataByteSize,
     ForgeMallocFunc customMalloc,
     ForgeFreeFunc customFree,
-    ForgeReallocFunc customRealloc,
-    uint8_t legacy
+    ForgeReallocFunc customRealloc
 );
 
 /* SIMD Stuff */

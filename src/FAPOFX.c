@@ -53,7 +53,7 @@ uint32_t forge_apo_create_effect_with_allocator(
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-#define CHECK_AND_RETURN(id, legacy_id, create_func) \
+#define CHECK_AND_RETURN(id, create_func) \
     if (FAudio_memcmp(clsid, &(id), sizeof(ForgeGuid)) == 0) \
     { \
         return create_func( \
@@ -62,38 +62,16 @@ uint32_t forge_apo_create_effect_with_allocator(
             InitDataByteSize, \
             customMalloc, \
             customFree, \
-            customRealloc, \
-            0 \
-        ); \
-    } \
-    else if (FAudio_memcmp(clsid, &(legacy_id), sizeof(ForgeGuid)) == 0) \
-    { \
-        return create_func( \
-            pEffect, \
-            pInitData, \
-            InitDataByteSize, \
-            customMalloc, \
-            customFree, \
-            customRealloc, \
-            1 \
+            customRealloc \
         ); \
     }
-    CHECK_AND_RETURN(FORGE_APO_FX_ID_EQ, FORGE_APO_FX_ID_EQ_LEGACY, forge_apo_create_eq)
+    CHECK_AND_RETURN(FORGE_APO_FX_ID_EQ, forge_apo_create_eq)
     CHECK_AND_RETURN(
         FORGE_APO_FX_ID_MASTERING_LIMITER,
-        FORGE_APO_FX_ID_MASTERING_LIMITER_LEGACY,
         forge_apo_create_mastering_limiter
     )
-    CHECK_AND_RETURN(
-        FORGE_APO_FX_ID_REVERB,
-        FORGE_APO_FX_ID_REVERB_LEGACY,
-        forge_apo_create_reverb
-    )
-    CHECK_AND_RETURN(
-        FORGE_APO_FX_ID_ECHO,
-        FORGE_APO_FX_ID_ECHO_LEGACY,
-        forge_apo_create_echo
-    )
+    CHECK_AND_RETURN(FORGE_APO_FX_ID_REVERB, forge_apo_create_reverb)
+    CHECK_AND_RETURN(FORGE_APO_FX_ID_ECHO, forge_apo_create_echo)
 #undef CHECK_AND_RETURN
     return -1;
 }
