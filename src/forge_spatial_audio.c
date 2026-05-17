@@ -39,7 +39,7 @@
  * 1e-5 of 1.0 and their dot product is within 1e-5 of zero.
  */
 
-/* TODO: Switch to square length (to save CPU) */
+/* Potential optimization: compare squared length to avoid sqrt in vector validation. */
 #define VECTOR_NORMAL_CHECK(v) PARAM_CHECK(forge_fabsf(VectorLength(v) - 1.0f) <= 1e-5f, "Vector " #v " isn't normal")
 
 #define VECTOR_BASE_CHECK(u, v)                                                                                        \
@@ -353,9 +353,7 @@ static inline float ComputeConeParameter(float distance, float angle, float inne
 /* When computing whether a point lies inside a cone, first determine
  * whether the point is close enough to the apex of the cone.
  * If it is, the innerParam is used.
- * The following constant is the one that is used for this distance check;
- * It is an approximation, found by manual binary search.
- * TODO: find the exact value of the constant via automated binary search. */
+ * The following empirical tolerance is used for this distance check. */
 #define CONE_NULL_DISTANCE_TOLERANCE 1e-7
 
     float halfInnerAngle, halfOuterAngle, alpha;
@@ -385,12 +383,7 @@ static inline float ComputeConeParameter(float distance, float angle, float inne
     if (angle <= halfOuterAngle) {
         alpha = (angle - halfInnerAngle) / (halfOuterAngle - halfInnerAngle);
 
-        /* This is an approximation. A more accurate version may need a
-         * higher-order interpolation curve.
-         *
-         * TODO: HIGH_ACCURACY version.
-         * -Adrien
-         */
+        /* Linear interpolation is an empirical approximation for cone transition gain. */
         return LERP(alpha, innerParam, outerParam);
     }
 
@@ -643,9 +636,7 @@ static inline void ComputeInnerRadiusDiffusionFactors(float radialDistance, floa
 
 /* Spatialization always uses an inner_radius-like behaviour (i.e. diffusing sound to more than
  * a pair of speakers) even if inner_radius is set to 0.0f.
- * This constant determines the distance at which this behaviour is produced in that case. */
-/* This constant was determined by manual binary search. TODO: get a more accurate version
- * via an automated binary search. */
+ * This empirical minimum radius avoids the zero-radius diffusion singularity. */
 #define DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS 4e-7f
     float actualInnerRadius = forge_max(inner_radius, DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS);
     float normalizedRadialDist;
@@ -668,12 +659,8 @@ static inline void ComputeInnerRadiusDiffusionFactors(float radialDistance, floa
          */
         a = 1.0f - 2.0f * normalizedRadialDist;
 
-        /* Lerping here is an approximation.
-         * TODO: High accuracy version. Having stared at the curves long
-         * enough, I'm pretty sure this is a quadratic, but trying to
-         * polyfit with numpy didn't give nice, round polynomial
-         * coefficients...
-         * -Adrien
+        /* Empirical approximation for inner-radius diffusion between equal
+         * and matching speaker energy.
          */
         ms = LERP(2.0f * normalizedRadialDist, 0.0f, DIFFUSION_LERP_MIDPOINT_VALUE);
         os = 1.0f - a - ms;
@@ -887,7 +874,7 @@ static inline void ComputeEmitterChannelCoefficients(const ConfigInfo *curConfig
  * into the opposite speakers. Once we go below inner_radius/2.0f, the energy
  * also starts to bleed into the other (non-opposite) channels, if there are
  * any. This computation is handled by the ComputeInnerRadiusDiffusionFactors
- * function. (TODO: High-accuracy version of this.)
+ * function.
  *
  * Finally, if we're not in the equal diffusion case, we find out the azimuths
  * of the two closest speakers (with azimuth being defined with respect to the
@@ -900,8 +887,7 @@ static inline void ComputeEmitterChannelCoefficients(const ConfigInfo *curConfig
  * computed once, but all the azimuths and inner_radius calculations are done per
  * emitter channel.
  *
- * TODO: Handle inner_radius_angle.
- * -Adrien
+ * FIXME: inner_radius_angle is validated by the public API but not yet applied here.
  */
 static inline void CalculateMatrix(uint32_t ChannelMask, uint32_t flags, const ForgeSpatialListener *listener,
                                    const ForgeSpatialEmitter *emitter, uint32_t src_channel_count,
@@ -911,7 +897,7 @@ static inline void CalculateMatrix(uint32_t ChannelMask, uint32_t flags, const F
     float curEmAzimuth;
     const ConfigInfo *curConfig = GetConfigInfo(ChannelMask);
     float attenuation = ComputeDistanceAttenuation(normalizedDistance, emitter->volume_curve);
-    /* TODO: this could be skipped if the destination has no LFE */
+    /* Potential optimization: skip LFE attenuation when the output layout has no LFE channel. */
     float LFEattenuation = ComputeDistanceAttenuation(normalizedDistance, emitter->lfe_curve);
 
     ForgeVector3 listenerToEmitter;
@@ -1015,10 +1001,8 @@ static inline void CalculateMatrix(uint32_t ChannelMask, uint32_t flags, const F
         forge_assert(0 && "Config info not found!");
     }
 
-    /* TODO: add post check to validate values
-     * (sum < 1, all values > 0, no Inf / NaN..
-     * Sum can be >1 when cone or curve is set to a gain!
-     * Perhaps under a paranoid check disabled by default.
+    /* Optional debug validation: finite, nonnegative matrix coefficients
+     * and documented gain bounds.
      */
 }
 
@@ -1082,7 +1066,7 @@ void forge_spatializer_calculate(const ForgeSpatializer *spatializer, const Forg
     DEFAULT_POINTS(reverb, 0.0f, 1.0f, 1.0f, 0.0f)
 #undef DEFAULT_POINTS
 
-    /* For XACT, this calculates "distance" */
+    /* Compute emitter-to-listener distance. */
     emitterToListener = VectorSub(listener->position, emitter->position);
     eToLDistance = VectorLength(emitterToListener);
     dsp_settings->emitter_to_listener_distance = eToLDistance;
@@ -1113,18 +1097,16 @@ void forge_spatializer_calculate(const ForgeSpatializer *spatializer, const Forg
             normalizedDistance, (emitter->reverb_curve != NULL) ? emitter->reverb_curve : &reverbDefault);
     }
 
-    /* For XACT, this calculates "DopplerPitchScalar" */
+    /* Compute Doppler pitch scalar and velocity components. */
     if (flags & FORGE_SPATIAL_CALCULATE_DOPPLER) {
         CalculateDoppler(SPEEDOFSOUND(spatializer), listener, emitter, emitterToListener, eToLDistance,
                          &dsp_settings->listener_velocity_component, &dsp_settings->emitter_velocity_component,
                          &dsp_settings->doppler_factor);
     }
 
-    /* For XACT, this calculates "OrientationAngle" */
+    /* Compute emitter-to-listener orientation angle. */
     if (flags & FORGE_SPATIAL_CALCULATE_EMITTER_ANGLE) {
-/* Determined roughly.
- * Below that distance, the emitter angle is considered to be PI/2.
- */
+/* Empirical threshold below which emitter angle collapses to PI/2. */
 #define EMITTER_ANGLE_NULL_DISTANCE 1.2e-7
         if (eToLDistance < EMITTER_ANGLE_NULL_DISTANCE) {
             dsp_settings->emitter_to_listener_angle = FORGE_SPATIAL_PI / 2.0f;

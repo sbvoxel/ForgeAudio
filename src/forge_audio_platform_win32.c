@@ -616,7 +616,7 @@ void forge_platform_wait_thread(ForgeAudioThread thread, int32_t *retval) {
 }
 
 void forge_platform_set_thread_priority(ForgeAudioThreadPriority priority) {
-    /* FIXME */
+    /* TODO: Implement native thread-priority mapping for the Win32 backend. */
 }
 
 uint64_t forge_platform_get_thread_id(void) {

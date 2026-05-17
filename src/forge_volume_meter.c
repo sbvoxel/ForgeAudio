@@ -83,7 +83,7 @@ static void forge_volume_meter_process(ForgeVolumeMeter *effect, uint32_t input_
     uint32_t i, j;
     ForgeVolumeMeterLevels *levels = &effect->levels;
 
-    /* TODO: This could probably be SIMD-ified... */
+    /* Potential SIMD optimization: per-channel peak/RMS scan. */
     for (i = 0; i < effect->channels; i += 1) {
         peak = 0.0f;
         total = 0.0f;

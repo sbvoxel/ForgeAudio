@@ -75,7 +75,7 @@
 
 extern void forge_log_message(char const *msg);
 
-    /* FIXME: Assuming little-endian! */
+    /* Native Win32 backend currently supports little-endian targets. */
     #define forge_swap16le(x) (x)
     #define forge_swap16be(x) ((x >> 8) & 0x00FF) | ((x << 8) & 0xFF00)
     #define forge_swap32le(x) (x)
@@ -479,14 +479,10 @@ FORGE_INTERNAL_API void forge_audio_debug_fmt(ForgeAudioEngine *audio, const cha
     #define LOG_API_EXIT(engine) PRINT_DEBUG(engine, API_CALLS, "API Exit", "%s", __func__)
     #define LOG_FUNC_ENTER(engine) PRINT_DEBUG(engine, FUNC_CALLS, "FUNC Enter", "%s", __func__)
     #define LOG_FUNC_EXIT(engine) PRINT_DEBUG(engine, FUNC_CALLS, "FUNC Exit", "%s", __func__)
-    /* TODO: LOG_TIMING */
     #define LOG_MUTEX_CREATE(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Create", "%p (%s)", mutex, #mutex)
     #define LOG_MUTEX_DESTROY(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex destroy", "%p (%s)", mutex, #mutex)
     #define LOG_MUTEX_LOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Lock", "%p (%s)", mutex, #mutex)
     #define LOG_MUTEX_UNLOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Unlock", "%p (%s)", mutex, #mutex)
-/* TODO: LOG_MEMORY */
-/* TODO: LOG_STREAMING */
-
     #define LOG_FORMAT(engine, waveFormat)                                                                             \
         if (engine->debug.trace_mask & FORGE_AUDIO_LOG_INFO) {                                                         \
             forge_audio_debug_fmt(engine, __FILE__, __LINE__, __func__, waveFormat);                                   \
@@ -502,14 +498,10 @@ FORGE_INTERNAL_API void forge_audio_debug_fmt(ForgeAudioEngine *audio, const cha
     #define LOG_API_EXIT(engine)
     #define LOG_FUNC_ENTER(engine)
     #define LOG_FUNC_EXIT(engine)
-    /* TODO: LOG_TIMING */
     #define LOG_MUTEX_CREATE(engine, mutex)
     #define LOG_MUTEX_DESTROY(engine, mutex)
     #define LOG_MUTEX_LOCK(engine, mutex)
     #define LOG_MUTEX_UNLOCK(engine, mutex)
-/* TODO: LOG_MEMORY */
-/* TODO: LOG_STREAMING */
-
     #define LOG_FORMAT(engine, waveFormat)
 
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */

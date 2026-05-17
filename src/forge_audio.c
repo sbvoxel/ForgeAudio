@@ -199,7 +199,7 @@ static ForgeResult engine_initialize(ForgeAudioEngine *audio, uint32_t flags) {
 
     audio->initFlags = flags;
 
-    /* FIXME: This is lazy... */
+    /* Seed shared decode/resample caches; they grow on demand before use. */
     audio->decodeCache = (float *)audio->malloc_func(sizeof(float));
     audio->resampleCache = (float *)audio->malloc_func(sizeof(float));
     audio->decodeSamples = 1;
@@ -332,12 +332,8 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
             }
 #undef DECODER
         } else if (COMPARE_FORMAT_ID(ieee_float)) {
-            /* FIXME: Weird behavior!
-             * Prototype creates a source with the IEEE_FLOAT tag,
-             * but it's actually PCM16. It seems to prioritize
-             * bits_per_sample over the format tag. Not sure if we
-             * should fold this section into the section above...?
-             * -flibit
+            /* FIXME: Decide whether ForgeAudio should keep accepting
+             * IEEE_FLOAT format IDs with 16-bit PCM payloads.
              */
             if (fmtex->format.bits_per_sample == 16) {
                 (*source_voice)->src.decode = forge_audio_decode_pcm16;
@@ -848,7 +844,7 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
     forge_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
 
-    /* FIXME: This is lazy... */
+    /* Rebuild send-dependent matrices, mixers, and filter state for the new output list. */
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
         voice->audio->free_func(voice->sendCoefficients[i]);
     }
@@ -1679,7 +1675,7 @@ static ForgeResult check_for_sends_to_voice(ForgeVoice *voice) {
 static void destroy_voice(ForgeVoice *voice) {
     uint32_t i;
 
-    /* TODO: Check for dependencies and remove from audio graph first! */
+    /* Callers must reject incoming sends before destroying a voice; clear deferred commands here. */
     forge_audio_batch_clear_all_for_voice(voice);
 
     if (voice->type == FORGE_AUDIO_VOICE_SOURCE) {

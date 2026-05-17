@@ -512,7 +512,6 @@ static void forge_audio_resample_mono_sse2(float *restrict dCache, float *restri
     cur_scalar_2 &= FIXED_FRACTION_MASK;
     cur_scalar_3 &= FIXED_FRACTION_MASK;
 
-    /* FIXME: These should be _mm_undefined_ps! */
     current_next_0_1 = _mm_setzero_ps();
     current_next_2_3 = _mm_setzero_ps();
 

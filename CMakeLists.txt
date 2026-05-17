@@ -11,7 +11,6 @@ SET(LIB_VERSION "${LIB_MAJOR_VERSION}.${LIB_MINOR_VERSION}.${LIB_REVISION}")
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_EXTENSIONS OFF)
 
-# TODO: Should this be committed? What do projects do?
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(ENABLE_PULSEAUDIO "Enable PulseAudio backend" ON)

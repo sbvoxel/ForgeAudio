@@ -510,8 +510,8 @@ static inline float *forge_audio_process_effect_chain(ForgeVoice *voice, float *
                                                                         srcParams.valid_frame_count);
                 dstParams.buffer = voice->audio->effectChainCache;
             } else {
-                /* FIXME: What if this is smaller because
-                 * inputChannels < desc[i].output_channels?
+                /* FIXME: The original buffer may be too small when this
+                 * non-in-place effect expands channel count.
                  */
                 dstParams.buffer = buffer;
             }
@@ -697,9 +697,9 @@ static void forge_audio_mix_source(ForgeSourceVoice *voice) {
     toResample += FIXED_FRACTION_MASK;
     /* ... undo step size, fixed to int. */
     toResample /= voice->src.resampleStep;
-    /* Add the padding, for some reason this helps? */
+    /* FIXME: Document and test the EXTRA_DECODE_PADDING invariant used by resampling. */
     toResample += EXTRA_DECODE_PADDING;
-    /* FIXME: I feel like this should be an assert but I suck */
+    /* FIXME: Verify whether this clamp is masking a broken resample-size invariant. */
     toResample = forge_min(toResample, voice->src.resampleSamples);
 
     /* Resample... */
@@ -720,8 +720,8 @@ static void forge_audio_mix_source(ForgeSourceVoice *voice) {
         /* ... chop off any ints we got from the above increment */
         voice->src.curBufferOffsetDec &= FIXED_FRACTION_MASK;
 
-        /* Dec >0? We need one frame from the past...
-         * FIXME: We can't go back to a prev buffer though?
+        /* FIXME: Verify interpolation continuity when the previous source frame
+         * lives in an already-consumed buffer.
          */
         if (voice->src.curBufferOffsetDec > 0 && voice->src.curBufferOffset > 0) {
             voice->src.curBufferOffset -= 1;
@@ -1136,9 +1136,8 @@ ForgeResult forge_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSen
         /* Because we used ceil earlier, there's a chance that
          * downsampling submixes will go past the number of samples
          * available. Sources can do this thanks to padding, but we
-         * don't have that luxury for submixes, so unfortunately we
-         * just have to undo the ceil and turn it into a floor.
-         * -flibit
+         * do not have that padding for submixes, so undo the ceil and
+         * turn it into a floor.
          */
         resampleSanityCheck = (voice->mix.resampleStep * voice->mix.outputSamples) >> FIXED_PRECISION;
         if (resampleSanityCheck > (voice->mix.inputSamples / voice->mix.inputChannels)) {
@@ -1172,7 +1171,7 @@ void forge_audio_decode_pcm24(ForgeVoice *voice, const void *src, float *decodeC
     const uint8_t *buf = src;
     LOG_FUNC_ENTER(voice->audio)
 
-    /* FIXME: Uh... is this something that can be SIMD-ified? */
+    /* Potential SIMD optimization for packed PCM24-to-float conversion. */
     for (uint32_t i = 0; i < samples; i += 1, buf += voice->src.format->block_align)
         for (uint32_t j = 0; j < voice->src.format->channels; j += 1) {
             *decodeCache++ = ((int32_t)(((uint32_t)buf[(j * 3) + 2] << 24) | ((uint32_t)buf[(j * 3) + 1] << 16) |

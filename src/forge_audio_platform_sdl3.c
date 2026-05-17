@@ -52,10 +52,8 @@ static void forge_audio_prioritize_direct_sound() {
         return;
     }
 
-    /* Windows 10+ decided to break version detection, so instead of doing
-     * it the right way we have to do something dumb like search for an
-     * export that's only in Windows 10 or newer.
-     * -flibit
+    /* Windows 10+ changed version detection behavior, so probe for an
+     * export that is only present on Windows 10 or newer.
      */
     if (SDL_strcmp(SDL_GetPlatform(), "Windows") != 0) {
         return;

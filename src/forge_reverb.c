@@ -97,14 +97,6 @@ static inline float DspDelay_Process(DspDelay *filter, float sample_in) {
     return delay_out;
 }
 
-/* FIXME: This is currently unused! What was it for...? -flibit
-static inline float DspDelay_Tap(DspDelay *filter, uint32_t delay)
-{
-    forge_assert(delay <= filter->delay);
-    return filter->buffer[(filter->write_idx - delay + filter->capacity) % filter->capacity];
-}
-*/
-
 static inline void DspDelay_Reset(DspDelay *filter) {
     filter->read_idx = 0;
     filter->write_idx = filter->delay;
@@ -1113,7 +1105,7 @@ static void forge_reverb_process(ForgeReverb *effect, uint32_t input_buffer_coun
 
     /* Use a silent buffer when no input buffer is available to play the effect tail. */
     if (input_buffers->buffer_flags == FORGE_EFFECT_BUFFER_SILENT) {
-        /* Make sure input data is usable. FIXME: Is this required? */
+        /* Silent buffers may still be processed for effect tails; ensure input samples are zero. */
         forge_zero(input_buffers->buffer, input_buffers->valid_frame_count * effect->inBlockAlign);
     }
 

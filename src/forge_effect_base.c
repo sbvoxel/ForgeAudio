@@ -217,7 +217,7 @@ void forge_effect_base_process_through(ForgeEffectBase *effect, void *input_buff
     float *input = (float *)input_buffer;
 
     if (mix_with_output) {
-        /* TODO: SSE */
+        /* Potential SIMD optimization for process-through mixing. */
         for (i = 0; i < frame_count; i += 1)
             for (co = 0; co < output_channel_count; co += 1)
                 for (ci = 0; ci < input_channel_count; ci += 1) {
@@ -225,7 +225,7 @@ void forge_effect_base_process_through(ForgeEffectBase *effect, void *input_buff
                     output_buffer[i * output_channel_count + co] += input[i * input_channel_count + ci];
                 }
     } else {
-        /* TODO: SSE */
+        /* Potential SIMD optimization for process-through mixing. */
         for (i = 0; i < frame_count; i += 1)
             for (co = 0; co < output_channel_count; co += 1)
                 for (ci = 0; ci < input_channel_count; ci += 1) {
