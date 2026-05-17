@@ -157,27 +157,8 @@ static void forge_volume_meter_get_parameters(
     ForgeVolumeMeterLevels *parameters,
     uint32_t parameter_byte_size
 ) {
-    ForgeVolumeMeterLevels *levels = &effect->levels;
     ForgeAudio_assert(parameter_byte_size == sizeof(ForgeVolumeMeterLevels));
-    ForgeAudio_assert(parameters->channel_count == effect->channels);
-
-    /* Copy what's current as of the last process */
-    if (parameters->peak_levels != NULL)
-    {
-        ForgeAudio_memcpy(
-            parameters->peak_levels,
-            levels->peak_levels,
-            effect->channels * sizeof(float)
-        );
-    }
-    if (parameters->rms_levels != NULL)
-    {
-        ForgeAudio_memcpy(
-            parameters->rms_levels,
-            levels->rms_levels,
-            effect->channels * sizeof(float)
-        );
-    }
+    forge_volume_meter_get_levels(&effect->base.base, parameters);
 }
 
 static void forge_volume_meter_free(void* effect)
@@ -197,6 +178,38 @@ ForgeResult forge_create_volume_meter(ForgeEffect** effect, uint32_t flags)
         ForgeAudio_free,
         ForgeAudio_realloc
     );
+}
+
+void forge_volume_meter_get_levels(
+    ForgeEffect *effect,
+    ForgeVolumeMeterLevels *levels
+) {
+    ForgeVolumeMeter *volume_meter = (ForgeVolumeMeter*) effect;
+    ForgeVolumeMeterLevels *current_levels = &volume_meter->levels;
+
+    if (levels == NULL)
+    {
+        return;
+    }
+
+    ForgeAudio_assert(levels->channel_count == volume_meter->channels);
+
+    if (levels->peak_levels != NULL)
+    {
+        ForgeAudio_memcpy(
+            levels->peak_levels,
+            current_levels->peak_levels,
+            volume_meter->channels * sizeof(float)
+        );
+    }
+    if (levels->rms_levels != NULL)
+    {
+        ForgeAudio_memcpy(
+            levels->rms_levels,
+            current_levels->rms_levels,
+            volume_meter->channels * sizeof(float)
+        );
+    }
 }
 
 ForgeResult forge_create_volume_meter_with_allocator(

@@ -263,6 +263,10 @@ typedef struct ForgeReverbI3DL2Parameters
 FORGE_AUDIO_API ForgeResult forge_create_volume_meter(ForgeEffect** effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb(ForgeEffect** effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb_7point1(ForgeEffect** effect, uint32_t flags);
+FORGE_AUDIO_API void forge_volume_meter_get_levels(
+    ForgeEffect *effect,
+    ForgeVolumeMeterLevels *levels
+);
 
 /* See "extensions/custom allocator.txt" for more information. */
 FORGE_AUDIO_API ForgeResult forge_create_volume_meter_with_allocator(
