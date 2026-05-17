@@ -50,11 +50,11 @@ endif()
 add_library(ForgeAudio
     # Public Headers
     include/forge_spatial_audio.h
-    include/forge_effect_base.h
     include/forge_effect.h
     include/forge_audio_fx.h
     include/forge_audio.h
     # Internal Headers
+    src/forge_effect_base_internal.h
     src/forge_audio_internal.h
     src/stb_modified.h
     # Source Files

@@ -33,8 +33,8 @@
  *
  */
 
-#ifndef FORGE_EFFECT_BASE_H
-#define FORGE_EFFECT_BASE_H
+#ifndef FORGE_EFFECT_BASE_INTERNAL_H
+#define FORGE_EFFECT_BASE_INTERNAL_H
 
 #include "forge_effect.h"
 
@@ -223,4 +223,4 @@ FORGE_EFFECT_API void forge_effect_base_end_process(ForgeEffectBase *effect);
 }
 #endif /* __cplusplus */
 
-#endif /* FORGE_EFFECT_BASE_H */
+#endif /* FORGE_EFFECT_BASE_INTERNAL_H */

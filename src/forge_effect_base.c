@@ -33,7 +33,7 @@
  *
  */
 
-#include "forge_effect_base.h"
+#include "forge_effect_base_internal.h"
 #include "forge_audio_internal.h"
 
 /* ForgeEffectBase Interface */

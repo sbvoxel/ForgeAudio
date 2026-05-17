@@ -34,7 +34,7 @@
  */
 
 #include "forge_audio.h"
-#include "forge_effect_base.h"
+#include "forge_effect_base_internal.h"
 #include <stdarg.h>
 #include <stdbool.h>
 
