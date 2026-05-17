@@ -100,6 +100,10 @@ set_target_properties(ForgeAudio PROPERTIES OUTPUT_NAME "ForgeAudio"
     SOVERSION ${LIB_ABI_VERSION}
 )
 
+if(NOT WIN32)
+    set_target_properties(ForgeAudio PROPERTIES C_VISIBILITY_PRESET hidden)
+endif()
+
 # Dump source voices to RIFF WAVE files
 if(DUMP_VOICES)
     target_compile_definitions(ForgeAudio PRIVATE FORGE_AUDIO_DUMP_VOICES)

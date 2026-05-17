@@ -15,6 +15,8 @@
 
 #ifdef _WIN32
     #define FORGE_SPATIAL_API __declspec(dllexport)
+#elif defined(__GNUC__) || defined(__clang__)
+    #define FORGE_SPATIAL_API __attribute__((visibility("default")))
 #else
     #define FORGE_SPATIAL_API
 #endif

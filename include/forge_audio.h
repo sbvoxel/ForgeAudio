@@ -16,6 +16,9 @@
 #ifdef _WIN32
     #define FORGE_AUDIO_API __declspec(dllexport)
     #define FORGE_AUDIO_CALL __cdecl
+#elif defined(__GNUC__) || defined(__clang__)
+    #define FORGE_AUDIO_API __attribute__((visibility("default")))
+    #define FORGE_AUDIO_CALL
 #else
     #define FORGE_AUDIO_API
     #define FORGE_AUDIO_CALL
