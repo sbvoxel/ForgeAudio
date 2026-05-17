@@ -33,7 +33,7 @@
  *
  */
 
-#include "forge_audio_fx.h"
+#include "forge_effects.h"
 #include "forge_audio_internal.h"
 
 /* #define DISABLE_SUBNORMALS */

@@ -33,8 +33,8 @@
  *
  */
 
-#ifndef FORGE_AUDIO_FX_H
-#define FORGE_AUDIO_FX_H
+#ifndef FORGE_EFFECTS_H
+#define FORGE_EFFECTS_H
 
 #include "forge_audio.h"
 
@@ -308,4 +308,4 @@ FORGE_AUDIO_API void forge_audio_reverb_convert_i3dl2_7point1(
 }
 #endif /* __cplusplus */
 
-#endif /* FORGE_AUDIO_FX_H */
+#endif /* FORGE_EFFECTS_H */
