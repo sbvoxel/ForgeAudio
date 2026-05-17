@@ -439,7 +439,19 @@ FORGE_INTERNAL_API void forge_audio_alloc_effect_chain(ForgeVoice *voice, const 
 FORGE_INTERNAL_API void forge_audio_free_effect_chain(ForgeVoice *voice);
 FORGE_INTERNAL_API ForgeResult forge_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendList *send_list);
 #ifdef FORGE_AUDIO_TESTING
+typedef struct ForgeAudioTestSourceResampleResult {
+    uint32_t requested_decode_frames;
+    uint32_t decoded_frames;
+    uint64_t unclamped_resample_frames;
+    uint32_t resampled_frames;
+    uint32_t cur_buffer_offset;
+    uint64_t cur_buffer_offset_dec;
+    size_t queued_buffer_count;
+} ForgeAudioTestSourceResampleResult;
+
 FORGE_AUDIO_API float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples);
+FORGE_AUDIO_API ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(ForgeSourceVoice *voice,
+                                                                                           float *output);
 #endif
 FORGE_INTERNAL_API extern const float forge_audio_internal_matrix_defaults[8][8][64];
 
