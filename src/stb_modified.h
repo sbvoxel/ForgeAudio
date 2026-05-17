@@ -211,7 +211,7 @@ CREDITS
 #ifdef memcpy /* Thanks Apple! */
 #undef memcpy
 #endif
-#define memcpy FAudio_memcpy
+#define memcpy ForgeAudio_memcpy
 #endif
 
 //////////////////////////////////////////////////////////////////////////////

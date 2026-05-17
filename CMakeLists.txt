@@ -20,7 +20,7 @@ option(BUILD_UTILS "Build utils/ folder" OFF)
 if(WIN32)
 option(PLATFORM_WIN32 "Enable native Win32 platform instead of SDL3" OFF)
 endif()
-option(LOG_ASSERTIONS "Bind FAudio_assert to log, instead of platform's assert" OFF)
+option(LOG_ASSERTIONS "Bind ForgeAudio_assert to log, instead of platform's assert" OFF)
 option(FORCE_ENABLE_DEBUGCONFIGURATION "Enable DebugConfiguration in all build types" OFF)
 option(DUMP_VOICES "Dump voices to RIFF WAVE files" OFF)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
@@ -55,26 +55,26 @@ add_library(ForgeAudio
     include/forge_audio_fx.h
     include/forge_audio.h
     # Internal Headers
-    src/FAudio_internal.h
+    src/forge_audio_internal.h
     src/stb_modified.h
     src/stb_vorbis_modified.h
     src/qoa_decoder.h
     # Source Files
-    src/F3DAudio.c
-    src/FAPOBase.c
-    src/FAPOFX.c
-    src/FAPOFX_echo.c
-    src/FAPOFX_eq.c
-    src/FAPOFX_masteringlimiter.c
-    src/FAPOFX_reverb.c
-    src/FAudio.c
-    src/FAudioFX_reverb.c
-    src/FAudioFX_volumemeter.c
-    src/FAudio_internal.c
-    src/FAudio_internal_simd.c
-    src/FAudio_operationset.c
-    src/FAudio_platform_sdl3.c
-    src/FAudio_platform_win32.c
+    src/forge_spatial_audio.c
+    src/forge_apo_base.c
+    src/forge_apo_fx.c
+    src/forge_apo_fx_echo.c
+    src/forge_apo_fx_eq.c
+    src/forge_apo_fx_mastering_limiter.c
+    src/forge_apo_fx_reverb.c
+    src/forge_audio.c
+    src/forge_audio_fx_reverb.c
+    src/forge_audio_fx_volume_meter.c
+    src/forge_audio_internal.c
+    src/forge_audio_internal_simd.c
+    src/forge_audio_operation_set.c
+    src/forge_audio_platform_sdl3.c
+    src/forge_audio_platform_win32.c
     src/XNA_Song.c
 )
 
@@ -90,7 +90,7 @@ else()
     target_compile_definitions(ForgeAudio PRIVATE $<$<NOT:$<CONFIG:Release>>:FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION>)
 endif()
 
-# FAudio_assert Customization
+# ForgeAudio_assert Customization
 if(LOG_ASSERTIONS)
     target_compile_definitions(ForgeAudio PUBLIC FORGE_AUDIO_LOG_ASSERTIONS)
 endif()

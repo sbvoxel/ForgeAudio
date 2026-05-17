@@ -25,7 +25,7 @@
  */
 
 #include "forge_apo_base.h"
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
 /* ForgeApoBase Interface */
 
@@ -42,9 +42,9 @@ void forge_apo_base_init(
         pParameterBlocks,
         uParameterBlockByteSize,
         fProducer,
-        FAudio_malloc,
-        FAudio_free,
-        FAudio_realloc
+        ForgeAudio_malloc,
+        ForgeAudio_free,
+        ForgeAudio_realloc
     );
 }
 
@@ -134,7 +134,7 @@ uint32_t forge_apo_base_get_properties(
     *ppRegistrationProperties = (ForgeApoProperties*) fapo->pMalloc(
         sizeof(ForgeApoProperties)
     );
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         *ppRegistrationProperties,
         fapo->m_pRegistrationProperties,
         sizeof(ForgeApoProperties)
@@ -159,12 +159,12 @@ uint32_t forge_apo_base_is_input_format_supported(
         {
             (*ppSupportedInputFormat)->wFormatTag =
                 FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
-            (*ppSupportedInputFormat)->nChannels = FAudio_clamp(
+            (*ppSupportedInputFormat)->nChannels = ForgeAudio_clamp(
                 pRequestedInputFormat->nChannels,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            (*ppSupportedInputFormat)->nSamplesPerSec = FAudio_clamp(
+            (*ppSupportedInputFormat)->nSamplesPerSec = ForgeAudio_clamp(
                 pRequestedInputFormat->nSamplesPerSec,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -194,12 +194,12 @@ uint32_t forge_apo_base_is_output_format_supported(
         {
             (*ppSupportedOutputFormat)->wFormatTag =
                 FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
-            (*ppSupportedOutputFormat)->nChannels = FAudio_clamp(
+            (*ppSupportedOutputFormat)->nChannels = ForgeAudio_clamp(
                 pRequestedOutputFormat->nChannels,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            (*ppSupportedOutputFormat)->nSamplesPerSec = FAudio_clamp(
+            (*ppSupportedOutputFormat)->nSamplesPerSec = ForgeAudio_clamp(
                 pRequestedOutputFormat->nSamplesPerSec,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -292,12 +292,12 @@ uint32_t forge_apo_base_validate_default_format(
         {
             pFormat->wFormatTag =
                 FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
-            pFormat->nChannels = FAudio_clamp(
+            pFormat->nChannels = ForgeAudio_clamp(
                 pFormat->nChannels,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            pFormat->nSamplesPerSec = FAudio_clamp(
+            pFormat->nSamplesPerSec = ForgeAudio_clamp(
                 pFormat->nSamplesPerSec,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -327,12 +327,12 @@ uint32_t forge_apo_base_validate_format_pair(
         {
             pRequestedFormat->wFormatTag =
                 FORGE_APO_BASE_DEFAULT_FORMAT_TAG;
-            pRequestedFormat->nChannels = FAudio_clamp(
+            pRequestedFormat->nChannels = ForgeAudio_clamp(
                 pRequestedFormat->nChannels,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_CHANNELS,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_CHANNELS
             );
-            pRequestedFormat->nSamplesPerSec = FAudio_clamp(
+            pRequestedFormat->nSamplesPerSec = ForgeAudio_clamp(
                 pRequestedFormat->nSamplesPerSec,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MIN_SAMPLE_RATE,
                 FORGE_APO_BASE_DEFAULT_FORMAT_MAX_SAMPLE_RATE
@@ -388,7 +388,7 @@ void forge_apo_base_set_parameters(
     const void* pParameters,
     uint32_t ParameterByteSize
 ) {
-    FAudio_assert(!fapo->m_fProducer);
+    ForgeAudio_assert(!fapo->m_fProducer);
 
     /* User callback for validation */
     fapo->OnSetParameters(
@@ -409,7 +409,7 @@ void forge_apo_base_set_parameters(
     );
 
     /* Copy to what will eventually be the next parameter update */
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         fapo->m_pCurrentParametersInternal,
         pParameters,
         ParameterByteSize
@@ -422,7 +422,7 @@ void forge_apo_base_get_parameters(
     uint32_t ParameterByteSize
 ) {
     /* Copy what's current as of the last Process */
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         pParameters,
         fapo->m_pCurrentParameters,
         ParameterByteSize

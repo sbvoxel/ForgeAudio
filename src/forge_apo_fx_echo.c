@@ -25,33 +25,33 @@
  */
 
 #include "forge_apo_fx.h"
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
-/* FXReverb ForgeApo Implementation */
+/* FXEcho ForgeApo Implementation */
 
-const ForgeGuid FORGE_APO_FX_ID_REVERB =
+const ForgeGuid FORGE_APO_FX_ID_ECHO =
 {
-    0x7D9ACA56,
-    0xCB68,
-    0x4807,
+    0x5039D740,
+    0xF736,
+    0x449A,
     {
-        0xB6,
-        0x32,
-        0xB1,
-        0x37,
-        0x35,
-        0x2E,
-        0x85,
-        0x96
+        0x84,
+        0xD3,
+        0xA5,
+        0x62,
+        0x02,
+        0x55,
+        0x7B,
+        0x87
     }
 };
 
-static ForgeApoProperties FXReverbProperties =
+static ForgeApoProperties FXEchoProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
     {
-        'F', 'X', 'R', 'e', 'v', 'e', 'r', 'b', '\0'
+        'F', 'X', 'E', 'c', 'h', 'o', '\0'
     },
     /*.CopyrightInfo = */
     {
@@ -73,20 +73,20 @@ static ForgeApoProperties FXReverbProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct ForgeApoReverb
+typedef struct ForgeApoEcho
 {
     ForgeApoBase base;
 
     /* TODO */
-} ForgeApoReverb;
+} ForgeApoEcho;
 
-uint32_t ForgeApoReverb_Initialize(
-    ForgeApoReverb *fapo,
+uint32_t ForgeApoEcho_Initialize(
+    ForgeApoEcho *fapo,
     const void* pData,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
-        FAudio_memcpy( \
+        ForgeAudio_memcpy( \
             fapo->base.m_pParameterBlocks + DataByteSize * offset, \
             pData, \
             DataByteSize \
@@ -98,8 +98,8 @@ uint32_t ForgeApoReverb_Initialize(
     return 0;
 }
 
-void ForgeApoReverb_Process(
-    ForgeApoReverb *fapo,
+void ForgeApoEcho_Process(
+    ForgeApoEcho *fapo,
     uint32_t InputProcessParameterCount,
     const ForgeApoProcessBuffer* pInputProcessParameters,
     uint32_t OutputProcessParameterCount,
@@ -113,16 +113,16 @@ void ForgeApoReverb_Process(
     forge_apo_base_end_process(&fapo->base);
 }
 
-void ForgeApoReverb_Free(void* fapo)
+void ForgeApoEcho_Free(void* fapo)
 {
-    ForgeApoReverb *reverb = (ForgeApoReverb*) fapo;
-    reverb->base.pFree(reverb->base.m_pParameterBlocks);
-    reverb->base.pFree(fapo);
+    ForgeApoEcho *echo = (ForgeApoEcho*) fapo;
+    echo->base.pFree(echo->base.m_pParameterBlocks);
+    echo->base.pFree(fapo);
 }
 
 /* Public API */
 
-uint32_t forge_apo_create_reverb(
+uint32_t forge_apo_create_echo(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
@@ -130,27 +130,28 @@ uint32_t forge_apo_create_reverb(
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-    const ForgeApoReverbParameters fxdefault =
+    const ForgeApoEchoParameters fxdefault =
     {
-        FORGE_APO_REVERB_DEFAULT_DIFFUSION,
-        FORGE_APO_REVERB_DEFAULT_ROOM_SIZE,
+        FORGE_APO_ECHO_DEFAULT_WET_DRY_MIX,
+        FORGE_APO_ECHO_DEFAULT_FEEDBACK,
+        FORGE_APO_ECHO_DEFAULT_DELAY
     };
 
     /* Allocate... */
-    ForgeApoReverb *result = (ForgeApoReverb*) customMalloc(
-        sizeof(ForgeApoReverb)
+    ForgeApoEcho *result = (ForgeApoEcho*) customMalloc(
+        sizeof(ForgeApoEcho)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(ForgeApoReverbParameters) * 3
+        sizeof(ForgeApoEchoParameters) * 3
     );
     if (pInitData == NULL)
     {
-        FAudio_zero(params, sizeof(ForgeApoReverbParameters) * 3);
+        ForgeAudio_zero(params, sizeof(ForgeApoEchoParameters) * 3);
         #define INITPARAMS(offset) \
-            FAudio_memcpy( \
-                params + sizeof(ForgeApoReverbParameters) * offset, \
+            ForgeAudio_memcpy( \
+                params + sizeof(ForgeApoEchoParameters) * offset, \
                 &fxdefault, \
-                sizeof(ForgeApoReverbParameters) \
+                sizeof(ForgeApoEchoParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -159,23 +160,23 @@ uint32_t forge_apo_create_reverb(
     }
     else
     {
-        FAudio_assert(InitDataByteSize == sizeof(ForgeApoReverbParameters));
-        FAudio_memcpy(params, pInitData, InitDataByteSize);
-        FAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
-        FAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
+        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeApoEchoParameters));
+        ForgeAudio_memcpy(params, pInitData, InitDataByteSize);
+        ForgeAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
+        ForgeAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
     }
 
     /* Initialize... */
-    FAudio_memcpy(
-        &FXReverbProperties.clsid,
-        &FORGE_APO_FX_ID_REVERB,
+    ForgeAudio_memcpy(
+        &FXEchoProperties.clsid,
+        &FORGE_APO_FX_ID_ECHO,
         sizeof(ForgeGuid)
     );
     forge_apo_base_init_with_allocator(
         &result->base,
-        &FXReverbProperties,
+        &FXEchoProperties,
         params,
-        sizeof(ForgeApoReverbParameters),
+        sizeof(ForgeApoEchoParameters),
         0,
         customMalloc,
         customFree,
@@ -184,10 +185,10 @@ uint32_t forge_apo_create_reverb(
 
     /* Function table... */
     result->base.base.Initialize = (ForgeApoInitializeFunc)
-        ForgeApoReverb_Initialize;
+        ForgeApoEcho_Initialize;
     result->base.base.Process = (ForgeApoProcessFunc)
-        ForgeApoReverb_Process;
-    result->base.Destructor = ForgeApoReverb_Free;
+        ForgeApoEcho_Process;
+    result->base.Destructor = ForgeApoEcho_Free;
 
     /* Finally. */
     *pEffect = &result->base.base;

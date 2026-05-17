@@ -25,7 +25,7 @@
  */
 
 #include "forge_3d_audio.h"
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
 #include <math.h> /* ONLY USE THIS FOR isnan! */
 #include <float.h> /* ONLY USE THIS FOR FLT_MIN/FLT_MAX! */
@@ -41,7 +41,7 @@
 
 /* PARAMETER CHECK MACROS */
 
-#define PARAM_CHECK(cond, msg) FAudio_assert(cond && msg)
+#define PARAM_CHECK(cond, msg) ForgeAudio_assert(cond && msg)
 
 #define POINTER_CHECK(p) \
     PARAM_CHECK(p != NULL, "Pointer " #p " must be != NULL")
@@ -62,13 +62,13 @@
 /* TODO: Switch to square length (to save CPU) */
 #define VECTOR_NORMAL_CHECK(v) \
     PARAM_CHECK( \
-        FAudio_fabsf(VectorLength(v) - 1.0f) <= 1e-5f, \
+        ForgeAudio_fabsf(VectorLength(v) - 1.0f) <= 1e-5f, \
         "Vector " #v " isn't normal" \
     )
 
 #define VECTOR_BASE_CHECK(u, v) \
     PARAM_CHECK( \
-        FAudio_fabsf(VectorDot(u, v)) <= 1e-5f, \
+        ForgeAudio_fabsf(VectorDot(u, v)) <= 1e-5f, \
         "Vector u and v have non-negligible dot product" \
     )
 
@@ -220,7 +220,7 @@ static inline ForgeVector3 Vec(float x, float y, float z)
     (u.x * v.y) - (u.y * v.x) \
 )
 
-#define VectorLength(v) FAudio_sqrtf( \
+#define VectorLength(v) ForgeAudio_sqrtf( \
     (v.x * v.x) + (v.y * v.y) + (v.z * v.z) \
 )
 
@@ -737,7 +737,7 @@ static const ConfigInfo* GetConfigInfo(uint32_t speakerConfigMask)
         }
     }
 
-    FAudio_assert(0 && "Config info not found!");
+    ForgeAudio_assert(0 && "Config info not found!");
     return NULL;
 }
 
@@ -754,7 +754,7 @@ static inline void FindSpeakerAzimuths(
     uint32_t i, nexti = 0;
     float a0 = 0.0f, a1 = 0.0f;
 
-    FAudio_assert(config != NULL);
+    ForgeAudio_assert(config != NULL);
 
     /* We want to find, given an azimuth, which speakers are the closest
      * ones (in terms of angle) to that azimuth.
@@ -793,7 +793,7 @@ static inline void FindSpeakerAzimuths(
             }
         }
     }
-    FAudio_assert(emitterAzimuth >= a0 || emitterAzimuth < a1);
+    ForgeAudio_assert(emitterAzimuth >= a0 || emitterAzimuth < a1);
 
     /* skipCenter means that we don't want to use the center speaker.
      * The easiest way to deal with this is to check whether either of our candidate
@@ -883,7 +883,7 @@ static inline void ComputeInnerRadiusDiffusionFactors(
     /* This constant was determined by manual binary search. TODO: get a more accurate version
      * via an automated binary search. */
     #define DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS 4e-7f
-    float actualInnerRadius = FAudio_max(InnerRadius, DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS);
+    float actualInnerRadius = ForgeAudio_max(InnerRadius, DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS);
     float normalizedRadialDist;
     float a, ms, os;
 
@@ -1005,7 +1005,7 @@ static inline void ComputeEmitterChannelCoefficients(
         if (skipCenter)
         {
             nChannelsToDiffuseTo -= 1;
-            FAudio_assert(curConfig->speakers[0].azimuth == FORGE_SPEAKER_AZIMUTH_CENTER);
+            ForgeAudio_assert(curConfig->speakers[0].azimuth == FORGE_SPEAKER_AZIMUTH_CENTER);
             centerChannelIdx = curConfig->speakers[0].matrixIdx;
         }
 
@@ -1042,7 +1042,7 @@ static inline void ComputeEmitterChannelCoefficients(
          */
 
         /* atan2 returns [-PI, PI], but we want [0, 2PI] */
-        emitterAzimuth = FAudio_atan2f(y, x);
+        emitterAzimuth = ForgeAudio_atan2f(y, x);
         if (emitterAzimuth < 0.0f)
         {
             emitterAzimuth += FORGE_SPATIAL_2PI;
@@ -1063,7 +1063,7 @@ static inline void ComputeEmitterChannelCoefficients(
             }
             a0 -= FORGE_SPATIAL_2PI;
         }
-        FAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
+        ForgeAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
 
         val = (emitterAzimuth - a0) / (a1 - a0);
 
@@ -1087,7 +1087,7 @@ static inline void ComputeEmitterChannelCoefficients(
         y = VectorDot(listenerBasis->right, projPlane);
 
         /* Similarly, we expect atan2 to be well behaved here. */
-        emitterAzimuth = FAudio_atan2f(y, x);
+        emitterAzimuth = ForgeAudio_atan2f(y, x);
 
         /* Opposite speakers lie at azimuth + PI */
         emitterAzimuth += FORGE_SPATIAL_PI;
@@ -1117,7 +1117,7 @@ static inline void ComputeEmitterChannelCoefficients(
             }
             a0 -= FORGE_SPATIAL_2PI;
         }
-        FAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
+        ForgeAudio_assert(emitterAzimuth >= a0 && emitterAzimuth <= a1);
 
         val = (emitterAzimuth - a0) / (a1 - a0);
 
@@ -1130,7 +1130,7 @@ static inline void ComputeEmitterChannelCoefficients(
 
     if (flags & FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE)
     {
-        FAudio_assert(curConfig->LFSpeakerIdx != -1);
+        ForgeAudio_assert(curConfig->LFSpeakerIdx != -1);
         pMatrixCoefficients[curConfig->LFSpeakerIdx * numSrcChannels + currentChannel] += LFEattenuation / numSrcChannels;
     }
 }
@@ -1214,7 +1214,7 @@ static inline void CalculateMatrix(
          * this case
          * -Adrien
          */
-        const float angle = -FAudio_acosf(
+        const float angle = -ForgeAudio_acosf(
             VectorDot(pListener->OrientFront, emitterToListener) /
             eToLDistance
         );
@@ -1234,7 +1234,7 @@ static inline void CalculateMatrix(
     /* See note above. */
     if (pEmitter->pCone && pEmitter->ChannelCount == 1)
     {
-        const float angle = FAudio_acosf(
+        const float angle = ForgeAudio_acosf(
             VectorDot(pEmitter->OrientFront, emitterToListener) /
             eToLDistance
         );
@@ -1250,7 +1250,7 @@ static inline void CalculateMatrix(
         attenuation *= emitterConeParam;
     }
 
-    FAudio_zero(MatrixCoefficients, sizeof(float) * SrcChannelCount * DstChannelCount);
+    ForgeAudio_zero(MatrixCoefficients, sizeof(float) * SrcChannelCount * DstChannelCount);
 
     /* In the FORGE_SPEAKER_MONO case, we can skip all energy diffusion calculation. */
     if (DstChannelCount == 1)
@@ -1323,8 +1323,8 @@ static inline void CalculateMatrix(
                      * vector relative to the emitter base...
                      */
                     const ForgeVector3 emitterBaseToChannel = VectorAdd(
-                        VectorScale(pEmitter->OrientFront, pEmitter->ChannelRadius * FAudio_cosf(emChAzimuth)),
-                        VectorScale(emitterRight, pEmitter->ChannelRadius * FAudio_sinf(emChAzimuth))
+                        VectorScale(pEmitter->OrientFront, pEmitter->ChannelRadius * ForgeAudio_cosf(emChAzimuth)),
+                        VectorScale(emitterRight, pEmitter->ChannelRadius * ForgeAudio_sinf(emChAzimuth))
                     );
                     /* ... then translate. */
                     listenerToEmChannel = VectorAdd(
@@ -1350,7 +1350,7 @@ static inline void CalculateMatrix(
     }
     else
     {
-        FAudio_assert(0 && "Config info not found!");
+        ForgeAudio_assert(0 && "Config info not found!");
     }
 
     /* TODO: add post check to validate values
@@ -1401,11 +1401,11 @@ static inline void CalculateDoppler(
         scaledSpeedOfSound = SpeedOfSound / pEmitter->DopplerScaler;
 
         /* Clamp... */
-        *listenerVelocityComponent = FAudio_min(
+        *listenerVelocityComponent = ForgeAudio_min(
             *listenerVelocityComponent,
             scaledSpeedOfSound
         );
-        *emitterVelocityComponent = FAudio_min(
+        *emitterVelocityComponent = ForgeAudio_min(
             *emitterVelocityComponent,
             scaledSpeedOfSound
         );
@@ -1422,7 +1422,7 @@ static inline void CalculateDoppler(
         }
 
         /* Limit the pitch shifting to 2 octaves up and 1 octave down */
-        *DopplerFactor = FAudio_clamp(
+        *DopplerFactor = ForgeAudio_clamp(
             *DopplerFactor,
             0.5f,
             4.0f
@@ -1542,7 +1542,7 @@ void forge_spatializer_calculate(
         {
             /* Note: pEmitter->OrientFront is normalized. */
             dp = VectorDot(emitterToListener, pEmitter->OrientFront) / eToLDistance;
-            pDSPSettings->EmitterToListenerAngle = FAudio_acosf(dp);
+            pDSPSettings->EmitterToListenerAngle = ForgeAudio_acosf(dp);
         }
     }
 
@@ -1554,6 +1554,6 @@ void forge_spatializer_calculate(
         {
             pDSPSettings->pDelayTimes[i] = 0.0f;
         }
-        FAudio_assert(0 && "DELAY not implemented!");
+        ForgeAudio_assert(0 && "DELAY not implemented!");
     }
 }

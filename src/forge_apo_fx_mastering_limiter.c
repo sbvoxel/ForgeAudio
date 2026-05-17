@@ -25,33 +25,33 @@
  */
 
 #include "forge_apo_fx.h"
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
-/* FXEQ ForgeApo Implementation */
+/* FXMasteringLimiter ForgeApo Implementation */
 
-const ForgeGuid FORGE_APO_FX_ID_EQ =
+const ForgeGuid FORGE_APO_FX_ID_MASTERING_LIMITER =
 {
-    0xF5E01117,
-    0xD6C4,
-    0x485A,
+    0xC4137916,
+    0x2BE1,
+    0x46FD,
     {
-        0xA3,
-        0xF5,
-        0x69,
-        0x51,
-        0x96,
-        0xF3,
-        0xDB,
-        0xFA
+        0x85,
+        0x99,
+        0x44,
+        0x15,
+        0x36,
+        0xF4,
+        0x98,
+        0x56
     }
 };
 
-static ForgeApoProperties FXEQProperties =
+static ForgeApoProperties FXMasteringLimiterProperties =
 {
     /* .clsid = */ {0},
     /* .FriendlyName = */
     {
-        'F', 'X', 'E', 'Q', '\0'
+        'F', 'X', 'M', 'a', 's', 't', 'e', 'r', 'i', 'n', 'g', 'L', 'i', 'm', 'i', 't', 'e', 'r', '\0'
     },
     /*.CopyrightInfo = */
     {
@@ -73,20 +73,20 @@ static ForgeApoProperties FXEQProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-typedef struct ForgeApoEq
+typedef struct ForgeApoMasteringLimiter
 {
     ForgeApoBase base;
 
     /* TODO */
-} ForgeApoEq;
+} ForgeApoMasteringLimiter;
 
-uint32_t FORGE_APO_EQ_Initialize(
-    ForgeApoEq *fapo,
+uint32_t ForgeApoMasteringLimiter_Initialize(
+    ForgeApoMasteringLimiter *fapo,
     const void* pData,
     uint32_t DataByteSize
 ) {
     #define INITPARAMS(offset) \
-        FAudio_memcpy( \
+        ForgeAudio_memcpy( \
             fapo->base.m_pParameterBlocks + DataByteSize * offset, \
             pData, \
             DataByteSize \
@@ -98,8 +98,8 @@ uint32_t FORGE_APO_EQ_Initialize(
     return 0;
 }
 
-void FORGE_APO_EQ_Process(
-    ForgeApoEq *fapo,
+void ForgeApoMasteringLimiter_Process(
+    ForgeApoMasteringLimiter *fapo,
     uint32_t InputProcessParameterCount,
     const ForgeApoProcessBuffer* pInputProcessParameters,
     uint32_t OutputProcessParameterCount,
@@ -113,16 +113,16 @@ void FORGE_APO_EQ_Process(
     forge_apo_base_end_process(&fapo->base);
 }
 
-void FORGE_APO_EQ_Free(void* fapo)
+void ForgeApoMasteringLimiter_Free(void* fapo)
 {
-    ForgeApoEq *eq = (ForgeApoEq*) fapo;
-    eq->base.pFree(eq->base.m_pParameterBlocks);
-    eq->base.pFree(fapo);
+    ForgeApoMasteringLimiter *limiter = (ForgeApoMasteringLimiter*) fapo;
+    limiter->base.pFree(limiter->base.m_pParameterBlocks);
+    limiter->base.pFree(fapo);
 }
 
 /* Public API */
 
-uint32_t forge_apo_create_eq(
+uint32_t forge_apo_create_mastering_limiter(
     ForgeApo **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
@@ -130,37 +130,27 @@ uint32_t forge_apo_create_eq(
     ForgeFreeFunc customFree,
     ForgeReallocFunc customRealloc
 ) {
-    const ForgeApoEqParameters fxdefault =
+    const ForgeApoMasteringLimiterParameters fxdefault =
     {
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_0,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_1,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_2,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH,
-        FORGE_APO_EQ_DEFAULT_FREQUENCY_CENTER_3,
-        FORGE_APO_EQ_DEFAULT_GAIN,
-        FORGE_APO_EQ_DEFAULT_BANDWIDTH
+        FORGE_APO_MASTERING_LIMITER_DEFAULT_RELEASE,
+        FORGE_APO_MASTERING_LIMITER_DEFAULT_LOUDNESS
     };
 
     /* Allocate... */
-    ForgeApoEq *result = (ForgeApoEq*) customMalloc(
-        sizeof(ForgeApoEq)
+    ForgeApoMasteringLimiter *result = (ForgeApoMasteringLimiter*) customMalloc(
+        sizeof(ForgeApoMasteringLimiter)
     );
     uint8_t *params = (uint8_t*) customMalloc(
-        sizeof(ForgeApoEqParameters) * 3
+        sizeof(ForgeApoMasteringLimiterParameters) * 3
     );
     if (pInitData == NULL)
     {
-        FAudio_zero(params, sizeof(ForgeApoEqParameters) * 3);
+        ForgeAudio_zero(params, sizeof(ForgeApoMasteringLimiterParameters) * 3);
         #define INITPARAMS(offset) \
-            FAudio_memcpy( \
-                params + sizeof(ForgeApoEqParameters) * offset, \
+            ForgeAudio_memcpy( \
+                params + sizeof(ForgeApoMasteringLimiterParameters) * offset, \
                 &fxdefault, \
-                sizeof(ForgeApoEqParameters) \
+                sizeof(ForgeApoMasteringLimiterParameters) \
             );
         INITPARAMS(0)
         INITPARAMS(1)
@@ -169,23 +159,23 @@ uint32_t forge_apo_create_eq(
     }
     else
     {
-        FAudio_assert(InitDataByteSize == sizeof(ForgeApoEqParameters));
-        FAudio_memcpy(params, pInitData, InitDataByteSize);
-        FAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
-        FAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
+        ForgeAudio_assert(InitDataByteSize == sizeof(ForgeApoMasteringLimiterParameters));
+        ForgeAudio_memcpy(params, pInitData, InitDataByteSize);
+        ForgeAudio_memcpy(params + InitDataByteSize, pInitData, InitDataByteSize);
+        ForgeAudio_memcpy(params + (InitDataByteSize * 2), pInitData, InitDataByteSize);
     }
 
     /* Initialize... */
-    FAudio_memcpy(
-        &FXEQProperties.clsid,
-        &FORGE_APO_FX_ID_EQ,
+    ForgeAudio_memcpy(
+        &FXMasteringLimiterProperties.clsid,
+        &FORGE_APO_FX_ID_MASTERING_LIMITER,
         sizeof(ForgeGuid)
     );
     forge_apo_base_init_with_allocator(
         &result->base,
-        &FXEQProperties,
+        &FXMasteringLimiterProperties,
         params,
-        sizeof(ForgeApoEqParameters),
+        sizeof(ForgeApoMasteringLimiterParameters),
         0,
         customMalloc,
         customFree,
@@ -194,10 +184,10 @@ uint32_t forge_apo_create_eq(
 
     /* Function table... */
     result->base.base.Initialize = (ForgeApoInitializeFunc)
-        FORGE_APO_EQ_Initialize;
+        ForgeApoMasteringLimiter_Initialize;
     result->base.base.Process = (ForgeApoProcessFunc)
-        FORGE_APO_EQ_Process;
-    result->base.Destructor = FORGE_APO_EQ_Free;
+        ForgeApoMasteringLimiter_Process;
+    result->base.Destructor = ForgeApoMasteringLimiter_Free;
 
     /* Finally. */
     *pEffect = &result->base.base;

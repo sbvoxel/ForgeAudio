@@ -24,39 +24,39 @@
  *
  */
 
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
 /* stb_vorbis */
 
-#define malloc FAudio_malloc
-#define realloc FAudio_realloc
-#define free FAudio_free
+#define malloc ForgeAudio_malloc
+#define realloc ForgeAudio_realloc
+#define free ForgeAudio_free
 #ifdef STB_MEMSET_OVERRIDE
 #ifdef memset /* Thanks, Apple! */
 #undef memset
 #endif
-#define memset FAudio_memset
+#define memset ForgeAudio_memset
 #endif /* STB_MEMSET_OVERRIDE */
 #ifdef STB_MEMCPY_OVERRIDE
 #ifdef memcpy /* Thanks, Apple! */
 #undef memcpy
 #endif
-#define memcpy FAudio_memcpy
+#define memcpy ForgeAudio_memcpy
 #endif /* STB_MEMCPY_OVERRIDE */
-#define memcmp FAudio_memcmp
+#define memcmp ForgeAudio_memcmp
 
-#define pow FAudio_pow
-#define log(x) FAudio_log(x)
-#define sin(x) FAudio_sin(x)
-#define cos(x) FAudio_cos(x)
-#define floor FAudio_floor
-#define abs(x) FAudio_abs(x)
-#define ldexp(v, e) FAudio_ldexp((v), (e))
-#define exp(x) FAudio_exp(x)
+#define pow ForgeAudio_pow
+#define log(x) ForgeAudio_log(x)
+#define sin(x) ForgeAudio_sin(x)
+#define cos(x) ForgeAudio_cos(x)
+#define floor ForgeAudio_floor
+#define abs(x) ForgeAudio_abs(x)
+#define ldexp(v, e) ForgeAudio_ldexp((v), (e))
+#define exp(x) ForgeAudio_exp(x)
 
-#define qsort FAudio_qsort
+#define qsort ForgeAudio_qsort
 
-#define assert FAudio_assert
+#define assert ForgeAudio_assert
 
 #define FILE ForgeIOStream
 #ifdef SEEK_SET
@@ -163,7 +163,7 @@ static void XNA_SongKill()
     }
     if (songCache != NULL)
     {
-        FAudio_free(songCache);
+        ForgeAudio_free(songCache);
         songCache = NULL;
     }
     if (activeVorbisSong != NULL)
@@ -247,10 +247,10 @@ FORGE_AUDIO_API float XNA_PlaySong(const char *name)
 	}
 
     /* Allocate decode cache */
-    songCache = (uint8_t*) FAudio_malloc(format.nAvgBytesPerSec);
+    songCache = (uint8_t*) ForgeAudio_malloc(format.nAvgBytesPerSec);
 
     /* Init voice */
-    FAudio_zero(&callbacks, sizeof(ForgeVoiceCallback));
+    ForgeAudio_zero(&callbacks, sizeof(ForgeVoiceCallback));
     callbacks.OnBufferEnd = XNA_SongSubmitBuffer;
     forge_audio_create_source_voice(
         songAudio,

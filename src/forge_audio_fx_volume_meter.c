@@ -25,7 +25,7 @@
  */
 
 #include "forge_audio_fx.h"
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
 /* Volume Meter ForgeApo Implementation */
 
@@ -122,7 +122,7 @@ uint32_t ForgeAudioFxVolumeMeter_LockForProcess(
     levels[0].pPeakLevels = (float*) fapo->base.pMalloc(
         fapo->channels * sizeof(float) * 6
     );
-    FAudio_zero(levels[0].pPeakLevels, fapo->channels * sizeof(float) * 6);
+    ForgeAudio_zero(levels[0].pPeakLevels, fapo->channels * sizeof(float) * 6);
     levels[0].pRMSLevels = levels[0].pPeakLevels + fapo->channels;
     levels[1].pPeakLevels = levels[0].pPeakLevels + (fapo->channels * 2);
     levels[1].pRMSLevels = levels[0].pPeakLevels + (fapo->channels * 3);
@@ -164,7 +164,7 @@ void ForgeAudioFxVolumeMeter_Process(
         buffer = ((float*) pInputProcessParameters->pBuffer) + i;
         for (j = 0; j < pInputProcessParameters->ValidFrameCount; j += 1, buffer += fapo->channels)
         {
-            const float sampleAbs = FAudio_fabsf(*buffer);
+            const float sampleAbs = ForgeAudio_fabsf(*buffer);
             if (sampleAbs > peak)
             {
                 peak = sampleAbs;
@@ -172,7 +172,7 @@ void ForgeAudioFxVolumeMeter_Process(
             total += (*buffer) * (*buffer);
         }
         levels->pPeakLevels[i] = peak;
-        levels->pRMSLevels[i] = FAudio_sqrtf(
+        levels->pRMSLevels[i] = ForgeAudio_sqrtf(
             total / pInputProcessParameters->ValidFrameCount
         );
     }
@@ -187,13 +187,13 @@ void ForgeAudioFxVolumeMeter_GetParameters(
 ) {
     ForgeAudioFxVolumeMeterLevels *levels = (ForgeAudioFxVolumeMeterLevels*)
         fapo->base.m_pCurrentParameters;
-    FAudio_assert(ParameterByteSize == sizeof(ForgeAudioFxVolumeMeterLevels));
-    FAudio_assert(pParameters->ChannelCount == fapo->channels);
+    ForgeAudio_assert(ParameterByteSize == sizeof(ForgeAudioFxVolumeMeterLevels));
+    ForgeAudio_assert(pParameters->ChannelCount == fapo->channels);
 
     /* Copy what's current as of the last Process */
     if (pParameters->pPeakLevels != NULL)
     {
-        FAudio_memcpy(
+        ForgeAudio_memcpy(
             pParameters->pPeakLevels,
             levels->pPeakLevels,
             fapo->channels * sizeof(float)
@@ -201,7 +201,7 @@ void ForgeAudioFxVolumeMeter_GetParameters(
     }
     if (pParameters->pRMSLevels != NULL)
     {
-        FAudio_memcpy(
+        ForgeAudio_memcpy(
             pParameters->pRMSLevels,
             levels->pRMSLevels,
             fapo->channels * sizeof(float)
@@ -223,9 +223,9 @@ uint32_t forge_audio_create_volume_meter(ForgeApo** ppApo, uint32_t Flags)
     return forge_audio_create_volume_meter_with_allocator(
         ppApo,
         Flags,
-        FAudio_malloc,
-        FAudio_free,
-        FAudio_realloc
+        ForgeAudio_malloc,
+        ForgeAudio_free,
+        ForgeAudio_realloc
     );
 }
 
@@ -243,10 +243,10 @@ uint32_t forge_audio_create_volume_meter_with_allocator(
     uint8_t *params = (uint8_t*) customMalloc(
         sizeof(ForgeAudioFxVolumeMeterLevels) * 3
     );
-    FAudio_zero(params, sizeof(ForgeAudioFxVolumeMeterLevels) * 3);
+    ForgeAudio_zero(params, sizeof(ForgeAudioFxVolumeMeterLevels) * 3);
 
     /* Initialize... */
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         &VolumeMeterProperties.clsid,
         &FORGE_AUDIO_FX_ID_VOLUME_METER,
         sizeof(ForgeGuid)

@@ -25,7 +25,7 @@
  */
 
 #include "forge_apo_fx.h"
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
 uint32_t forge_apo_create_effect(
     const ForgeGuid *clsid,
@@ -38,9 +38,9 @@ uint32_t forge_apo_create_effect(
         pEffect,
         pInitData,
         InitDataByteSize,
-        FAudio_malloc,
-        FAudio_free,
-        FAudio_realloc
+        ForgeAudio_malloc,
+        ForgeAudio_free,
+        ForgeAudio_realloc
     );
 }
 
@@ -54,7 +54,7 @@ uint32_t forge_apo_create_effect_with_allocator(
     ForgeReallocFunc customRealloc
 ) {
 #define CHECK_AND_RETURN(id, create_func) \
-    if (FAudio_memcmp(clsid, &(id), sizeof(ForgeGuid)) == 0) \
+    if (ForgeAudio_memcmp(clsid, &(id), sizeof(ForgeGuid)) == 0) \
     { \
         return create_func( \
             pEffect, \

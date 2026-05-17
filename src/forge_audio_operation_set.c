@@ -24,31 +24,31 @@
  *
  */
 
-/* FAudio_operationset.c originally written by Tyler Glaiel */
+/* Operation-set implementation originally written by Tyler Glaiel */
 
-#include "FAudio_internal.h"
+#include "forge_audio_internal.h"
 
 /* Core OperationSet Types */
 
-typedef enum FAudio_OPERATIONSET_Type
+typedef enum ForgeAudio_OperationSet_Type
 {
-    FAUDIOOP_ENABLEEFFECT,
-    FAUDIOOP_DISABLEEFFECT,
-    FAUDIOOP_SETEFFECTPARAMETERS,
-    FAUDIOOP_SETFILTERPARAMETERS,
-    FAUDIOOP_SETOUTPUTFILTERPARAMETERS,
-    FAUDIOOP_SETVOLUME,
-    FAUDIOOP_SETCHANNELVOLUMES,
-    FAUDIOOP_SETOUTPUTMATRIX,
-    FAUDIOOP_START,
-    FAUDIOOP_STOP,
-    FAUDIOOP_EXITLOOP,
-    FAUDIOOP_SETFREQUENCYRATIO
-} FAudio_OPERATIONSET_Type;
+    FORGE_AUDIO_OP_ENABLEEFFECT,
+    FORGE_AUDIO_OP_DISABLEEFFECT,
+    FORGE_AUDIO_OP_SETEFFECTPARAMETERS,
+    FORGE_AUDIO_OP_SETFILTERPARAMETERS,
+    FORGE_AUDIO_OP_SETOUTPUTFILTERPARAMETERS,
+    FORGE_AUDIO_OP_SETVOLUME,
+    FORGE_AUDIO_OP_SETCHANNELVOLUMES,
+    FORGE_AUDIO_OP_SETOUTPUTMATRIX,
+    FORGE_AUDIO_OP_START,
+    FORGE_AUDIO_OP_STOP,
+    FORGE_AUDIO_OP_EXITLOOP,
+    FORGE_AUDIO_OP_SETFREQUENCYRATIO
+} ForgeAudio_OperationSet_Type;
 
-struct FAudio_OPERATIONSET_Operation
+struct ForgeAudio_OperationSet_Operation
 {
-    FAudio_OPERATIONSET_Type Type;
+    ForgeAudio_OperationSet_Type Type;
     uint32_t OperationSet;
     ForgeVoice *Voice;
 
@@ -112,24 +112,24 @@ struct FAudio_OPERATIONSET_Operation
         } SetFrequencyRatio;
     } Data;
 
-    FAudio_OPERATIONSET_Operation *next;
+    ForgeAudio_OperationSet_Operation *next;
 };
 
 /* Used by both Commit and Clear routines */
 
 static inline void DeleteOperation(
-    FAudio_OPERATIONSET_Operation *op,
+    ForgeAudio_OperationSet_Operation *op,
     ForgeFreeFunc pFree
 ) {
-    if (op->Type == FAUDIOOP_SETEFFECTPARAMETERS)
+    if (op->Type == FORGE_AUDIO_OP_SETEFFECTPARAMETERS)
     {
         pFree(op->Data.SetEffectParameters.pParameters);
     }
-    else if (op->Type == FAUDIOOP_SETCHANNELVOLUMES)
+    else if (op->Type == FORGE_AUDIO_OP_SETCHANNELVOLUMES)
     {
         pFree(op->Data.SetChannelVolumes.pVolumes);
     }
-    else if (op->Type == FAUDIOOP_SETOUTPUTMATRIX)
+    else if (op->Type == FORGE_AUDIO_OP_SETOUTPUTMATRIX)
     {
         pFree(op->Data.SetOutputMatrix.pLevelMatrix);
     }
@@ -138,11 +138,11 @@ static inline void DeleteOperation(
 
 /* OperationSet Execution */
 
-static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
+static inline void ExecuteOperation(ForgeAudio_OperationSet_Operation *op)
 {
     switch (op->Type)
     {
-    case FAUDIOOP_ENABLEEFFECT:
+    case FORGE_AUDIO_OP_ENABLEEFFECT:
         forge_voice_enable_effect(
             op->Voice,
             op->Data.EnableEffect.EffectIndex,
@@ -150,7 +150,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_DISABLEEFFECT:
+    case FORGE_AUDIO_OP_DISABLEEFFECT:
         forge_voice_disable_effect(
             op->Voice,
             op->Data.DisableEffect.EffectIndex,
@@ -158,7 +158,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_SETEFFECTPARAMETERS:
+    case FORGE_AUDIO_OP_SETEFFECTPARAMETERS:
         forge_voice_set_effect_parameters(
             op->Voice,
             op->Data.SetEffectParameters.EffectIndex,
@@ -168,7 +168,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_SETFILTERPARAMETERS:
+    case FORGE_AUDIO_OP_SETFILTERPARAMETERS:
         forge_voice_set_filter_parameters(
             op->Voice,
             &op->Data.SetFilterParameters.Parameters,
@@ -176,7 +176,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_SETOUTPUTFILTERPARAMETERS:
+    case FORGE_AUDIO_OP_SETOUTPUTFILTERPARAMETERS:
         forge_voice_set_output_filter_parameters(
             op->Voice,
             op->Data.SetOutputFilterParameters.pDestinationVoice,
@@ -185,7 +185,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_SETVOLUME:
+    case FORGE_AUDIO_OP_SETVOLUME:
         forge_voice_set_volume(
             op->Voice,
             op->Data.SetVolume.Volume,
@@ -193,7 +193,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_SETCHANNELVOLUMES:
+    case FORGE_AUDIO_OP_SETCHANNELVOLUMES:
         forge_voice_set_channel_volumes(
             op->Voice,
             op->Data.SetChannelVolumes.Channels,
@@ -202,7 +202,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_SETOUTPUTMATRIX:
+    case FORGE_AUDIO_OP_SETOUTPUTMATRIX:
         forge_voice_set_output_matrix(
             op->Voice,
             op->Data.SetOutputMatrix.pDestinationVoice,
@@ -213,7 +213,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_START:
+    case FORGE_AUDIO_OP_START:
         forge_source_voice_start(
             op->Voice,
             op->Data.Start.Flags,
@@ -221,7 +221,7 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_STOP:
+    case FORGE_AUDIO_OP_STOP:
         forge_source_voice_stop(
             op->Voice,
             op->Data.Stop.Flags,
@@ -229,14 +229,14 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
         );
     break;
 
-    case FAUDIOOP_EXITLOOP:
+    case FORGE_AUDIO_OP_EXITLOOP:
         forge_source_voice_break_loop(
             op->Voice,
             FORGE_AUDIO_COMMIT_NOW
         );
     break;
 
-    case FAUDIOOP_SETFREQUENCYRATIO:
+    case FORGE_AUDIO_OP_SETFREQUENCYRATIO:
         forge_source_voice_set_rate(
             op->Voice,
             op->Data.SetFrequencyRatio.Ratio,
@@ -245,21 +245,21 @@ static inline void ExecuteOperation(FAudio_OPERATIONSET_Operation *op)
     break;
 
     default:
-        FAudio_assert(0 && "Unrecognized operation type!");
+        ForgeAudio_assert(0 && "Unrecognized operation type!");
     break;
     }
 }
 
-void FAudio_OPERATIONSET_CommitAll(ForgeAudioEngine *audio)
+void ForgeAudio_OperationSet_CommitAll(ForgeAudioEngine *audio)
 {
-    FAudio_OPERATIONSET_Operation *op, *next, **committed_end;
+    ForgeAudio_OperationSet_Operation *op, *next, **committed_end;
 
-    FAudio_PlatformLockMutex(audio->operationLock);
+    ForgeAudio_PlatformLockMutex(audio->operationLock);
     LOG_MUTEX_LOCK(audio, audio->operationLock)
 
     if (audio->queuedOperations == NULL)
     {
-        FAudio_PlatformUnlockMutex(audio->operationLock);
+        ForgeAudio_PlatformUnlockMutex(audio->operationLock);
         LOG_MUTEX_UNLOCK(audio, audio->operationLock)
         return;
     }
@@ -283,20 +283,20 @@ void FAudio_OPERATIONSET_CommitAll(ForgeAudioEngine *audio)
     } while (op != NULL);
     audio->queuedOperations = NULL;
 
-    FAudio_PlatformUnlockMutex(audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(audio->operationLock);
     LOG_MUTEX_UNLOCK(audio, audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_Commit(ForgeAudioEngine *audio, uint32_t OperationSet)
+void ForgeAudio_OperationSet_Commit(ForgeAudioEngine *audio, uint32_t OperationSet)
 {
-    FAudio_OPERATIONSET_Operation *op, *next, *prev, **committed_end;
+    ForgeAudio_OperationSet_Operation *op, *next, *prev, **committed_end;
 
-    FAudio_PlatformLockMutex(audio->operationLock);
+    ForgeAudio_PlatformLockMutex(audio->operationLock);
     LOG_MUTEX_LOCK(audio, audio->operationLock)
 
     if (audio->queuedOperations == NULL)
     {
-        FAudio_PlatformUnlockMutex(audio->operationLock);
+        ForgeAudio_PlatformUnlockMutex(audio->operationLock);
         LOG_MUTEX_UNLOCK(audio, audio->operationLock)
         return;
     }
@@ -334,15 +334,15 @@ void FAudio_OPERATIONSET_Commit(ForgeAudioEngine *audio, uint32_t OperationSet)
         op = next;
     } while (op != NULL);
 
-    FAudio_PlatformUnlockMutex(audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(audio->operationLock);
     LOG_MUTEX_UNLOCK(audio, audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_Execute(ForgeAudioEngine *audio)
+void ForgeAudio_OperationSet_Execute(ForgeAudioEngine *audio)
 {
-    FAudio_OPERATIONSET_Operation *op, *next;
+    ForgeAudio_OperationSet_Operation *op, *next;
 
-    FAudio_PlatformLockMutex(audio->operationLock);
+    ForgeAudio_PlatformLockMutex(audio->operationLock);
     LOG_MUTEX_LOCK(audio, audio->operationLock)
 
     op = audio->committedOperations;
@@ -355,20 +355,20 @@ void FAudio_OPERATIONSET_Execute(ForgeAudioEngine *audio)
     }
     audio->committedOperations = NULL;
 
-    FAudio_PlatformUnlockMutex(audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(audio->operationLock);
     LOG_MUTEX_UNLOCK(audio, audio->operationLock)
 }
 
 /* OperationSet Compilation */
 
-static inline FAudio_OPERATIONSET_Operation* QueueOperation(
+static inline ForgeAudio_OperationSet_Operation* QueueOperation(
     ForgeVoice *voice,
-    FAudio_OPERATIONSET_Type type,
+    ForgeAudio_OperationSet_Type type,
     uint32_t operationSet
 ) {
-    FAudio_OPERATIONSET_Operation *latest;
-    FAudio_OPERATIONSET_Operation *newop = voice->audio->pMalloc(
-        sizeof(FAudio_OPERATIONSET_Operation)
+    ForgeAudio_OperationSet_Operation *latest;
+    ForgeAudio_OperationSet_Operation *newop = voice->audio->pMalloc(
+        sizeof(ForgeAudio_OperationSet_Operation)
     );
 
     newop->Type = type;
@@ -393,65 +393,65 @@ static inline FAudio_OPERATIONSET_Operation* QueueOperation(
     return newop;
 }
 
-void FAudio_OPERATIONSET_QueueEnableEffect(
+void ForgeAudio_OperationSet_QueueEnableEffect(
     ForgeVoice *voice,
     uint32_t EffectIndex,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_ENABLEEFFECT,
+        FORGE_AUDIO_OP_ENABLEEFFECT,
         OperationSet
     );
 
     op->Data.EnableEffect.EffectIndex = EffectIndex;
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueDisableEffect(
+void ForgeAudio_OperationSet_QueueDisableEffect(
     ForgeVoice *voice,
     uint32_t EffectIndex,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_DISABLEEFFECT,
+        FORGE_AUDIO_OP_DISABLEEFFECT,
         OperationSet
     );
 
     op->Data.DisableEffect.EffectIndex = EffectIndex;
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueSetEffectParameters(
+void ForgeAudio_OperationSet_QueueSetEffectParameters(
     ForgeVoice *voice,
     uint32_t EffectIndex,
     const void *pParameters,
     uint32_t ParametersByteSize,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_SETEFFECTPARAMETERS,
+        FORGE_AUDIO_OP_SETEFFECTPARAMETERS,
         OperationSet
     );
 
@@ -459,107 +459,107 @@ void FAudio_OPERATIONSET_QueueSetEffectParameters(
     op->Data.SetEffectParameters.pParameters = voice->audio->pMalloc(
         ParametersByteSize
     );
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         op->Data.SetEffectParameters.pParameters,
         pParameters,
         ParametersByteSize
     );
     op->Data.SetEffectParameters.ParametersByteSize = ParametersByteSize;
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueSetFilterParameters(
+void ForgeAudio_OperationSet_QueueSetFilterParameters(
     ForgeVoice *voice,
     const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_SETFILTERPARAMETERS,
+        FORGE_AUDIO_OP_SETFILTERPARAMETERS,
         OperationSet
     );
 
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         &op->Data.SetFilterParameters.Parameters,
         pParameters,
         sizeof(ForgeFilterParameters)
     );
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueSetOutputFilterParameters(
+void ForgeAudio_OperationSet_QueueSetOutputFilterParameters(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
     const ForgeFilterParameters *pParameters,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_SETOUTPUTFILTERPARAMETERS,
+        FORGE_AUDIO_OP_SETOUTPUTFILTERPARAMETERS,
         OperationSet
     );
 
     op->Data.SetOutputFilterParameters.pDestinationVoice = pDestinationVoice;
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         &op->Data.SetOutputFilterParameters.Parameters,
         pParameters,
         sizeof(ForgeFilterParameters)
     );
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueSetVolume(
+void ForgeAudio_OperationSet_QueueSetVolume(
     ForgeVoice *voice,
     float Volume,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_SETVOLUME,
+        FORGE_AUDIO_OP_SETVOLUME,
         OperationSet
     );
 
     op->Data.SetVolume.Volume = Volume;
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueSetChannelVolumes(
+void ForgeAudio_OperationSet_QueueSetChannelVolumes(
     ForgeVoice *voice,
     uint32_t Channels,
     const float *pVolumes,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_SETCHANNELVOLUMES,
+        FORGE_AUDIO_OP_SETCHANNELVOLUMES,
         OperationSet
     );
 
@@ -567,17 +567,17 @@ void FAudio_OPERATIONSET_QueueSetChannelVolumes(
     op->Data.SetChannelVolumes.pVolumes = voice->audio->pMalloc(
         sizeof(float) * Channels
     );
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         op->Data.SetChannelVolumes.pVolumes,
         pVolumes,
         sizeof(float) * Channels
     );
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueSetOutputMatrix(
+void ForgeAudio_OperationSet_QueueSetOutputMatrix(
     ForgeVoice *voice,
     ForgeVoice *pDestinationVoice,
     uint32_t SourceChannels,
@@ -585,14 +585,14 @@ void FAudio_OPERATIONSET_QueueSetOutputMatrix(
     const float *pLevelMatrix,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_SETOUTPUTMATRIX,
+        FORGE_AUDIO_OP_SETOUTPUTMATRIX,
         OperationSet
     );
 
@@ -602,108 +602,108 @@ void FAudio_OPERATIONSET_QueueSetOutputMatrix(
     op->Data.SetOutputMatrix.pLevelMatrix = voice->audio->pMalloc(
         sizeof(float) * SourceChannels * DestinationChannels
     );
-    FAudio_memcpy(
+    ForgeAudio_memcpy(
         op->Data.SetOutputMatrix.pLevelMatrix,
         pLevelMatrix,
         sizeof(float) * SourceChannels * DestinationChannels
     );
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueStart(
+void ForgeAudio_OperationSet_QueueStart(
     ForgeSourceVoice *voice,
     uint32_t Flags,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_START,
+        FORGE_AUDIO_OP_START,
         OperationSet
     );
 
     op->Data.Start.Flags = Flags;
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueStop(
+void ForgeAudio_OperationSet_QueueStop(
     ForgeSourceVoice *voice,
     uint32_t Flags,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_STOP,
+        FORGE_AUDIO_OP_STOP,
         OperationSet
     );
 
     op->Data.Stop.Flags = Flags;
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueExitLoop(
+void ForgeAudio_OperationSet_QueueExitLoop(
     ForgeSourceVoice *voice,
     uint32_t OperationSet
 ) {
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     QueueOperation(
         voice,
-        FAUDIOOP_EXITLOOP,
+        FORGE_AUDIO_OP_EXITLOOP,
         OperationSet
     );
 
     /* No special data for ExitLoop */
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
-void FAudio_OPERATIONSET_QueueSetFrequencyRatio(
+void ForgeAudio_OperationSet_QueueSetFrequencyRatio(
     ForgeSourceVoice *voice,
     float Ratio,
     uint32_t OperationSet
 ) {
-    FAudio_OPERATIONSET_Operation *op;
+    ForgeAudio_OperationSet_Operation *op;
 
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     op = QueueOperation(
         voice,
-        FAUDIOOP_SETFREQUENCYRATIO,
+        FORGE_AUDIO_OP_SETFREQUENCYRATIO,
         OperationSet
     );
 
     op->Data.SetFrequencyRatio.Ratio = Ratio;
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
 
 /* Called when releasing the engine */
 
-void FAudio_OPERATIONSET_ClearAll(ForgeAudioEngine *audio)
+void ForgeAudio_OperationSet_ClearAll(ForgeAudioEngine *audio)
 {
-    FAudio_OPERATIONSET_Operation *current, *next;
+    ForgeAudio_OperationSet_Operation *current, *next;
 
-    FAudio_PlatformLockMutex(audio->operationLock);
+    ForgeAudio_PlatformLockMutex(audio->operationLock);
     LOG_MUTEX_LOCK(audio, audio->operationLock)
 
     current = audio->queuedOperations;
@@ -715,7 +715,7 @@ void FAudio_OPERATIONSET_ClearAll(ForgeAudioEngine *audio)
     }
     audio->queuedOperations = NULL;
 
-    FAudio_PlatformUnlockMutex(audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(audio->operationLock);
     LOG_MUTEX_UNLOCK(audio, audio->operationLock)
 }
 
@@ -723,9 +723,9 @@ void FAudio_OPERATIONSET_ClearAll(ForgeAudioEngine *audio)
 
 static inline void RemoveFromList(
     ForgeVoice *voice,
-    FAudio_OPERATIONSET_Operation **list
+    ForgeAudio_OperationSet_Operation **list
 ) {
-    FAudio_OPERATIONSET_Operation *current, *next, *prev;
+    ForgeAudio_OperationSet_Operation *current, *next, *prev;
 
     current = *list;
     prev = NULL;
@@ -733,10 +733,10 @@ static inline void RemoveFromList(
     {
         const uint8_t baseVoice = (voice == current->Voice);
         const uint8_t dstVoice = (
-            current->Type == FAUDIOOP_SETOUTPUTFILTERPARAMETERS &&
+            current->Type == FORGE_AUDIO_OP_SETOUTPUTFILTERPARAMETERS &&
             voice == current->Data.SetOutputFilterParameters.pDestinationVoice
         ) || (
-            current->Type == FAUDIOOP_SETOUTPUTMATRIX &&
+            current->Type == FORGE_AUDIO_OP_SETOUTPUTMATRIX &&
             voice == current->Data.SetOutputMatrix.pDestinationVoice
         );
 
@@ -762,14 +762,14 @@ static inline void RemoveFromList(
     }
 }
 
-void FAudio_OPERATIONSET_ClearAllForVoice(ForgeVoice *voice)
+void ForgeAudio_OperationSet_ClearAllForVoice(ForgeVoice *voice)
 {
-    FAudio_PlatformLockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformLockMutex(voice->audio->operationLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->operationLock)
 
     RemoveFromList(voice, &voice->audio->queuedOperations);
     RemoveFromList(voice, &voice->audio->committedOperations);
 
-    FAudio_PlatformUnlockMutex(voice->audio->operationLock);
+    ForgeAudio_PlatformUnlockMutex(voice->audio->operationLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->operationLock)
 }
