@@ -1148,36 +1148,8 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(
 
 /* reverb ForgeEffect Implementation */
 
-static const ForgeGuid ReverbId =
+static ForgeEffectInfo ReverbInfo =
 {
-    0x6A93130E,
-    0xCB4E,
-    0x4CE1,
-    {
-        0xA9,
-        0xCF,
-        0xE7,
-        0x58,
-        0x80,
-        0x0B,
-        0xB1,
-        0x79
-    }
-};
-
-static ForgeEffectProperties ReverbProperties =
-{
-    /* .clsid = */ {0},
-    /*.friendly_name = */
-    {
-        'R', 'e', 'v', 'e', 'r', 'b', '\0'
-    },
-    /*.copyright_info = */ {
-        'C', 'o', 'p', 'y', 'r', 'i', 'g', 'h', 't', ' ', '(', 'c', ')',
-        'E', 't', 'h', 'a', 'n', ' ', 'L', 'e', 'e', '\0'
-    },
-    /*.major_version = */ 0,
-    /*.minor_version = */ 0,
     /*.flags = */ (
         FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
         FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
@@ -1703,15 +1675,9 @@ ForgeResult forge_create_reverb_with_allocator(
     );
     result->apiVersion = 7;
 
-    /* initialize... */
-    ForgeAudio_memcpy(
-        &ReverbProperties.clsid,
-        &ReverbId,
-        sizeof(ForgeGuid)
-    );
     forge_effect_base_init_with_allocator(
         &result->base,
-        &ReverbProperties,
+        &ReverbInfo,
         params,
         sizeof(ForgeReverbParameters),
         0,
@@ -1876,15 +1842,9 @@ ForgeResult forge_create_reverb_7point1_with_allocator(
     );
     result->apiVersion = 9;
 
-    /* initialize... */
-    ForgeAudio_memcpy(
-        &ReverbProperties.clsid,
-        &ReverbId,
-        sizeof(ForgeGuid)
-    );
     forge_effect_base_init_with_allocator(
         &result->base,
-        &ReverbProperties,
+        &ReverbInfo,
         params,
         sizeof(ForgeReverbParameters7Point1),
         0,

@@ -38,37 +38,8 @@
 
 /* volume Meter ForgeEffect Implementation */
 
-static const ForgeGuid VolumeMeterId =
+static ForgeEffectInfo VolumeMeterInfo =
 {
-    0xCAC1105F,
-    0x619B,
-    0x4D04,
-    {
-        0x83,
-        0x1A,
-        0x44,
-        0xE1,
-        0xCB,
-        0xF1,
-        0x2D,
-        0x57
-    }
-};
-
-static ForgeEffectProperties VolumeMeterProperties =
-{
-    /* .clsid = */ {0},
-    /* .friendly_name = */
-    {
-        'V', 'o', 'l', 'u', 'm', 'e', 'M', 'e', 't', 'e', 'r', '\0'
-    },
-    /*.copyright_info = */
-    {
-        'C', 'o', 'p', 'y', 'r', 'i', 'g', 'h', 't', ' ', '(', 'c', ')',
-        'E', 't', 'h', 'a', 'n', ' ', 'L', 'e', 'e', '\0'
-    },
-    /*.major_version = */ 0,
-    /*.minor_version = */ 0,
     /*.flags = */(
         FORGE_EFFECT_FLAG_CHANNELS_MUST_MATCH |
         FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
@@ -100,10 +71,10 @@ ForgeResult ForgeVolumeMeter_LockForProcess(
         effect->base.parameter_blocks;
 
     /* Verify parameter counts... */
-    if (    input_locked_parameter_count < effect->base.registration_properties->min_input_buffer_count ||
-        input_locked_parameter_count > effect->base.registration_properties->max_input_buffer_count ||
-        output_locked_parameter_count < effect->base.registration_properties->min_output_buffer_count ||
-        output_locked_parameter_count > effect->base.registration_properties->max_output_buffer_count    )
+    if (    input_locked_parameter_count < effect->base.effect_info->min_input_buffer_count ||
+        input_locked_parameter_count > effect->base.effect_info->max_input_buffer_count ||
+        output_locked_parameter_count < effect->base.effect_info->min_output_buffer_count ||
+        output_locked_parameter_count > effect->base.effect_info->max_output_buffer_count    )
     {
         return ForgeResultInvalidArgument;
     }
@@ -111,7 +82,7 @@ ForgeResult ForgeVolumeMeter_LockForProcess(
 
     /* Validate input/output formats */
     #define VERIFY_FORMAT_FLAG(flag, prop) \
-        if (    (effect->base.registration_properties->flags & flag) && \
+        if (    (effect->base.effect_info->flags & flag) && \
             (input_locked_parameters->format->prop != output_locked_parameters->format->prop)    ) \
         { \
             return ForgeResultInvalidArgument; \
@@ -120,7 +91,7 @@ ForgeResult ForgeVolumeMeter_LockForProcess(
     VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH, sample_rate)
     VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH, bits_per_sample)
     #undef VERIFY_FORMAT_FLAG
-    if (    (effect->base.registration_properties->flags & FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH) &&
+    if (    (effect->base.effect_info->flags & FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH) &&
         (input_locked_parameter_count != output_locked_parameter_count)    )
     {
         return ForgeResultInvalidArgument;
@@ -254,15 +225,9 @@ ForgeResult forge_create_volume_meter_with_allocator(
     );
     ForgeAudio_zero(params, sizeof(ForgeVolumeMeterLevels) * 3);
 
-    /* initialize... */
-    ForgeAudio_memcpy(
-        &VolumeMeterProperties.clsid,
-        &VolumeMeterId,
-        sizeof(ForgeGuid)
-    );
     forge_effect_base_init_with_allocator(
         &result->base,
-        &VolumeMeterProperties,
+        &VolumeMeterInfo,
         params,
         sizeof(ForgeVolumeMeterLevels),
         1,

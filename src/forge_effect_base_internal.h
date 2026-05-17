@@ -82,7 +82,7 @@ struct ForgeEffectBase
     ForgeEffectBaseSetParametersFunc on_set_parameters;
 
     /* Private Variables */
-    const ForgeEffectProperties *registration_properties;
+    const ForgeEffectInfo *effect_info;
     void* matrix_mix_function;
     float *matrix_coefficients;
     uint32_t src_format_type;
@@ -105,7 +105,7 @@ struct ForgeEffectBase
 
 FORGE_EFFECT_API void forge_effect_base_init(
     ForgeEffectBase *effect,
-    const ForgeEffectProperties *registration_properties,
+    const ForgeEffectInfo *effect_info,
     uint8_t *parameter_blocks,
     uint32_t parameter_block_byte_size,
     uint8_t producer
@@ -114,7 +114,7 @@ FORGE_EFFECT_API void forge_effect_base_init(
 /* See "extensions/custom allocator.txt" for more information. */
 FORGE_EFFECT_API void forge_effect_base_init_with_allocator(
     ForgeEffectBase *effect,
-    const ForgeEffectProperties *registration_properties,
+    const ForgeEffectInfo *effect_info,
     uint8_t *parameter_blocks,
     uint32_t parameter_block_byte_size,
     uint8_t producer,
@@ -125,9 +125,9 @@ FORGE_EFFECT_API void forge_effect_base_init_with_allocator(
 
 FORGE_EFFECT_API void forge_effect_base_destroy(ForgeEffectBase *effect);
 
-FORGE_EFFECT_API ForgeResult forge_effect_base_get_properties(
+FORGE_EFFECT_API ForgeResult forge_effect_base_get_info(
     ForgeEffectBase *effect,
-    ForgeEffectProperties **registration_properties
+    ForgeEffectInfo **effect_info
 );
 
 FORGE_EFFECT_API ForgeResult forge_effect_base_is_input_format_supported(

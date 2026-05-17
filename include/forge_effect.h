@@ -57,19 +57,14 @@ typedef enum ForgeEffectBufferFlags
 
 #pragma pack(push, 1)
 
-typedef struct ForgeEffectProperties
+typedef struct ForgeEffectInfo
 {
-    ForgeGuid clsid;
-    int16_t friendly_name[256]; /* Win32 wchar_t */
-    int16_t copyright_info[256]; /* Win32 wchar_t */
-    uint32_t major_version;
-    uint32_t minor_version;
     uint32_t flags;
     uint32_t min_input_buffer_count;
     uint32_t max_input_buffer_count;
     uint32_t min_output_buffer_count;
     uint32_t max_output_buffer_count;
-} ForgeEffectProperties;
+} ForgeEffectInfo;
 
 typedef struct ForgeEffectLockBuffer
 {
@@ -94,8 +89,6 @@ typedef struct ForgeEffectProcessBuffer
 #define FORGE_EFFECT_MIN_SAMPLE_RATE 1000
 #define FORGE_EFFECT_MAX_SAMPLE_RATE 200000
 
-#define FORGE_EFFECT_PROPERTIES_STRING_LENGTH 256
-
 #define FORGE_EFFECT_FLAG_CHANNELS_MUST_MATCH        0x00000001
 #define FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH        0x00000002
 #define FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH    0x00000004
@@ -113,9 +106,9 @@ typedef struct ForgeEffect ForgeEffect;
 typedef void (FORGE_EFFECT_CALL * ForgeEffectDestroyFunc)(
     void *effect
 );
-typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectGetPropertiesFunc)(
+typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectGetInfoFunc)(
     void* effect,
-    ForgeEffectProperties **registration_properties
+    ForgeEffectInfo **effect_info
 );
 typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectIsInputFormatSupportedFunc)(
     void* effect,
@@ -177,7 +170,7 @@ typedef void (FORGE_EFFECT_CALL * ForgeEffectGetParametersFunc)(
 struct ForgeEffect
 {
     ForgeEffectDestroyFunc destroy;
-    ForgeEffectGetPropertiesFunc get_properties;
+    ForgeEffectGetInfoFunc get_info;
     ForgeEffectIsInputFormatSupportedFunc is_input_format_supported;
     ForgeEffectIsOutputFormatSupportedFunc is_output_format_supported;
     ForgeEffectInitializeFunc initialize;

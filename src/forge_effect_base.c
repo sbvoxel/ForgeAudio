@@ -40,14 +40,14 @@
 
 void forge_effect_base_init(
     ForgeEffectBase *effect,
-    const ForgeEffectProperties *registration_properties,
+    const ForgeEffectInfo *effect_info,
     uint8_t *parameter_blocks,
     uint32_t parameter_block_byte_size,
     uint8_t producer
 ) {
     forge_effect_base_init_with_allocator(
         effect,
-        registration_properties,
+        effect_info,
         parameter_blocks,
         parameter_block_byte_size,
         producer,
@@ -59,7 +59,7 @@ void forge_effect_base_init(
 
 void forge_effect_base_init_with_allocator(
     ForgeEffectBase *effect,
-    const ForgeEffectProperties *registration_properties,
+    const ForgeEffectInfo *effect_info,
     uint8_t *parameter_blocks,
     uint32_t parameter_block_byte_size,
     uint8_t producer,
@@ -69,8 +69,8 @@ void forge_effect_base_init_with_allocator(
 ) {
     /* Base Classes/Interfaces */
     effect->base.destroy = (ForgeEffectDestroyFunc) forge_effect_base_destroy;
-    effect->base.get_properties = (ForgeEffectGetPropertiesFunc)
-        forge_effect_base_get_properties;
+    effect->base.get_info = (ForgeEffectGetInfoFunc)
+        forge_effect_base_get_info;
     effect->base.is_input_format_supported = (ForgeEffectIsInputFormatSupportedFunc)
         forge_effect_base_is_input_format_supported;
     effect->base.is_output_format_supported = (ForgeEffectIsOutputFormatSupportedFunc)
@@ -95,7 +95,7 @@ void forge_effect_base_init_with_allocator(
         forge_effect_base_on_set_parameters;
 
     /* Private Variables */
-    effect->registration_properties = registration_properties; /* FIXME */
+    effect->effect_info = effect_info; /* FIXME */
     effect->matrix_mix_function = NULL; /* FIXME */
     effect->matrix_coefficients = NULL; /* FIXME */
     effect->src_format_type = 0; /* FIXME */
@@ -125,17 +125,17 @@ void forge_effect_base_destroy(ForgeEffectBase *effect)
     effect->destructor(effect);
 }
 
-ForgeResult forge_effect_base_get_properties(
+ForgeResult forge_effect_base_get_info(
     ForgeEffectBase *effect,
-    ForgeEffectProperties **registration_properties
+    ForgeEffectInfo **effect_info
 ) {
-    *registration_properties = (ForgeEffectProperties*) effect->malloc_func(
-        sizeof(ForgeEffectProperties)
+    *effect_info = (ForgeEffectInfo*) effect->malloc_func(
+        sizeof(ForgeEffectInfo)
     );
     ForgeAudio_memcpy(
-        *registration_properties,
-        effect->registration_properties,
-        sizeof(ForgeEffectProperties)
+        *effect_info,
+        effect->effect_info,
+        sizeof(ForgeEffectInfo)
     );
     return 0;
 }
@@ -230,10 +230,10 @@ ForgeResult forge_effect_base_lock_for_process(
     const ForgeEffectLockBuffer *output_locked_parameters
 ) {
     /* Verify parameter counts... */
-    if (    input_locked_parameter_count < effect->registration_properties->min_input_buffer_count ||
-        input_locked_parameter_count > effect->registration_properties->max_input_buffer_count ||
-        output_locked_parameter_count < effect->registration_properties->min_output_buffer_count ||
-        output_locked_parameter_count > effect->registration_properties->max_output_buffer_count    )
+    if (    input_locked_parameter_count < effect->effect_info->min_input_buffer_count ||
+        input_locked_parameter_count > effect->effect_info->max_input_buffer_count ||
+        output_locked_parameter_count < effect->effect_info->min_output_buffer_count ||
+        output_locked_parameter_count > effect->effect_info->max_output_buffer_count    )
     {
         return ForgeResultInvalidArgument;
     }
@@ -241,7 +241,7 @@ ForgeResult forge_effect_base_lock_for_process(
 
     /* Validate input/output formats */
     #define VERIFY_FORMAT_FLAG(flag, prop) \
-        if (    (effect->registration_properties->flags & flag) && \
+        if (    (effect->effect_info->flags & flag) && \
             (input_locked_parameters->format->prop != output_locked_parameters->format->prop)    ) \
         { \
             return ForgeResultInvalidArgument; \
@@ -250,7 +250,7 @@ ForgeResult forge_effect_base_lock_for_process(
     VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH, sample_rate)
     VERIFY_FORMAT_FLAG(FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH, bits_per_sample)
     #undef VERIFY_FORMAT_FLAG
-    if (    (effect->registration_properties->flags & FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH) &&
+    if (    (effect->effect_info->flags & FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH) &&
         (input_locked_parameter_count != output_locked_parameter_count)    )
     {
         return ForgeResultInvalidArgument;
