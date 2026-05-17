@@ -125,19 +125,15 @@ void forge_effect_base_destroy(ForgeEffectBase *effect)
     effect->destructor(effect);
 }
 
-ForgeResult forge_effect_base_get_info(
+void forge_effect_base_get_info(
     ForgeEffectBase *effect,
-    ForgeEffectInfo **effect_info
+    ForgeEffectInfo *effect_info
 ) {
-    *effect_info = (ForgeEffectInfo*) effect->malloc_func(
-        sizeof(ForgeEffectInfo)
-    );
     ForgeAudio_memcpy(
-        *effect_info,
+        effect_info,
         effect->effect_info,
         sizeof(ForgeEffectInfo)
     );
-    return 0;
 }
 
 ForgeResult forge_effect_base_is_input_format_supported(

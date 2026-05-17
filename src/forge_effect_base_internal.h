@@ -125,9 +125,9 @@ FORGE_EFFECT_API void forge_effect_base_init_with_allocator(
 
 FORGE_EFFECT_API void forge_effect_base_destroy(ForgeEffectBase *effect);
 
-FORGE_EFFECT_API ForgeResult forge_effect_base_get_info(
+FORGE_EFFECT_API void forge_effect_base_get_info(
     ForgeEffectBase *effect,
-    ForgeEffectInfo **effect_info
+    ForgeEffectInfo *effect_info
 );
 
 FORGE_EFFECT_API ForgeResult forge_effect_base_is_input_format_supported(

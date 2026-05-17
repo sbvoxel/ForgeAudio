@@ -1398,7 +1398,7 @@ ForgeResult forge_voice_set_effect_chain(
     uint32_t lockedEffects;
     uint32_t channelCount;
     ForgeVoiceDetails voiceDetails;
-    ForgeEffectInfo *info;
+    ForgeEffectInfo info;
     ForgeAudioFormatExtensible srcFmt, dstFmt;
     ForgeEffectLockBuffer srcLockParams, dstLockParams;
     uint8_t hasEffectChain;
@@ -1544,22 +1544,18 @@ ForgeResult forge_voice_set_effect_chain(
         for (uint32_t i = 0; i < voice->effects.count; i += 1)
         {
             effect = voice->effects.desc[i].effect;
-            if (effect->get_info(effect, &info) == 0)
-            {
-                voice->effects.inPlaceProcessing[i] = (info->flags & FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED) == FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED;
-                voice->effects.inPlaceProcessing[i] &= (channelCount == voice->effects.desc[i].output_channels);
-                channelCount = voice->effects.desc[i].output_channels;
+            effect->get_info(effect, &info);
+            voice->effects.inPlaceProcessing[i] = (info.flags & FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED) == FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED;
+            voice->effects.inPlaceProcessing[i] &= (channelCount == voice->effects.desc[i].output_channels);
+            channelCount = voice->effects.desc[i].output_channels;
 
-                /* Fails if in-place processing is mandatory and
-                 * the chain forces us to do otherwise...
-                 */
-                ForgeAudio_assert(
-                    !(info->flags & FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED) ||
-                    voice->effects.inPlaceProcessing[i]
-                );
-
-                voice->audio->free_func(info);
-            }
+            /* Fails if in-place processing is mandatory and
+             * the chain forces us to do otherwise...
+             */
+            ForgeAudio_assert(
+                !(info.flags & FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED) ||
+                voice->effects.inPlaceProcessing[i]
+            );
         }
         voice->outputChannels = channelCount;
     }

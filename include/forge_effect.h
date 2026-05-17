@@ -106,9 +106,9 @@ typedef struct ForgeEffect ForgeEffect;
 typedef void (FORGE_EFFECT_CALL * ForgeEffectDestroyFunc)(
     void *effect
 );
-typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectGetInfoFunc)(
+typedef void (FORGE_EFFECT_CALL * ForgeEffectGetInfoFunc)(
     void* effect,
-    ForgeEffectInfo **effect_info
+    ForgeEffectInfo *effect_info
 );
 typedef ForgeResult (FORGE_EFFECT_CALL * ForgeEffectIsInputFormatSupportedFunc)(
     void* effect,
