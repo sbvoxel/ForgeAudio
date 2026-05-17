@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -29,7 +29,7 @@
 
 /* FXEQ FAPO Implementation */
 
-const FAudioGUID FAPOFX_CLSID_FXEQ =
+const ForgeGuid FAPOFX_CLSID_FXEQ =
 {
     0xF5E01117,
     0xD6C4,
@@ -73,7 +73,7 @@ static FAPORegistrationProperties FXEQProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-const FAudioGUID FAPOFX_CLSID_FXEQ_LEGACY =
+const ForgeGuid FAPOFX_CLSID_FXEQ_LEGACY =
 {
     0xA90BC001,
     0xE897,
@@ -170,9 +170,9 @@ uint32_t FAPOFXCreateEQ(
     FAPO **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc,
     uint8_t legacy
 ) {
     const FAPOFXEQParameters fxdefault =
@@ -224,12 +224,12 @@ uint32_t FAPOFXCreateEQ(
     FAudio_memcpy(
         &FXEQProperties_LEGACY.clsid,
         &FAPOFX_CLSID_FXEQ_LEGACY,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     FAudio_memcpy(
         &FXEQProperties.clsid,
         &FAPOFX_CLSID_FXEQ,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     CreateFAPOBaseWithCustomAllocatorEXT(
         &result->base,

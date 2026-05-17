@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -26,9 +26,9 @@
 
 #include "FAudio_internal.h"
 
-#ifdef FAUDIO_ENABLE_DEBUGCONFIGURATION
+#ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
 void FAudio_INTERNAL_debug(
-    FAudio *audio,
+    ForgeAudioEngine *audio,
     const char *file,
     uint32_t line,
     const char *func,
@@ -93,10 +93,10 @@ void FAudio_INTERNAL_debug(
     FAudio_Log(output);
 }
 
-static const char *get_wformattag_string(const FAudioWaveFormatEx *fmt)
+static const char *get_wformattag_string(const ForgeAudioFormat *fmt)
 {
 #define FMT_STRING(suffix) \
-    if (fmt->wFormatTag == FAUDIO_FORMAT_##suffix) \
+    if (fmt->wFormatTag == FORGE_AUDIO_FORMAT_##suffix) \
     { \
         return #suffix; \
     }
@@ -110,19 +110,19 @@ static const char *get_wformattag_string(const FAudioWaveFormatEx *fmt)
     return "UNKNOWN!";
 }
 
-static const char *get_subformat_string(const FAudioWaveFormatEx *fmt)
+static const char *get_subformat_string(const ForgeAudioFormat *fmt)
 {
-    const FAudioWaveFormatExtensible *fmtex = (const FAudioWaveFormatExtensible*) fmt;
+    const ForgeAudioFormatExtensible *fmtex = (const ForgeAudioFormatExtensible*) fmt;
 
-    if (fmt->wFormatTag != FAUDIO_FORMAT_EXTENSIBLE)
+    if (fmt->wFormatTag != FORGE_AUDIO_FORMAT_EXTENSIBLE)
     {
         return "N/A";
     }
-    if (!FAudio_memcmp(&fmtex->SubFormat, &DATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(FAudioGUID)))
+    if (!FAudio_memcmp(&fmtex->SubFormat, &FORGE_AUDIO_SUBTYPE_IEEE_FLOAT, sizeof(ForgeGuid)))
     {
         return "IEEE_FLOAT";
     }
-    if (!FAudio_memcmp(&fmtex->SubFormat, &DATAFORMAT_SUBTYPE_PCM, sizeof(FAudioGUID)))
+    if (!FAudio_memcmp(&fmtex->SubFormat, &FORGE_AUDIO_SUBTYPE_PCM, sizeof(ForgeGuid)))
     {
         return "PCM";
     }
@@ -130,11 +130,11 @@ static const char *get_subformat_string(const FAudioWaveFormatEx *fmt)
 }
 
 void FAudio_INTERNAL_debug_fmt(
-    FAudio *audio,
+    ForgeAudioEngine *audio,
     const char *file,
     uint32_t line,
     const char *func,
-    const FAudioWaveFormatEx *fmt
+    const ForgeAudioFormat *fmt
 ) {
     FAudio_INTERNAL_debug(
         audio,
@@ -160,9 +160,9 @@ void FAudio_INTERNAL_debug_fmt(
         get_subformat_string(fmt)
     );
 }
-#endif /* FAUDIO_ENABLE_DEBUGCONFIGURATION */
+#endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
 
-bool array_reserve(FAudio *audio, void **elements, size_t *capacity, size_t count, size_t size)
+bool array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity, size_t count, size_t size)
 {
     size_t new_capacity, max_capacity;
     void *new_elements;
@@ -203,7 +203,7 @@ void LinkedList_AddEntry(
     LinkedList **start,
     void* toAdd,
     FAudioMutex lock,
-    FAudioMallocFunc pMalloc
+    ForgeMallocFunc pMalloc
 ) {
     LinkedList *newEntry, *latest;
     newEntry = (LinkedList*) pMalloc(sizeof(LinkedList));
@@ -230,7 +230,7 @@ void LinkedList_PrependEntry(
     LinkedList **start,
     void* toAdd,
     FAudioMutex lock,
-    FAudioMallocFunc pMalloc
+    ForgeMallocFunc pMalloc
 ) {
     LinkedList *newEntry;
     newEntry = (LinkedList*) pMalloc(sizeof(LinkedList));
@@ -245,7 +245,7 @@ void LinkedList_RemoveEntry(
     LinkedList **start,
     void* toRemove,
     FAudioMutex lock,
-    FAudioFreeFunc pFree
+    ForgeFreeFunc pFree
 ) {
     LinkedList *latest, *prev;
     FAudio_PlatformLockMutex(lock);
@@ -276,9 +276,9 @@ void LinkedList_RemoveEntry(
 
 void FAudio_INTERNAL_InsertSubmixSorted(
     LinkedList **start,
-    FAudioSubmixVoice *toAdd,
+    ForgeSubmixVoice *toAdd,
     FAudioMutex lock,
-    FAudioMallocFunc pMalloc
+    ForgeMallocFunc pMalloc
 ) {
     LinkedList *newEntry, *latest;
     newEntry = (LinkedList*) pMalloc(sizeof(LinkedList));
@@ -294,7 +294,7 @@ void FAudio_INTERNAL_InsertSubmixSorted(
         latest = *start;
 
         /* Special case if the new stage is lower than everyone else */
-        if (toAdd->mix.processingStage < ((FAudioSubmixVoice*) latest->entry)->mix.processingStage)
+        if (toAdd->mix.processingStage < ((ForgeSubmixVoice*) latest->entry)->mix.processingStage)
         {
             newEntry->next = latest;
             *start = newEntry;
@@ -310,7 +310,7 @@ void FAudio_INTERNAL_InsertSubmixSorted(
              */
             while (latest->next != NULL)
             {
-                if (toAdd->mix.processingStage < ((FAudioSubmixVoice *) latest->next->entry)->mix.processingStage)
+                if (toAdd->mix.processingStage < ((ForgeSubmixVoice *) latest->next->entry)->mix.processingStage)
                 {
                     newEntry->next = latest->next;
                     latest->next = newEntry;
@@ -332,7 +332,7 @@ void FAudio_INTERNAL_InsertSubmixSorted(
 }
 
 static uint32_t FAudio_INTERNAL_GetBytesRequested(
-    FAudioSourceVoice *voice,
+    ForgeSourceVoice *voice,
     uint32_t decoding
 ) {
     const uint32_t block_size = voice->src.format->nBlockAlign;
@@ -364,7 +364,7 @@ static uint32_t FAudio_INTERNAL_GetBytesRequested(
     return result;
 }
 
-static uint32_t buffer_get_end(FAudioSourceVoice *voice, const struct queued_buffer *buffer)
+static uint32_t buffer_get_end(ForgeSourceVoice *voice, const struct queued_buffer *buffer)
 {
     const uint32_t block_size = voice->src.format->nBlockAlign;
 
@@ -376,7 +376,7 @@ static uint32_t buffer_get_end(FAudioSourceVoice *voice, const struct queued_buf
     return buffer->buffer.PlayBegin + (buffer->play_bytes / block_size);
 }
 
-static void start_buffer(FAudioSourceVoice *voice, struct queued_buffer *buffer)
+static void start_buffer(ForgeSourceVoice *voice, struct queued_buffer *buffer)
 {
     if (!buffer->sent_OnStartBuffer)
     {
@@ -411,17 +411,17 @@ static void start_buffer(FAudioSourceVoice *voice, struct queued_buffer *buffer)
     }
 }
 
-static void end_buffer(FAudioSourceVoice *voice)
+static void end_buffer(ForgeSourceVoice *voice)
 {
     struct queued_buffer *buffer = &voice->src.queued_buffers[0];
-    bool eos = buffer->buffer.Flags & FAUDIO_END_OF_STREAM;
-    FAudioVoiceCallback *callback = voice->src.callback;
+    bool eos = buffer->buffer.Flags & FORGE_AUDIO_END_OF_STREAM;
+    ForgeVoiceCallback *callback = voice->src.callback;
     void *context = buffer->buffer.pContext;
 
     if (buffer->buffer.LoopCount > 0)
     {
         voice->src.curBufferOffset = buffer->buffer.LoopBegin;
-        if (buffer->buffer.LoopCount < FAUDIO_LOOP_INFINITE)
+        if (buffer->buffer.LoopCount < FORGE_AUDIO_LOOP_INFINITE)
         {
             buffer->buffer.LoopCount -= 1;
         }
@@ -504,7 +504,7 @@ static void end_buffer(FAudioSourceVoice *voice)
 }
 
 static void FAudio_INTERNAL_DecodeBuffers(
-    FAudioSourceVoice *voice,
+    ForgeSourceVoice *voice,
     uint64_t *toDecode
 ) {
     const uint32_t block_size = voice->src.format->nBlockAlign;
@@ -608,8 +608,8 @@ static void FAudio_INTERNAL_DecodeBuffers(
 }
 
 static inline void FAudio_INTERNAL_FilterVoice(
-    FAudio *audio,
-    const FAudioFilterParametersEXT *filter,
+    ForgeAudioEngine *audio,
+    const ForgeFilterParametersEx *filter,
     FAudioFilterState *filterState,
     float *samples,
     uint32_t numSamples,
@@ -627,7 +627,7 @@ static inline void FAudio_INTERNAL_FilterVoice(
      * Yb(n) = F Yh(n) + Yb(n - 1)
      * Yn(n) = Yl(n) + Yh(n)
      *
-     * Please note that FAudioFilterParameters.Frequency is defined as:
+     * Please note that ForgeFilterParameters.Frequency is defined as:
      *
      * (2 * sin(pi * (desired filter cutoff frequency) / sampleRate))
      *
@@ -637,17 +637,17 @@ static inline void FAudio_INTERNAL_FilterVoice(
     for (j = 0; j < numSamples; j += 1)
     for (ci = 0; ci < numChannels; ci += 1)
     {
-        filterState[ci][FAudioLowPassFilter] = filterState[ci][FAudioLowPassFilter] + (filter->Frequency * filterState[ci][FAudioBandPassFilter]);
-        filterState[ci][FAudioHighPassFilter] = samples[j * numChannels + ci] - filterState[ci][FAudioLowPassFilter] - (filter->OneOverQ * filterState[ci][FAudioBandPassFilter]);
-        filterState[ci][FAudioBandPassFilter] = (filter->Frequency * filterState[ci][FAudioHighPassFilter]) + filterState[ci][FAudioBandPassFilter];
-        filterState[ci][FAudioNotchFilter] = filterState[ci][FAudioHighPassFilter] + filterState[ci][FAudioLowPassFilter];
+        filterState[ci][ForgeFilterLowPass] = filterState[ci][ForgeFilterLowPass] + (filter->Frequency * filterState[ci][ForgeFilterBandPass]);
+        filterState[ci][ForgeFilterHighPass] = samples[j * numChannels + ci] - filterState[ci][ForgeFilterLowPass] - (filter->OneOverQ * filterState[ci][ForgeFilterBandPass]);
+        filterState[ci][ForgeFilterBandPass] = (filter->Frequency * filterState[ci][ForgeFilterHighPass]) + filterState[ci][ForgeFilterBandPass];
+        filterState[ci][ForgeFilterNotch] = filterState[ci][ForgeFilterHighPass] + filterState[ci][ForgeFilterLowPass];
         samples[j * numChannels + ci] = filterState[ci][filter->Type] * filter->WetDryMix + samples[j * numChannels + ci] * (1.0 - filter->WetDryMix);
     }
 
     LOG_FUNC_EXIT(audio)
 }
 
-static void FAudio_INTERNAL_ResizeEffectChainCache(FAudio *audio, uint32_t samples)
+static void FAudio_INTERNAL_ResizeEffectChainCache(ForgeAudioEngine *audio, uint32_t samples)
 {
     LOG_FUNC_ENTER(audio)
     if (samples > audio->effectChainSamples)
@@ -662,7 +662,7 @@ static void FAudio_INTERNAL_ResizeEffectChainCache(FAudio *audio, uint32_t sampl
 }
 
 static inline float *FAudio_INTERNAL_ProcessEffectChain(
-    FAudioVoice *voice,
+    ForgeVoice *voice,
     float *buffer,
     uint32_t *samples
 ) {
@@ -749,7 +749,7 @@ static inline float *FAudio_INTERNAL_ProcessEffectChain(
     return (float*) dstParams.pBuffer;
 }
 
-static void FAudio_INTERNAL_ResizeResampleCache(FAudio *audio, uint32_t samples)
+static void FAudio_INTERNAL_ResizeResampleCache(ForgeAudioEngine *audio, uint32_t samples)
 {
        LOG_FUNC_ENTER(audio)
        if (samples > audio->resampleSamples)
@@ -763,7 +763,7 @@ static void FAudio_INTERNAL_ResizeResampleCache(FAudio *audio, uint32_t samples)
        LOG_FUNC_EXIT(audio)
 }
 
-static void FAudio_INTERNAL_MixSource(FAudioSourceVoice *voice)
+static void FAudio_INTERNAL_MixSource(ForgeSourceVoice *voice)
 {
     /* Decode/Resample variables */
     uint64_t toDecode;
@@ -772,7 +772,7 @@ static void FAudio_INTERNAL_MixSource(FAudioSourceVoice *voice)
     float *stream;
     uint32_t mixed;
     uint32_t oChan;
-    FAudioVoice *out;
+    ForgeVoice *out;
     uint32_t outputRate;
     double stepd;
     float *finalSamples;
@@ -788,7 +788,7 @@ static void FAudio_INTERNAL_MixSource(FAudioSourceVoice *voice)
         out = (voice->sends.SendCount == 0) ?
             voice->audio->master : /* Barf */
             voice->sends.pSends->pOutputVoice;
-        outputRate = (out->type == FAUDIO_VOICE_MASTER) ?
+        outputRate = (out->type == FORGE_AUDIO_VOICE_MASTER) ?
             out->master.inputSampleRate :
             out->mix.inputSampleRate;
         stepd = (
@@ -1008,7 +1008,7 @@ static void FAudio_INTERNAL_MixSource(FAudioSourceVoice *voice)
 sendwork:
 
     /* Filters */
-    if (voice->flags & FAUDIO_VOICE_USEFILTER)
+    if (voice->flags & FORGE_AUDIO_VOICE_USEFILTER)
     {
         FAudio_PlatformLockMutex(voice->filterLock);
         LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
@@ -1064,7 +1064,7 @@ sendwork:
     for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         out = voice->sends.pSends[i].pOutputVoice;
-        if (out->type == FAUDIO_VOICE_MASTER)
+        if (out->type == FORGE_AUDIO_VOICE_MASTER)
         {
             stream = out->master.output;
             oChan = out->master.inputChannels;
@@ -1084,7 +1084,7 @@ sendwork:
             voice->mixCoefficients[i]
         );
 
-        if (voice->sends.pSends[i].Flags & FAUDIO_SEND_USEFILTER)
+        if (voice->sends.pSends[i].Flags & FORGE_AUDIO_SEND_USEFILTER)
         {
             FAudio_INTERNAL_FilterVoice(
                 voice->audio,
@@ -1104,11 +1104,11 @@ sendwork:
     LOG_FUNC_EXIT(voice->audio)
 }
 
-static void FAudio_INTERNAL_MixSubmix(FAudioSubmixVoice *voice)
+static void FAudio_INTERNAL_MixSubmix(ForgeSubmixVoice *voice)
 {
     float *stream;
     uint32_t oChan;
-    FAudioVoice *out;
+    ForgeVoice *out;
     uint32_t resampled;
     uint64_t resampleOffset = 0;
     float *finalSamples;
@@ -1153,7 +1153,7 @@ static void FAudio_INTERNAL_MixSubmix(FAudioSubmixVoice *voice)
     resampled /= voice->mix.inputChannels;
 
     /* Filters */
-    if (voice->flags & FAUDIO_VOICE_USEFILTER)
+    if (voice->flags & FORGE_AUDIO_VOICE_USEFILTER)
     {
         FAudio_PlatformLockMutex(voice->filterLock);
         LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
@@ -1195,7 +1195,7 @@ static void FAudio_INTERNAL_MixSubmix(FAudioSubmixVoice *voice)
     for (uint32_t i = 0; i < voice->sends.SendCount; i += 1)
     {
         out = voice->sends.pSends[i].pOutputVoice;
-        if (out->type == FAUDIO_VOICE_MASTER)
+        if (out->type == FORGE_AUDIO_VOICE_MASTER)
         {
             stream = out->master.output;
             oChan = out->master.inputChannels;
@@ -1215,7 +1215,7 @@ static void FAudio_INTERNAL_MixSubmix(FAudioSubmixVoice *voice)
             voice->mixCoefficients[i]
         );
 
-        if (voice->sends.pSends[i].Flags & FAUDIO_SEND_USEFILTER)
+        if (voice->sends.pSends[i].Flags & FORGE_AUDIO_SEND_USEFILTER)
         {
             FAudio_INTERNAL_FilterVoice(
                 voice->audio,
@@ -1241,7 +1241,7 @@ end:
     LOG_FUNC_EXIT(voice->audio)
 }
 
-static void FAudio_INTERNAL_FlushPendingBuffers(FAudioSourceVoice *voice)
+static void FAudio_INTERNAL_FlushPendingBuffers(ForgeSourceVoice *voice)
 {
     FAudio_PlatformLockMutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
@@ -1282,12 +1282,12 @@ static void FAudio_INTERNAL_FlushPendingBuffers(FAudioSourceVoice *voice)
     LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
 }
 
-static void FAUDIOCALL FAudio_INTERNAL_GenerateOutput(FAudio *audio, float *output)
+static void FORGE_AUDIO_CALL FAudio_INTERNAL_GenerateOutput(ForgeAudioEngine *audio, float *output)
 {
     uint32_t totalSamples;
     LinkedList *list;
     float *effectOut;
-    FAudioEngineCallback *callback;
+    ForgeEngineCallback *callback;
 
     LOG_FUNC_ENTER(audio)
     if (!audio->active)
@@ -1305,7 +1305,7 @@ static void FAUDIOCALL FAudio_INTERNAL_GenerateOutput(FAudio *audio, float *outp
     list = audio->callbacks;
     while (list != NULL)
     {
-        callback = (FAudioEngineCallback*) list->entry;
+        callback = (ForgeEngineCallback*) list->entry;
         if (callback->OnProcessingPassStart != NULL)
         {
             callback->OnProcessingPassStart(
@@ -1343,7 +1343,7 @@ static void FAUDIOCALL FAudio_INTERNAL_GenerateOutput(FAudio *audio, float *outp
     list = audio->sources;
     while (list != NULL)
     {
-        audio->processingSource = (FAudioSourceVoice*) list->entry;
+        audio->processingSource = (ForgeSourceVoice*) list->entry;
 
         FAudio_INTERNAL_FlushPendingBuffers(audio->processingSource);
         if (audio->processingSource->src.active)
@@ -1364,7 +1364,7 @@ static void FAUDIOCALL FAudio_INTERNAL_GenerateOutput(FAudio *audio, float *outp
     list = audio->submixes;
     while (list != NULL)
     {
-        FAudio_INTERNAL_MixSubmix((FAudioSubmixVoice*) list->entry);
+        FAudio_INTERNAL_MixSubmix((ForgeSubmixVoice*) list->entry);
         list = list->next;
     }
     FAudio_PlatformUnlockMutex(audio->submixLock);
@@ -1417,7 +1417,7 @@ static void FAUDIOCALL FAudio_INTERNAL_GenerateOutput(FAudio *audio, float *outp
     list = audio->callbacks;
     while (list != NULL)
     {
-        callback = (FAudioEngineCallback*) list->entry;
+        callback = (ForgeEngineCallback*) list->entry;
         if (callback->OnProcessingPassEnd != NULL)
         {
             callback->OnProcessingPassEnd(
@@ -1432,7 +1432,7 @@ static void FAUDIOCALL FAudio_INTERNAL_GenerateOutput(FAudio *audio, float *outp
     LOG_FUNC_EXIT(audio)
 }
 
-void FAudio_INTERNAL_UpdateEngine(FAudio *audio, float *output)
+void FAudio_INTERNAL_UpdateEngine(ForgeAudioEngine *audio, float *output)
 {
     LOG_FUNC_ENTER(audio)
     if (audio->pClientEngineProc)
@@ -1451,7 +1451,7 @@ void FAudio_INTERNAL_UpdateEngine(FAudio *audio, float *output)
     LOG_FUNC_EXIT(audio)
 }
 
-void FAudio_INTERNAL_ResizeDecodeCache(FAudio *audio, uint32_t samples)
+void FAudio_INTERNAL_ResizeDecodeCache(ForgeAudioEngine *audio, uint32_t samples)
 {
     LOG_FUNC_ENTER(audio)
     FAudio_PlatformLockMutex(audio->sourceLock);
@@ -1470,8 +1470,8 @@ void FAudio_INTERNAL_ResizeDecodeCache(FAudio *audio, uint32_t samples)
 }
 
 void FAudio_INTERNAL_AllocEffectChain(
-    FAudioVoice *voice,
-    const FAudioEffectChain *pEffectChain
+    ForgeVoice *voice,
+    const ForgeEffectChain *pEffectChain
 ) {
     LOG_FUNC_ENTER(voice->audio)
     voice->effects.state = FAPO_BUFFER_VALID;
@@ -1487,13 +1487,13 @@ void FAudio_INTERNAL_AllocEffectChain(
         pEffectChain->pEffectDescriptors[i].pEffect->AddRef(pEffectChain->pEffectDescriptors[i].pEffect);
     }
 
-    voice->effects.desc = (FAudioEffectDescriptor*) voice->audio->pMalloc(
-        voice->effects.count * sizeof(FAudioEffectDescriptor)
+    voice->effects.desc = (ForgeEffect*) voice->audio->pMalloc(
+        voice->effects.count * sizeof(ForgeEffect)
     );
     FAudio_memcpy(
         voice->effects.desc,
         pEffectChain->pEffectDescriptors,
-        voice->effects.count * sizeof(FAudioEffectDescriptor)
+        voice->effects.count * sizeof(ForgeEffect)
     );
     #define ALLOC_EFFECT_PROPERTY(prop, type) \
         voice->effects.prop = (type*) voice->audio->pMalloc( \
@@ -1511,7 +1511,7 @@ void FAudio_INTERNAL_AllocEffectChain(
     LOG_FUNC_EXIT(voice->audio)
 }
 
-void FAudio_INTERNAL_FreeEffectChain(FAudioVoice *voice)
+void FAudio_INTERNAL_FreeEffectChain(ForgeVoice *voice)
 {
     LOG_FUNC_ENTER(voice->audio)
     if (voice->effects.count == 0)
@@ -1535,8 +1535,8 @@ void FAudio_INTERNAL_FreeEffectChain(FAudioVoice *voice)
 }
 
 uint32_t FAudio_INTERNAL_VoiceOutputFrequency(
-    FAudioVoice *voice,
-    const FAudioVoiceSends *pSendList
+    ForgeVoice *voice,
+    const ForgeSendList *pSendList
 ) {
     uint32_t outSampleRate;
     uint32_t newResampleSamples;
@@ -1551,7 +1551,7 @@ uint32_t FAudio_INTERNAL_VoiceOutputFrequency(
     }
     else
     {
-        outSampleRate = pSendList->pSends[0].pOutputVoice->type == FAUDIO_VOICE_MASTER ?
+        outSampleRate = pSendList->pSends[0].pOutputVoice->type == FORGE_AUDIO_VOICE_MASTER ?
             pSendList->pSends[0].pOutputVoice->master.inputSampleRate :
             pSendList->pSends[0].pOutputVoice->mix.inputSampleRate;
     }
@@ -1560,25 +1560,25 @@ uint32_t FAudio_INTERNAL_VoiceOutputFrequency(
         (double) outSampleRate /
         (double) voice->audio->master->master.inputSampleRate
     );
-    if (voice->type == FAUDIO_VOICE_SOURCE)
+    if (voice->type == FORGE_AUDIO_VOICE_SOURCE)
     {
         if (    (voice->src.resampleSamples != 0) &&
             (newResampleSamples != voice->src.resampleSamples) &&
             (voice->effects.count > 0)    )
         {
             LOG_FUNC_EXIT(voice->audio)
-            return FAUDIO_E_INVALID_CALL;
+            return FORGE_AUDIO_E_INVALID_CALL;
         }
         voice->src.resampleSamples = newResampleSamples;
     }
-    else /* (voice->type == FAUDIO_VOICE_SUBMIX) */
+    else /* (voice->type == FORGE_AUDIO_VOICE_SUBMIX) */
     {
         if (    (voice->mix.outputSamples != 0) &&
             (newResampleSamples != voice->mix.outputSamples) &&
             (voice->effects.count > 0)    )
         {
             LOG_FUNC_EXIT(voice->audio)
-            return FAUDIO_E_INVALID_CALL;
+            return FORGE_AUDIO_E_INVALID_CALL;
         }
         voice->mix.outputSamples = newResampleSamples;
 
@@ -1607,7 +1607,7 @@ uint32_t FAudio_INTERNAL_VoiceOutputFrequency(
     return 0;
 }
 
-const float FAUDIO_INTERNAL_MATRIX_DEFAULTS[8][8][64] =
+const float FORGE_AUDIO_INTERNAL_MATRIX_DEFAULTS[8][8][64] =
 {
     #include "matrix_defaults.inl"
 };
@@ -1615,7 +1615,7 @@ const float FAUDIO_INTERNAL_MATRIX_DEFAULTS[8][8][64] =
 /* PCM Decoding */
 
 void FAudio_INTERNAL_DecodePCM8(
-    FAudioVoice *voice,
+    ForgeVoice *voice,
     const void *src,
     float *decodeCache,
     uint32_t samples
@@ -1626,7 +1626,7 @@ void FAudio_INTERNAL_DecodePCM8(
 }
 
 void FAudio_INTERNAL_DecodePCM16(
-    FAudioVoice *voice,
+    ForgeVoice *voice,
     const void *src,
     float *decodeCache,
     uint32_t samples
@@ -1637,7 +1637,7 @@ void FAudio_INTERNAL_DecodePCM16(
 }
 
 void FAudio_INTERNAL_DecodePCM24(
-    FAudioVoice *voice,
+    ForgeVoice *voice,
     const void *src,
     float *decodeCache,
     uint32_t samples
@@ -1660,7 +1660,7 @@ void FAudio_INTERNAL_DecodePCM24(
 }
 
 void FAudio_INTERNAL_DecodePCM32(
-    FAudioVoice *voice,
+    ForgeVoice *voice,
     const void *src,
     float *decodeCache,
     uint32_t samples
@@ -1671,7 +1671,7 @@ void FAudio_INTERNAL_DecodePCM32(
 }
 
 void FAudio_INTERNAL_DecodePCM32F(
-    FAudioVoice *voice,
+    ForgeVoice *voice,
     const void *src,
     float *decodeCache,
     uint32_t samples
@@ -1684,7 +1684,7 @@ void FAudio_INTERNAL_DecodePCM32F(
 /* Fallback WMA decoder, get ready for spam! */
 
 void FAudio_INTERNAL_DecodeWMAERROR(
-    FAudioVoice *voice,
+    ForgeVoice *voice,
     const void *src,
     float *decodeCache,
     uint32_t samples

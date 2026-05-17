@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -76,7 +76,7 @@ static inline void DspDelay_Initialize(
     DspDelay *filter,
     int32_t sampleRate,
     float delay_ms,
-    FAudioMallocFunc pMalloc
+    ForgeMallocFunc pMalloc
 ) {
     FAudio_assert(delay_ms >= 0 && delay_ms <= DSP_DELAY_MAX_DELAY_MS);
 
@@ -139,7 +139,7 @@ static inline void DspDelay_Reset(DspDelay *filter)
     FAudio_zero(filter->buffer, filter->capacity * sizeof(float));
 }
 
-static inline void DspDelay_Destroy(DspDelay *filter, FAudioFreeFunc pFree)
+static inline void DspDelay_Destroy(DspDelay *filter, ForgeFreeFunc pFree)
 {
     pFree(filter->buffer);
 }
@@ -264,7 +264,7 @@ static inline void DspCombShelving_Initialize(
     float low_gain,
     float high_frequency,
     float high_gain,
-    FAudioMallocFunc pMalloc
+    ForgeMallocFunc pMalloc
 ) {
     DspDelay_Initialize(&filter->comb_delay, sampleRate, delay_ms, pMalloc);
     filter->comb_feedback_gain = DspComb_FeedbackFromRT60(
@@ -318,7 +318,7 @@ static inline void DspCombShelving_Reset(DspCombShelving *filter)
 
 static inline void DspCombShelving_Destroy(
     DspCombShelving *filter,
-    FAudioFreeFunc pFree
+    ForgeFreeFunc pFree
 ) {
     DspDelay_Destroy(&filter->comb_delay, pFree);
     DspBiQuad_Destroy(&filter->low_shelving);
@@ -338,7 +338,7 @@ static inline void DspAllPass_Initialize(
     int32_t sampleRate,
     float delay_ms,
     float gain,
-    FAudioMallocFunc pMalloc
+    ForgeMallocFunc pMalloc
 ) {
     DspDelay_Initialize(&filter->delay, sampleRate, delay_ms, pMalloc);
     filter->feedback_gain = gain;
@@ -367,7 +367,7 @@ static inline void DspAllPass_Reset(DspAllPass *filter)
     DspDelay_Reset(&filter->delay);
 }
 
-static inline void DspAllPass_Destroy(DspAllPass *filter, FAudioFreeFunc pFree)
+static inline void DspAllPass_Destroy(DspAllPass *filter, ForgeFreeFunc pFree)
 {
     DspDelay_Destroy(&filter->delay, pFree);
 }
@@ -568,7 +568,7 @@ static inline void DspReverb_Create(
     int32_t sampleRate,
     int32_t in_channels,
     int32_t out_channels,
-    FAudioMallocFunc pMalloc
+    ForgeMallocFunc pMalloc
 ) {
     int32_t i, c;
 
@@ -652,7 +652,7 @@ static inline void DspReverb_Create(
     reverb->out_channels = out_channels;
 }
 
-static inline void DspReverb_Destroy(DspReverb *reverb, FAudioFreeFunc pFree)
+static inline void DspReverb_Destroy(DspReverb *reverb, ForgeFreeFunc pFree)
 {
     int32_t i, c;
 
@@ -1139,7 +1139,7 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(
 
 /* Reverb FAPO Implementation */
 
-const FAudioGUID FAudioFX_CLSID_AudioReverb = /* 2.7 */
+const ForgeGuid FAudioFX_CLSID_AudioReverb = /* 2.7 */
 {
     0x6A93130E,
     0xCB4E,
@@ -1195,19 +1195,19 @@ typedef struct FAudioFXReverb
     DspReverb reverb;
 } FAudioFXReverb;
 
-static inline int8_t IsFloatFormat(const FAudioWaveFormatEx *format)
+static inline int8_t IsFloatFormat(const ForgeAudioFormat *format)
 {
-    if (format->wFormatTag == FAUDIO_FORMAT_IEEE_FLOAT)
+    if (format->wFormatTag == FORGE_AUDIO_FORMAT_IEEE_FLOAT)
     {
         /* Plain ol' WaveFormatEx */
         return 1;
     }
 
-    if (format->wFormatTag == FAUDIO_FORMAT_EXTENSIBLE)
+    if (format->wFormatTag == FORGE_AUDIO_FORMAT_EXTENSIBLE)
     {
         /* WaveFormatExtensible, match GUID */
         #define MAKE_SUBFORMAT_GUID(guid, fmt) \
-            static FAudioGUID KSDATAFORMAT_SUBTYPE_##guid = \
+            static ForgeGuid KSDATAFORMAT_SUBTYPE_##guid = \
             { \
                 (uint16_t) (fmt), 0x0000, 0x0010, \
                 { \
@@ -1219,9 +1219,9 @@ static inline int8_t IsFloatFormat(const FAudioWaveFormatEx *format)
         #undef MAKE_SUBFORMAT_GUID
 
         if (FAudio_memcmp(
-            &((FAudioWaveFormatExtensible*) format)->SubFormat,
+            &((ForgeAudioFormatExtensible*) format)->SubFormat,
             &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
-            sizeof(FAudioGUID)
+            sizeof(ForgeGuid)
         ) == 0) {
             return 1;
         }
@@ -1232,9 +1232,9 @@ static inline int8_t IsFloatFormat(const FAudioWaveFormatEx *format)
 
 uint32_t FAudioFXReverb_IsInputFormatSupported(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pOutputFormat,
-    const FAudioWaveFormatEx *pRequestedInputFormat,
-    FAudioWaveFormatEx **ppSupportedInputFormat
+    const ForgeAudioFormat *pOutputFormat,
+    const ForgeAudioFormat *pRequestedInputFormat,
+    ForgeAudioFormat **ppSupportedInputFormat
 ) {
     uint32_t result = 0;
 
@@ -1254,7 +1254,7 @@ uint32_t FAudioFXReverb_IsInputFormatSupported(
     /* Data Type */
     if (!IsFloatFormat(pRequestedInputFormat))
     {
-        SET_SUPPORTED_FIELD(wFormatTag, FAUDIO_FORMAT_IEEE_FLOAT);
+        SET_SUPPORTED_FIELD(wFormatTag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
     }
 
     /* Input/Output Channel Count */
@@ -1287,9 +1287,9 @@ uint32_t FAudioFXReverb_IsInputFormatSupported(
 
 uint32_t FAudioFXReverb_IsOutputFormatSupported(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pInputFormat,
-    const FAudioWaveFormatEx *pRequestedOutputFormat,
-    FAudioWaveFormatEx **ppSupportedOutputFormat
+    const ForgeAudioFormat *pInputFormat,
+    const ForgeAudioFormat *pRequestedOutputFormat,
+    ForgeAudioFormat **ppSupportedOutputFormat
 ) {
     uint32_t result = 0;
 
@@ -1309,7 +1309,7 @@ uint32_t FAudioFXReverb_IsOutputFormatSupported(
     /* Data Type */
     if (!IsFloatFormat(pRequestedOutputFormat))
     {
-        SET_SUPPORTED_FIELD(wFormatTag, FAUDIO_FORMAT_IEEE_FLOAT);
+        SET_SUPPORTED_FIELD(wFormatTag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
     }
 
     /* Input/Output Channel Count */
@@ -1643,9 +1643,9 @@ uint32_t FAudioCreateReverb(FAPO** ppApo, uint32_t Flags)
 uint32_t FAudioCreateReverbWithCustomAllocatorEXT(
     FAPO** ppApo,
     uint32_t Flags,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 ) {
     const FAudioFXReverbParameters fxdefault =
     {
@@ -1684,7 +1684,7 @@ uint32_t FAudioCreateReverbWithCustomAllocatorEXT(
     FAudio_memcpy(
         &ReverbProperties.clsid,
         &FAudioFX_CLSID_AudioReverb,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     CreateFAPOBaseWithCustomAllocatorEXT(
         &result->base,
@@ -1812,9 +1812,9 @@ uint32_t FAudioCreateReverb9(FAPO** ppApo, uint32_t Flags)
 uint32_t FAudioCreateReverb9WithCustomAllocatorEXT(
     FAPO** ppApo,
     uint32_t Flags,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 ) {
     const FAudioFXReverbParameters9 fxdefault =
     {
@@ -1854,7 +1854,7 @@ uint32_t FAudioCreateReverb9WithCustomAllocatorEXT(
     FAudio_memcpy(
         &ReverbProperties.clsid,
         &FAudioFX_CLSID_AudioReverb,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     CreateFAPOBaseWithCustomAllocatorEXT(
         &result->base,

@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -75,7 +75,7 @@ extern "C" {
 
 /* Constants */
 
-#define FAPOBASE_DEFAULT_FORMAT_TAG        FAUDIO_FORMAT_IEEE_FLOAT
+#define FAPOBASE_DEFAULT_FORMAT_TAG        FORGE_AUDIO_FORMAT_IEEE_FLOAT
 #define FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS    FAPO_MIN_CHANNELS
 #define FAPOBASE_DEFAULT_FORMAT_MAX_CHANNELS    FAPO_MAX_CHANNELS
 #define FAPOBASE_DEFAULT_FORMAT_MIN_FRAMERATE    FAPO_MIN_FRAMERATE
@@ -131,9 +131,9 @@ struct FAPOBase
     int32_t m_lReferenceCount; /* LONG */
 
     /* Allocator callbacks, NOT part of XAPOBase spec! */
-    FAudioMallocFunc pMalloc;
-    FAudioFreeFunc pFree;
-    FAudioReallocFunc pRealloc;
+    ForgeMallocFunc pMalloc;
+    ForgeFreeFunc pFree;
+    ForgeReallocFunc pRealloc;
 };
 #pragma pack(pop)
 
@@ -152,9 +152,9 @@ FAPOAPI void CreateFAPOBaseWithCustomAllocatorEXT(
     uint8_t *pParameterBlocks,
     uint32_t uParameterBlockByteSize,
     uint8_t fProducer,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 );
 
 FAPOAPI int32_t FAPOBase_AddRef(FAPOBase *fapo);
@@ -168,16 +168,16 @@ FAPOAPI uint32_t FAPOBase_GetRegistrationProperties(
 
 FAPOAPI uint32_t FAPOBase_IsInputFormatSupported(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pOutputFormat,
-    const FAudioWaveFormatEx *pRequestedInputFormat,
-    FAudioWaveFormatEx **ppSupportedInputFormat
+    const ForgeAudioFormat *pOutputFormat,
+    const ForgeAudioFormat *pRequestedInputFormat,
+    ForgeAudioFormat **ppSupportedInputFormat
 );
 
 FAPOAPI uint32_t FAPOBase_IsOutputFormatSupported(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pInputFormat,
-    const FAudioWaveFormatEx *pRequestedOutputFormat,
-    FAudioWaveFormatEx **ppSupportedOutputFormat
+    const ForgeAudioFormat *pInputFormat,
+    const ForgeAudioFormat *pRequestedOutputFormat,
+    ForgeAudioFormat **ppSupportedOutputFormat
 );
 
 FAPOAPI uint32_t FAPOBase_Initialize(
@@ -210,14 +210,14 @@ FAPOAPI uint32_t FAPOBase_CalcOutputFrames(
 
 FAPOAPI uint32_t FAPOBase_ValidateFormatDefault(
     FAPOBase *fapo,
-    FAudioWaveFormatEx *pFormat,
+    ForgeAudioFormat *pFormat,
     uint8_t fOverwrite
 );
 
 FAPOAPI uint32_t FAPOBase_ValidateFormatPair(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pSupportedFormat,
-    FAudioWaveFormatEx *pRequestedFormat,
+    const ForgeAudioFormat *pSupportedFormat,
+    ForgeAudioFormat *pRequestedFormat,
     uint8_t fOverwrite
 );
 

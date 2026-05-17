@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -58,7 +58,7 @@
 
 #define assert FAudio_assert
 
-#define FILE FAudioIOStream
+#define FILE ForgeIOStream
 #ifdef SEEK_SET
 #undef SEEK_SET
 #endif
@@ -68,15 +68,15 @@
 #ifdef EOF
 #undef EOF
 #endif
-#define SEEK_SET FAUDIO_SEEK_SET
-#define SEEK_END FAUDIO_SEEK_END
-#define EOF FAUDIO_EOF
-#define fopen(path, mode) FAudio_fopen(path)
-#define fopen_s(io, path, mode) (!(*io = FAudio_fopen(path)))
-#define fclose(io) FAudio_close(io)
+#define SEEK_SET FORGE_AUDIO_SEEK_SET
+#define SEEK_END FORGE_AUDIO_SEEK_END
+#define EOF FORGE_AUDIO_EOF
+#define fopen(path, mode) forge_audio_fopen(path)
+#define fopen_s(io, path, mode) (!(*io = forge_audio_fopen(path)))
+#define fclose(io) forge_audio_close(io)
 #define fread(dst, size, count, io) io->read(io->data, dst, size, count)
 #define fseek(io, offset, whence) io->seek(io->data, offset, whence)
-#define ftell(io) io->seek(io->data, 0, FAUDIO_SEEK_CUR)
+#define ftell(io) io->seek(io->data, 0, FORGE_AUDIO_SEEK_CUR)
 
 #define STB_VORBIS_NO_PUSHDATA_API 1
 #define STB_VORBIS_NO_INTEGER_CONVERSION 1
@@ -87,13 +87,13 @@
 /* Globals */
 
 static float songVolume = 1.0f;
-static FAudio *songAudio = NULL;
-static FAudioMasteringVoice *songMaster = NULL;
+static ForgeAudioEngine *songAudio = NULL;
+static ForgeMasterVoice *songMaster = NULL;
 static unsigned int songLength = 0;
 static unsigned int songOffset = 0;
 
-static FAudioSourceVoice *songVoice = NULL;
-static FAudioVoiceCallback callbacks;
+static ForgeSourceVoice *songVoice = NULL;
+static ForgeVoiceCallback callbacks;
 static stb_vorbis *activeVorbisSong = NULL;
 static stb_vorbis_info activeVorbisSongInfo;
 
@@ -107,9 +107,9 @@ static uint8_t *songCache;
 
 /* Internal Functions */
 
-static void XNA_SongSubmitBuffer(FAudioVoiceCallback *callback, void *pBufferContext)
+static void XNA_SongSubmitBuffer(ForgeVoiceCallback *callback, void *pBufferContext)
 {
-    FAudioBuffer buffer;
+    ForgeBuffer buffer;
     uint32_t decoded = 0;
 
 	if (activeVorbisSong != NULL)
@@ -138,7 +138,7 @@ static void XNA_SongSubmitBuffer(FAudioVoiceCallback *callback, void *pBufferCon
     }
 
 	songOffset += decoded;
-	buffer.Flags = (songOffset >= songLength) ? FAUDIO_END_OF_STREAM : 0;
+	buffer.Flags = (songOffset >= songLength) ? FORGE_AUDIO_END_OF_STREAM : 0;
 	buffer.pAudioData = songCache;
 	buffer.PlayBegin = 0;
 	buffer.PlayLength = decoded;
@@ -146,7 +146,7 @@ static void XNA_SongSubmitBuffer(FAudioVoiceCallback *callback, void *pBufferCon
 	buffer.LoopLength = 0;
 	buffer.LoopCount = 0;
 	buffer.pContext = NULL;
-	FAudioSourceVoice_SubmitSourceBuffer(
+	forge_source_voice_submit_buffer(
 		songVoice,
 		&buffer,
 		NULL
@@ -157,8 +157,8 @@ static void XNA_SongKill()
 {
     if (songVoice != NULL)
     {
-        FAudioSourceVoice_Stop(songVoice, 0, 0);
-        FAudioVoice_DestroyVoice(songVoice);
+        forge_source_voice_stop(songVoice, 0, 0);
+        forge_voice_destroy(songVoice);
         songVoice = NULL;
     }
     if (songCache != NULL)
@@ -180,30 +180,30 @@ static void XNA_SongKill()
 
 /* "Public" API */
 
-FAUDIOAPI void XNA_SongInit()
+FORGE_AUDIO_API void XNA_SongInit()
 {
-    FAudioCreate(&songAudio, 0, FAUDIO_DEFAULT_PROCESSOR);
-    FAudio_CreateMasteringVoice(
+    forge_audio_create(&songAudio, 0, FORGE_AUDIO_DEFAULT_PROCESSOR);
+    forge_audio_create_master_voice(
         songAudio,
         &songMaster,
-        FAUDIO_DEFAULT_CHANNELS,
-        FAUDIO_DEFAULT_SAMPLERATE,
+        FORGE_AUDIO_DEFAULT_CHANNELS,
+        FORGE_AUDIO_DEFAULT_SAMPLERATE,
         0,
         0,
         NULL
     );
 }
 
-FAUDIOAPI void XNA_SongQuit()
+FORGE_AUDIO_API void XNA_SongQuit()
 {
     XNA_SongKill();
-    FAudioVoice_DestroyVoice(songMaster);
-    FAudio_Release(songAudio);
+    forge_voice_destroy(songMaster);
+    forge_audio_engine_release(songAudio);
 }
 
-FAUDIOAPI float XNA_PlaySong(const char *name)
+FORGE_AUDIO_API float XNA_PlaySong(const char *name)
 {
-    FAudioWaveFormatEx format;
+    ForgeAudioFormat format;
     XNA_SongKill();
 
     activeVorbisSong = stb_vorbis_open_filename(name, NULL, NULL);
@@ -211,7 +211,7 @@ FAUDIOAPI float XNA_PlaySong(const char *name)
 	if (activeVorbisSong != NULL)
 	{
 		activeVorbisSongInfo = stb_vorbis_get_info(activeVorbisSong);
-		format.wFormatTag = FAUDIO_FORMAT_IEEE_FLOAT;
+		format.wFormatTag = FORGE_AUDIO_FORMAT_IEEE_FLOAT;
 		format.nChannels = activeVorbisSongInfo.channels;
 		format.nSamplesPerSec = activeVorbisSongInfo.sample_rate;
 		format.wBitsPerSample = sizeof(float) * 8;
@@ -234,7 +234,7 @@ FAUDIOAPI float XNA_PlaySong(const char *name)
 
         qoa_attributes(activeQoaSong, &qoaChannels, &qoaSampleRate, &qoaSamplesPerChannelPerFrame, &qoaTotalSamplesPerChannel);
 
-		format.wFormatTag = FAUDIO_FORMAT_PCM;
+		format.wFormatTag = FORGE_AUDIO_FORMAT_PCM;
 		format.nChannels = qoaChannels;
 		format.nSamplesPerSec = qoaSampleRate;
 		format.wBitsPerSample = 16;
@@ -250,9 +250,9 @@ FAUDIOAPI float XNA_PlaySong(const char *name)
     songCache = (uint8_t*) FAudio_malloc(format.nAvgBytesPerSec);
 
     /* Init voice */
-    FAudio_zero(&callbacks, sizeof(FAudioVoiceCallback));
+    FAudio_zero(&callbacks, sizeof(ForgeVoiceCallback));
     callbacks.OnBufferEnd = XNA_SongSubmitBuffer;
-    FAudio_CreateSourceVoice(
+    forge_audio_create_source_voice(
         songAudio,
         &songVoice,
         &format,
@@ -262,7 +262,7 @@ FAUDIOAPI float XNA_PlaySong(const char *name)
         NULL,
         NULL
     );
-    FAudioVoice_SetVolume(songVoice, songVolume, 0);
+    forge_voice_set_volume(songVoice, songVolume, 0);
 
     /* Okay, this song is decoding now */
     if (activeVorbisSong != NULL)
@@ -277,7 +277,7 @@ FAUDIOAPI float XNA_PlaySong(const char *name)
     XNA_SongSubmitBuffer(NULL, NULL);
 
     /* Finally. */
-    FAudioSourceVoice_Start(songVoice, 0, 0);
+    forge_source_voice_start(songVoice, 0, 0);
 
     if (activeVorbisSong != NULL)
     {
@@ -291,61 +291,61 @@ FAUDIOAPI float XNA_PlaySong(const char *name)
     return 0;
 }
 
-FAUDIOAPI void XNA_PauseSong()
+FORGE_AUDIO_API void XNA_PauseSong()
 {
     if (songVoice == NULL)
     {
         return;
     }
-    FAudioSourceVoice_Stop(songVoice, 0, 0);
+    forge_source_voice_stop(songVoice, 0, 0);
 }
 
-FAUDIOAPI void XNA_ResumeSong()
+FORGE_AUDIO_API void XNA_ResumeSong()
 {
     if (songVoice == NULL)
     {
         return;
     }
-    FAudioSourceVoice_Start(songVoice, 0, 0);
+    forge_source_voice_start(songVoice, 0, 0);
 }
 
-FAUDIOAPI void XNA_StopSong()
+FORGE_AUDIO_API void XNA_StopSong()
 {
     XNA_SongKill();
 }
 
-FAUDIOAPI void XNA_SetSongVolume(float volume)
+FORGE_AUDIO_API void XNA_SetSongVolume(float volume)
 {
     songVolume = volume;
     if (songVoice != NULL)
     {
-        FAudioVoice_SetVolume(songVoice, songVolume, 0);
+        forge_voice_set_volume(songVoice, songVolume, 0);
     }
 }
 
-FAUDIOAPI uint32_t XNA_GetSongEnded()
+FORGE_AUDIO_API uint32_t XNA_GetSongEnded()
 {
-    FAudioVoiceState state;
+    ForgeVoiceState state;
     if (songVoice == NULL || (activeVorbisSong == NULL && activeQoaSong == NULL))
     {
         return 1;
     }
-    FAudioSourceVoice_GetState(songVoice, &state, 0);
+    forge_source_voice_get_state(songVoice, &state, 0);
     return state.BuffersQueued == 0 && state.SamplesPlayed == 0;
 }
 
-FAUDIOAPI void XNA_EnableVisualization(uint32_t enable)
+FORGE_AUDIO_API void XNA_EnableVisualization(uint32_t enable)
 {
     /* TODO: Enable/Disable FAPO effect */
 }
 
-FAUDIOAPI uint32_t XNA_VisualizationEnabled()
+FORGE_AUDIO_API uint32_t XNA_VisualizationEnabled()
 {
     /* TODO: Query FAPO effect enabled */
     return 0;
 }
 
-FAUDIOAPI void XNA_GetSongVisualizationData(
+FORGE_AUDIO_API void XNA_GetSongVisualizationData(
     float *frequencies,
     float *samples,
     uint32_t count

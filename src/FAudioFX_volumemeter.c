@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -29,7 +29,7 @@
 
 /* Volume Meter FAPO Implementation */
 
-const FAudioGUID FAudioFX_CLSID_AudioVolumeMeter = /* 2.7 */
+const ForgeGuid FAudioFX_CLSID_AudioVolumeMeter = /* 2.7 */
 {
     0xCAC1105F,
     0x619B,
@@ -96,7 +96,7 @@ uint32_t FAudioFXVolumeMeter_LockForProcess(
         OutputLockedParameterCount < fapo->base.m_pRegistrationProperties->MinOutputBufferCount ||
         OutputLockedParameterCount > fapo->base.m_pRegistrationProperties->MaxOutputBufferCount    )
     {
-        return FAUDIO_E_INVALID_ARG;
+        return FORGE_AUDIO_E_INVALID_ARG;
     }
 
 
@@ -105,7 +105,7 @@ uint32_t FAudioFXVolumeMeter_LockForProcess(
         if (    (fapo->base.m_pRegistrationProperties->Flags & flag) && \
             (pInputLockedParameters->pFormat->prop != pOutputLockedParameters->pFormat->prop)    ) \
         { \
-            return FAUDIO_E_INVALID_ARG; \
+            return FORGE_AUDIO_E_INVALID_ARG; \
         }
     VERIFY_FORMAT_FLAG(FAPO_FLAG_CHANNELS_MUST_MATCH, nChannels)
     VERIFY_FORMAT_FLAG(FAPO_FLAG_FRAMERATE_MUST_MATCH, nSamplesPerSec)
@@ -114,7 +114,7 @@ uint32_t FAudioFXVolumeMeter_LockForProcess(
     if (    (fapo->base.m_pRegistrationProperties->Flags & FAPO_FLAG_BUFFERCOUNT_MUST_MATCH) &&
         (InputLockedParameterCount != OutputLockedParameterCount)    )
     {
-        return FAUDIO_E_INVALID_ARG;
+        return FORGE_AUDIO_E_INVALID_ARG;
     }
 
     /* Allocate volume meter arrays */
@@ -232,9 +232,9 @@ uint32_t FAudioCreateVolumeMeter(FAPO** ppApo, uint32_t Flags)
 uint32_t FAudioCreateVolumeMeterWithCustomAllocatorEXT(
     FAPO** ppApo,
     uint32_t Flags,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 ) {
     /* Allocate... */
     FAudioFXVolumeMeter *result = (FAudioFXVolumeMeter*) customMalloc(
@@ -249,7 +249,7 @@ uint32_t FAudioCreateVolumeMeterWithCustomAllocatorEXT(
     FAudio_memcpy(
         &VolumeMeterProperties.clsid,
         &FAudioFX_CLSID_AudioVolumeMeter,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     CreateFAPOBaseWithCustomAllocatorEXT(
         &result->base,

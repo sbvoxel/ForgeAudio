@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -28,7 +28,7 @@
 #include "FAudio_internal.h"
 
 uint32_t FAPOFX_CreateFX(
-    const FAudioGUID *clsid,
+    const ForgeGuid *clsid,
     FAPO **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize
@@ -45,16 +45,16 @@ uint32_t FAPOFX_CreateFX(
 }
 
 uint32_t FAPOFX_CreateFXWithCustomAllocatorEXT(
-    const FAudioGUID *clsid,
+    const ForgeGuid *clsid,
     FAPO **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 ) {
     #define CHECK_AND_RETURN(effect) \
-        if (FAudio_memcmp(clsid, &FAPOFX_CLSID_FX##effect, sizeof(FAudioGUID)) == 0) \
+        if (FAudio_memcmp(clsid, &FAPOFX_CLSID_FX##effect, sizeof(ForgeGuid)) == 0) \
         { \
             return FAPOFXCreate##effect( \
                 pEffect, \
@@ -66,7 +66,7 @@ uint32_t FAPOFX_CreateFXWithCustomAllocatorEXT(
                 0 \
             ); \
         } \
-        else if (FAudio_memcmp(clsid, &FAPOFX_CLSID_FX##effect##_LEGACY, sizeof(FAudioGUID)) == 0) \
+        else if (FAudio_memcmp(clsid, &FAPOFX_CLSID_FX##effect##_LEGACY, sizeof(ForgeGuid)) == 0) \
         { \
             return FAPOFXCreate##effect( \
                 pEffect, \

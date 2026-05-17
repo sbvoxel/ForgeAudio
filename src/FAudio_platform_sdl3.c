@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -24,7 +24,7 @@
  *
  */
 
-#ifndef FAUDIO_WIN32_PLATFORM
+#ifndef FORGE_AUDIO_WIN32_PLATFORM
 
 #include "FAudio_internal.h"
 
@@ -32,7 +32,7 @@
 
 typedef struct SDLAudioDevice
 {
-	FAudio *audio;
+	ForgeAudioEngine *audio;
 	SDL_AudioStream *stream;
 	float *stagingBuffer;
 	size_t stagingLen;
@@ -151,10 +151,10 @@ void FAudio_PlatformRelease()
 }
 
 void FAudio_PlatformInit(
-	FAudio *audio,
+	ForgeAudioEngine *audio,
 	uint32_t flags,
 	uint32_t deviceIndex,
-	FAudioWaveFormatExtensible *mixFormat,
+	ForgeAudioFormatExtensible *mixFormat,
 	uint32_t *updateSize,
 	void** platformDevice
 ) {
@@ -170,7 +170,7 @@ void FAudio_PlatformInit(
 	spec.freq = mixFormat->Format.nSamplesPerSec;
 	spec.format = SDL_AUDIO_F32;
 	spec.channels = mixFormat->Format.nChannels;
-	if (flags & FAUDIO_1024_QUANTUM)
+	if (flags & FORGE_AUDIO_1024_QUANTUM)
 	{
 		/* Get the sample count for a 21.33ms frame.
 		 * For 48KHz this should be 1024.
@@ -217,7 +217,7 @@ void FAudio_PlatformInit(
 		mixFormat,
 		spec.channels,
 		spec.freq,
-		&DATAFORMAT_SUBTYPE_IEEE_FLOAT
+		&FORGE_AUDIO_SUBTYPE_IEEE_FLOAT
 	);
 	*updateSize = wantSamples;
 
@@ -254,7 +254,7 @@ void FAudio_UTF8_To_UTF16(const char *src, uint16_t *dst, size_t len);
 
 uint32_t FAudio_PlatformGetDeviceDetails(
 	uint32_t index,
-	FAudioDeviceDetails *details
+	ForgeDeviceDetails *details
 ) {
 	const char *name, *envvar;
 	int channels, rate;
@@ -262,25 +262,25 @@ uint32_t FAudio_PlatformGetDeviceDetails(
 	int devcount;
 	SDL_AudioDeviceID *devs;
 
-	FAudio_zero(details, sizeof(FAudioDeviceDetails));
+	FAudio_zero(details, sizeof(ForgeDeviceDetails));
 
 	devs = SDL_GetAudioPlaybackDevices(&devcount);
 	if (index > devcount)
 	{
 		SDL_free(devs);
-		return FAUDIO_E_INVALID_CALL;
+		return FORGE_AUDIO_E_INVALID_CALL;
 	}
 
 	details->DeviceID[0] = L'0' + index;
 	if (index == 0)
 	{
 		name = "Default Device";
-		details->Role = FAudioGlobalDefaultDevice;
+		details->Role = ForgeDeviceRoleDefault;
 
 		/* This variable will look like a DSound GUID or WASAPI ID, i.e.
 		 * "{0.0.0.00000000}.{FD47D9CC-4218-4135-9CE2-0C195C87405B}"
 		 */
-		envvar = SDL_getenv("FAUDIO_FORCE_DEFAULT_DEVICEID");
+		envvar = SDL_getenv("FORGE_AUDIO_FORCE_DEFAULT_DEVICEID");
 		if (envvar != NULL)
 		{
 			FAudio_UTF8_To_UTF16(
@@ -293,7 +293,7 @@ uint32_t FAudio_PlatformGetDeviceDetails(
 	else
 	{
 		name = SDL_GetAudioDeviceName(devs[index - 1]);
-		details->Role = FAudioNotDefaultDevice;
+		details->Role = ForgeDeviceRoleNone;
 	}
 	FAudio_UTF8_To_UTF16(
 		name,
@@ -361,7 +361,7 @@ uint32_t FAudio_PlatformGetDeviceDetails(
 		&details->OutputFormat,
 		channels,
 		rate,
-		&DATAFORMAT_SUBTYPE_PCM
+		&FORGE_AUDIO_SUBTYPE_PCM
 	);
 	return 0;
 }
@@ -427,9 +427,9 @@ uint32_t FAudio_timems()
 	return SDL_GetTicks();
 }
 
-/* FAudio I/O */
+/* ForgeAudioEngine I/O */
 
-static size_t FAUDIOCALL FAudio_INTERNAL_ioread(
+static size_t FORGE_AUDIO_CALL FAudio_INTERNAL_ioread(
 	void *data,
 	void *dst,
 	size_t size,
@@ -438,7 +438,7 @@ static size_t FAUDIOCALL FAudio_INTERNAL_ioread(
 	return SDL_ReadIO((SDL_IOStream*) data, dst, size * count) / size;
 }
 
-static int64_t FAUDIOCALL FAudio_INTERNAL_ioseek(
+static int64_t FORGE_AUDIO_CALL FAudio_INTERNAL_ioseek(
 	void *data,
 	int64_t offset,
 	int whence
@@ -446,16 +446,16 @@ static int64_t FAUDIOCALL FAudio_INTERNAL_ioseek(
 	return SDL_SeekIO((SDL_IOStream*) data, offset, whence);
 }
 
-static int FAUDIOCALL FAudio_INTERNAL_ioclose(
+static int FORGE_AUDIO_CALL FAudio_INTERNAL_ioclose(
 	void *data
 ) {
 	return SDL_CloseIO((SDL_IOStream*) data);
 }
 
-FAudioIOStream* FAudio_fopen(const char *path)
+ForgeIOStream* forge_audio_fopen(const char *path)
 {
-	FAudioIOStream *io = (FAudioIOStream*) FAudio_malloc(
-		sizeof(FAudioIOStream)
+	ForgeIOStream *io = (ForgeIOStream*) FAudio_malloc(
+		sizeof(ForgeIOStream)
 	);
 	SDL_IOStream *stream = SDL_IOFromFile(path, "rb");
 	io->data = stream;
@@ -466,10 +466,10 @@ FAudioIOStream* FAudio_fopen(const char *path)
 	return io;
 }
 
-FAudioIOStream* FAudio_memopen(void *mem, int len)
+ForgeIOStream* forge_audio_memopen(void *mem, int len)
 {
-	FAudioIOStream *io = (FAudioIOStream*) FAudio_malloc(
-		sizeof(FAudioIOStream)
+	ForgeIOStream *io = (ForgeIOStream*) FAudio_malloc(
+		sizeof(ForgeIOStream)
 	);
 	SDL_IOStream *stream = SDL_IOFromMem(mem, len);
 	io->data = stream;
@@ -480,22 +480,22 @@ FAudioIOStream* FAudio_memopen(void *mem, int len)
 	return io;
 }
 
-uint8_t* FAudio_memptr(FAudioIOStream *io, size_t offset)
+uint8_t* forge_audio_memptr(ForgeIOStream *io, size_t offset)
 {
 	SDL_PropertiesID props = SDL_GetIOProperties((SDL_IOStream*) io->data);
 	FAudio_assert(SDL_HasProperty(props, SDL_PROP_IOSTREAM_MEMORY_POINTER));
 	return ((uint8_t*) SDL_GetPointerProperty(props, SDL_PROP_IOSTREAM_MEMORY_POINTER, NULL)) + offset;
 }
 
-void FAudio_close(FAudioIOStream *io)
+void forge_audio_close(ForgeIOStream *io)
 {
 	io->close(io->data);
 	FAudio_PlatformDestroyMutex((FAudioMutex) io->lock);
 	FAudio_free(io);
 }
 
-#ifdef FAUDIO_DUMP_VOICES
-static size_t FAUDIOCALL FAudio_INTERNAL_iowrite(
+#ifdef FORGE_AUDIO_DUMP_VOICES
+static size_t FORGE_AUDIO_CALL FAudio_INTERNAL_iowrite(
 	void *data,
 	const void *src,
 	size_t size,
@@ -504,7 +504,7 @@ static size_t FAUDIOCALL FAudio_INTERNAL_iowrite(
 	SDL_WriteIO((SDL_IOStream*) data, src, size * count);
 }
 
-static size_t FAUDIOCALL FAudio_INTERNAL_iosize(
+static size_t FORGE_AUDIO_CALL FAudio_INTERNAL_iosize(
 	void *data
 ) {
 	return SDL_GetIOSize((SDL_IOStream*) data);
@@ -532,7 +532,7 @@ void FAudio_close_out(FAudioIOStreamOut *io)
 	FAudio_PlatformDestroyMutex((FAudioMutex) io->lock);
 	FAudio_free(io);
 }
-#endif /* FAUDIO_DUMP_VOICES */
+#endif /* FORGE_AUDIO_DUMP_VOICES */
 
 /* UTF8->UTF16 Conversion, taken from PhysicsFS */
 
@@ -731,4 +731,4 @@ void FAudio_UTF8_To_UTF16(const char *src, uint16_t *dst, size_t len)
 
 extern int this_tu_is_empty;
 
-#endif /* FAUDIO_WIN32_PLATFORM */
+#endif /* FORGE_AUDIO_WIN32_PLATFORM */

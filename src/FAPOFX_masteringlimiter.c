@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -29,7 +29,7 @@
 
 /* FXMasteringLimiter FAPO Implementation */
 
-const FAudioGUID FAPOFX_CLSID_FXMasteringLimiter =
+const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter =
 {
     0xC4137916,
     0x2BE1,
@@ -73,7 +73,7 @@ static FAPORegistrationProperties FXMasteringLimiterProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-const FAudioGUID FAPOFX_CLSID_FXMasteringLimiter_LEGACY =
+const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter_LEGACY =
 {
     0xA90BC001,
     0xE897,
@@ -170,9 +170,9 @@ uint32_t FAPOFXCreateMasteringLimiter(
     FAPO **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc,
     uint8_t legacy
 ) {
     const FAPOFXMasteringLimiterParameters fxdefault =
@@ -214,12 +214,12 @@ uint32_t FAPOFXCreateMasteringLimiter(
     FAudio_memcpy(
         &FXMasteringLimiterProperties_LEGACY.clsid,
         &FAPOFX_CLSID_FXMasteringLimiter_LEGACY,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     FAudio_memcpy(
         &FXMasteringLimiterProperties.clsid,
         &FAPOFX_CLSID_FXMasteringLimiter,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     CreateFAPOBaseWithCustomAllocatorEXT(
         &result->base,

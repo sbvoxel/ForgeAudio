@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -29,7 +29,7 @@
 
 #include "forge_apo.h"
 
-#define FAPOFXAPI FAUDIOAPI
+#define FAPOFXAPI FORGE_AUDIO_API
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,10 +38,10 @@ extern "C" {
 /* GUIDs */
 
 /* "Legacy" GUIDs are from XAPOFX <= 1.5. They were removed in XAudio 2.8 and later. */
-extern const FAudioGUID FAPOFX_CLSID_FXEQ, FAPOFX_CLSID_FXEQ_LEGACY;
-extern const FAudioGUID FAPOFX_CLSID_FXMasteringLimiter, FAPOFX_CLSID_FXMasteringLimiter_LEGACY;
-extern const FAudioGUID FAPOFX_CLSID_FXReverb, FAPOFX_CLSID_FXReverb_LEGACY;
-extern const FAudioGUID FAPOFX_CLSID_FXEcho, FAPOFX_CLSID_FXEcho_LEGACY;
+extern const ForgeGuid FAPOFX_CLSID_FXEQ, FAPOFX_CLSID_FXEQ_LEGACY;
+extern const ForgeGuid FAPOFX_CLSID_FXMasteringLimiter, FAPOFX_CLSID_FXMasteringLimiter_LEGACY;
+extern const ForgeGuid FAPOFX_CLSID_FXReverb, FAPOFX_CLSID_FXReverb_LEGACY;
+extern const ForgeGuid FAPOFX_CLSID_FXEcho, FAPOFX_CLSID_FXEcho_LEGACY;
 
 /* Structures */
 
@@ -152,7 +152,7 @@ typedef struct FAPOFXEchoParameters
  * Returns 0 on success.
  */
 FAPOFXAPI uint32_t FAPOFX_CreateFX(
-    const FAudioGUID *clsid,
+    const ForgeGuid *clsid,
     FAPO **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize
@@ -160,13 +160,13 @@ FAPOFXAPI uint32_t FAPOFX_CreateFX(
 
 /* See "extensions/CustomAllocatorEXT.txt" for more details. */
 FAPOFXAPI uint32_t FAPOFX_CreateFXWithCustomAllocatorEXT(
-    const FAudioGUID *clsid,
+    const ForgeGuid *clsid,
     FAPO **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 );
 
 #ifdef __cplusplus

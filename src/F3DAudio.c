@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -154,7 +154,7 @@ uint32_t F3DAudioInitialize8(
 
     if (!F3DAudioCheckInitParams(SpeakerChannelMask, SpeedOfSound, Instance))
     {
-        return FAUDIO_E_INVALID_CALL;
+        return FORGE_AUDIO_E_INVALID_CALL;
     }
 
     SPEAKERMASK(Instance) = SpeakerChannelMask;

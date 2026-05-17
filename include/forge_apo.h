@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -41,8 +41,8 @@
 
 #include "forge_audio.h"
 
-#define FAPOAPI FAUDIOAPI
-#define FAPOCALL FAUDIOCALL
+#define FAPOAPI FORGE_AUDIO_API
+#define FAPOCALL FORGE_AUDIO_CALL
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,7 +62,7 @@ typedef enum FAPOBufferFlags
 
 typedef struct FAPORegistrationProperties
 {
-    FAudioGUID clsid;
+    ForgeGuid clsid;
     int16_t FriendlyName[256]; /* Win32 wchar_t */
     int16_t CopyrightInfo[256]; /* Win32 wchar_t */
     uint32_t MajorVersion;
@@ -76,7 +76,7 @@ typedef struct FAPORegistrationProperties
 
 typedef struct FAPOLockForProcessBufferParameters
 {
-    const FAudioWaveFormatEx *pFormat;
+    const ForgeAudioFormat *pFormat;
     uint32_t MaxFrameCount;
 } FAPOLockForProcessBufferParameters;
 
@@ -125,15 +125,15 @@ typedef uint32_t (FAPOCALL * GetRegistrationPropertiesFunc)(
 );
 typedef uint32_t (FAPOCALL * IsInputFormatSupportedFunc)(
     void* fapo,
-    const FAudioWaveFormatEx *pOutputFormat,
-    const FAudioWaveFormatEx *pRequestedInputFormat,
-    FAudioWaveFormatEx **ppSupportedInputFormat
+    const ForgeAudioFormat *pOutputFormat,
+    const ForgeAudioFormat *pRequestedInputFormat,
+    ForgeAudioFormat **ppSupportedInputFormat
 );
 typedef uint32_t (FAPOCALL * IsOutputFormatSupportedFunc)(
     void* fapo,
-    const FAudioWaveFormatEx *pInputFormat,
-    const FAudioWaveFormatEx *pRequestedOutputFormat,
-    FAudioWaveFormatEx **ppSupportedOutputFormat
+    const ForgeAudioFormat *pInputFormat,
+    const ForgeAudioFormat *pRequestedOutputFormat,
+    ForgeAudioFormat **ppSupportedOutputFormat
 );
 typedef uint32_t (FAPOCALL * InitializeFunc)(
     void* fapo,

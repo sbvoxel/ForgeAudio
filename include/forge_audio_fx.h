@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -27,7 +27,7 @@
 /* This file has no documentation since the MSDN docs are still perfectly fine:
  * https://docs.microsoft.com/en-us/windows/desktop/api/xaudio2fx/
  *
- * Note, however, that FAudio's Reverb implementation does NOT support the new
+ * Note, however, that ForgeAudioEngine's Reverb implementation does NOT support the new
  * parameters for XAudio 2.9's 7.1 Reverb effect!
  */
 
@@ -42,8 +42,8 @@ extern "C" {
 
 /* GUIDs */
 
-extern const FAudioGUID FAudioFX_CLSID_AudioVolumeMeter;
-extern const FAudioGUID FAudioFX_CLSID_AudioReverb;
+extern const ForgeGuid FAudioFX_CLSID_AudioVolumeMeter;
+extern const ForgeGuid FAudioFX_CLSID_AudioReverb;
 
 /* Structures */
 
@@ -262,38 +262,38 @@ typedef struct FAudioFXReverbI3DL2Parameters
 
 /* Functions */
 
-FAUDIOAPI uint32_t FAudioCreateVolumeMeter(FAPO** ppApo, uint32_t Flags);
-FAUDIOAPI uint32_t FAudioCreateReverb(FAPO** ppApo, uint32_t Flags);
-FAUDIOAPI uint32_t FAudioCreateReverb9(FAPO** ppApo, uint32_t Flags);
+FORGE_AUDIO_API uint32_t FAudioCreateVolumeMeter(FAPO** ppApo, uint32_t Flags);
+FORGE_AUDIO_API uint32_t FAudioCreateReverb(FAPO** ppApo, uint32_t Flags);
+FORGE_AUDIO_API uint32_t FAudioCreateReverb9(FAPO** ppApo, uint32_t Flags);
 
 /* See "extensions/CustomAllocatorEXT.txt" for more information. */
-FAUDIOAPI uint32_t FAudioCreateVolumeMeterWithCustomAllocatorEXT(
+FORGE_AUDIO_API uint32_t FAudioCreateVolumeMeterWithCustomAllocatorEXT(
     FAPO** ppApo,
     uint32_t Flags,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 );
-FAUDIOAPI uint32_t FAudioCreateReverbWithCustomAllocatorEXT(
+FORGE_AUDIO_API uint32_t FAudioCreateReverbWithCustomAllocatorEXT(
     FAPO** ppApo,
     uint32_t Flags,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 );
-FAUDIOAPI uint32_t FAudioCreateReverb9WithCustomAllocatorEXT(
+FORGE_AUDIO_API uint32_t FAudioCreateReverb9WithCustomAllocatorEXT(
     FAPO** ppApo,
     uint32_t Flags,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 );
 
-FAUDIOAPI void ReverbConvertI3DL2ToNative(
+FORGE_AUDIO_API void ReverbConvertI3DL2ToNative(
     const FAudioFXReverbI3DL2Parameters *pI3DL2,
     FAudioFXReverbParameters *pNative
 );
-FAUDIOAPI void ReverbConvertI3DL2ToNative9(
+FORGE_AUDIO_API void ReverbConvertI3DL2ToNative9(
     const FAudioFXReverbI3DL2Parameters *pI3DL2,
     FAudioFXReverbParameters9 *pNative,
     int32_t sevenDotOneReverb

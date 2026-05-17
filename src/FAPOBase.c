@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -54,9 +54,9 @@ void CreateFAPOBaseWithCustomAllocatorEXT(
     uint8_t *pParameterBlocks,
     uint32_t uParameterBlockByteSize,
     uint8_t fProducer,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc
 ) {
     /* Base Classes/Interfaces */
     #define ASSIGN_VT(name) \
@@ -138,9 +138,9 @@ uint32_t FAPOBase_GetRegistrationProperties(
 
 uint32_t FAPOBase_IsInputFormatSupported(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pOutputFormat,
-    const FAudioWaveFormatEx *pRequestedInputFormat,
-    FAudioWaveFormatEx **ppSupportedInputFormat
+    const ForgeAudioFormat *pOutputFormat,
+    const ForgeAudioFormat *pRequestedInputFormat,
+    ForgeAudioFormat **ppSupportedInputFormat
 ) {
     if (    pRequestedInputFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||
         pRequestedInputFormat->nChannels < FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS ||
@@ -173,9 +173,9 @@ uint32_t FAPOBase_IsInputFormatSupported(
 
 uint32_t FAPOBase_IsOutputFormatSupported(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pInputFormat,
-    const FAudioWaveFormatEx *pRequestedOutputFormat,
-    FAudioWaveFormatEx **ppSupportedOutputFormat
+    const ForgeAudioFormat *pInputFormat,
+    const ForgeAudioFormat *pRequestedOutputFormat,
+    ForgeAudioFormat **ppSupportedOutputFormat
 ) {
     if (    pRequestedOutputFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||
         pRequestedOutputFormat->nChannels < FAPOBASE_DEFAULT_FORMAT_MIN_CHANNELS ||
@@ -231,7 +231,7 @@ uint32_t FAPOBase_LockForProcess(
         OutputLockedParameterCount < fapo->m_pRegistrationProperties->MinOutputBufferCount ||
         OutputLockedParameterCount > fapo->m_pRegistrationProperties->MaxOutputBufferCount    )
     {
-        return FAUDIO_E_INVALID_ARG;
+        return FORGE_AUDIO_E_INVALID_ARG;
     }
 
 
@@ -240,7 +240,7 @@ uint32_t FAPOBase_LockForProcess(
         if (    (fapo->m_pRegistrationProperties->Flags & flag) && \
             (pInputLockedParameters->pFormat->prop != pOutputLockedParameters->pFormat->prop)    ) \
         { \
-            return FAUDIO_E_INVALID_ARG; \
+            return FORGE_AUDIO_E_INVALID_ARG; \
         }
     VERIFY_FORMAT_FLAG(FAPO_FLAG_CHANNELS_MUST_MATCH, nChannels)
     VERIFY_FORMAT_FLAG(FAPO_FLAG_FRAMERATE_MUST_MATCH, nSamplesPerSec)
@@ -249,7 +249,7 @@ uint32_t FAPOBase_LockForProcess(
     if (    (fapo->m_pRegistrationProperties->Flags & FAPO_FLAG_BUFFERCOUNT_MUST_MATCH) &&
         (InputLockedParameterCount != OutputLockedParameterCount)    )
     {
-        return FAUDIO_E_INVALID_ARG;
+        return FORGE_AUDIO_E_INVALID_ARG;
     }
     fapo->m_fIsLocked = 1;
     return 0;
@@ -272,7 +272,7 @@ uint32_t FAPOBase_CalcOutputFrames(FAPOBase *fapo, uint32_t InputFrameCount)
 
 uint32_t FAPOBase_ValidateFormatDefault(
     FAPOBase *fapo,
-    FAudioWaveFormatEx *pFormat,
+    ForgeAudioFormat *pFormat,
     uint8_t fOverwrite
 ) {
     if (    pFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||
@@ -306,8 +306,8 @@ uint32_t FAPOBase_ValidateFormatDefault(
 
 uint32_t FAPOBase_ValidateFormatPair(
     FAPOBase *fapo,
-    const FAudioWaveFormatEx *pSupportedFormat,
-    FAudioWaveFormatEx *pRequestedFormat,
+    const ForgeAudioFormat *pSupportedFormat,
+    ForgeAudioFormat *pRequestedFormat,
     uint8_t fOverwrite
 ) {
     if (    pRequestedFormat->wFormatTag != FAPOBASE_DEFAULT_FORMAT_TAG ||

@@ -87,21 +87,21 @@ std::string uint32_to_charstr(const uint32_t x)
 
 const char* audio_format_str(const uint16_t format)
 {
-    if (format == FAUDIO_FORMAT_PCM)              //      1
-        return "FAUDIO_FORMAT_PCM";
-    if (format == FAUDIO_FORMAT_IEEE_FLOAT)       //      3
-        return "FAUDIO_FORMAT_IEEE_FLOAT";
-    if (format == FAUDIO_FORMAT_WMAUDIO2)         // 0x0161
-        return "FAUDIO_FORMAT_WMAUDIO2";
-    if (format == FAUDIO_FORMAT_WMAUDIO3)         // 0x0162
-        return "FAUDIO_FORMAT_WMAUDIO3";
-    if (format == FAUDIO_FORMAT_WMAUDIO_LOSSLESS) // 0x0163
-        return "FAUDIO_FORMAT_WMAUDIO_LOSSLESS";
-    if (format == FAUDIO_FORMAT_XMAUDIO2)         // 0x0166
-        return "FAUDIO_FORMAT_XMAUDIO2";
-    if (format == FAUDIO_FORMAT_EXTENSIBLE)       // 0xFFE
-        return "FAUDIO_FORMAT_";
-    return "FAUDIO_FORMAT_UNKNOWN";
+    if (format == FORGE_AUDIO_FORMAT_PCM)              //      1
+        return "FORGE_AUDIO_FORMAT_PCM";
+    if (format == FORGE_AUDIO_FORMAT_IEEE_FLOAT)       //      3
+        return "FORGE_AUDIO_FORMAT_IEEE_FLOAT";
+    if (format == FORGE_AUDIO_FORMAT_WMAUDIO2)         // 0x0161
+        return "FORGE_AUDIO_FORMAT_WMAUDIO2";
+    if (format == FORGE_AUDIO_FORMAT_WMAUDIO3)         // 0x0162
+        return "FORGE_AUDIO_FORMAT_WMAUDIO3";
+    if (format == FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS) // 0x0163
+        return "FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS";
+    if (format == FORGE_AUDIO_FORMAT_XMAUDIO2)         // 0x0166
+        return "FORGE_AUDIO_FORMAT_XMAUDIO2";
+    if (format == FORGE_AUDIO_FORMAT_EXTENSIBLE)       // 0xFFE
+        return "FORGE_AUDIO_FORMAT_";
+    return "FORGE_AUDIO_FORMAT_UNKNOWN";
 }
 
 /* based on https://docs.microsoft.com/en-us/windows/desktop/xaudio2/how-to--load-audio-data-files-in-xaudio2 */

@@ -1,4 +1,4 @@
-/* FAudio - XAudio Reimplementation for FNA
+/* ForgeAudioEngine - XAudio Reimplementation for FNA
  *
  * Copyright (c) 2011-2024 Ethan Lee, Luigi Auriemma, and the MonoGame Team
  *
@@ -29,7 +29,7 @@
 
 /* FXReverb FAPO Implementation */
 
-const FAudioGUID FAPOFX_CLSID_FXReverb =
+const ForgeGuid FAPOFX_CLSID_FXReverb =
 {
     0x7D9ACA56,
     0xCB68,
@@ -73,7 +73,7 @@ static FAPORegistrationProperties FXReverbProperties =
     /*.MaxOutputBufferCount =*/ 1
 };
 
-const FAudioGUID FAPOFX_CLSID_FXReverb_LEGACY =
+const ForgeGuid FAPOFX_CLSID_FXReverb_LEGACY =
 {
     0xA90BC001,
     0xE897,
@@ -170,9 +170,9 @@ uint32_t FAPOFXCreateReverb(
     FAPO **pEffect,
     const void *pInitData,
     uint32_t InitDataByteSize,
-    FAudioMallocFunc customMalloc,
-    FAudioFreeFunc customFree,
-    FAudioReallocFunc customRealloc,
+    ForgeMallocFunc customMalloc,
+    ForgeFreeFunc customFree,
+    ForgeReallocFunc customRealloc,
     uint8_t legacy
 ) {
     const FAPOFXReverbParameters fxdefault =
@@ -214,12 +214,12 @@ uint32_t FAPOFXCreateReverb(
     FAudio_memcpy(
         &FXReverbProperties_LEGACY.clsid,
         &FAPOFX_CLSID_FXReverb_LEGACY,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     FAudio_memcpy(
         &FXReverbProperties.clsid,
         &FAPOFX_CLSID_FXReverb,
-        sizeof(FAudioGUID)
+        sizeof(ForgeGuid)
     );
     CreateFAPOBaseWithCustomAllocatorEXT(
         &result->base,

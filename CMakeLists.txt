@@ -80,19 +80,19 @@ add_library(ForgeAudio
 
 if(PLATFORM_WIN32)
     target_link_libraries(ForgeAudio PRIVATE dxguid uuid winmm ole32 advapi32 user32 mfplat mfreadwrite mfuuid propsys)
-    target_compile_definitions(ForgeAudio PUBLIC FAUDIO_WIN32_PLATFORM)
+    target_compile_definitions(ForgeAudio PUBLIC FORGE_AUDIO_WIN32_PLATFORM)
 endif()
 
 if (FORCE_ENABLE_DEBUGCONFIGURATION)
-    target_compile_definitions(ForgeAudio PRIVATE FAUDIO_ENABLE_DEBUGCONFIGURATION>)
+    target_compile_definitions(ForgeAudio PRIVATE FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION>)
 else()
     # Only enable DebugConfiguration in non-release builds
-    target_compile_definitions(ForgeAudio PRIVATE $<$<NOT:$<CONFIG:Release>>:FAUDIO_ENABLE_DEBUGCONFIGURATION>)
+    target_compile_definitions(ForgeAudio PRIVATE $<$<NOT:$<CONFIG:Release>>:FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION>)
 endif()
 
 # FAudio_assert Customization
 if(LOG_ASSERTIONS)
-    target_compile_definitions(ForgeAudio PUBLIC FAUDIO_LOG_ASSERTIONS)
+    target_compile_definitions(ForgeAudio PUBLIC FORGE_AUDIO_LOG_ASSERTIONS)
 endif()
 
 # ForgeAudio folders as includes, for other targets to consume
@@ -109,7 +109,7 @@ set_target_properties(ForgeAudio PROPERTIES OUTPUT_NAME "ForgeAudio"
 
 # Dump source voices to RIFF WAVE files
 if(DUMP_VOICES)
-    target_compile_definitions(ForgeAudio PRIVATE FAUDIO_DUMP_VOICES)
+    target_compile_definitions(ForgeAudio PRIVATE FORGE_AUDIO_DUMP_VOICES)
 endif()
 
 # SDL3 Dependency
