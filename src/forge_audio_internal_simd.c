@@ -754,9 +754,9 @@ static void forge_audio_resample_mono_neon(float *restrict dCache, float *restri
      * the 0.5 is added later.
      */
     cur_frac = vdupq_n_s32((uint32_t)(cur_scalar & FIXED_FRACTION_MASK) - DOUBLE_TO_FIXED(0.5));
-    ALIGN(int32_t, 16)
-    data[4] = {0, (uint32_t)(resampleStep & FIXED_FRACTION_MASK), (uint32_t)((resampleStep * 2) & FIXED_FRACTION_MASK),
-               (uint32_t)((resampleStep * 3) & FIXED_FRACTION_MASK)};
+    alignas(16) int32_t data[4] = {0, (uint32_t)(resampleStep & FIXED_FRACTION_MASK),
+                                   (uint32_t)((resampleStep * 2) & FIXED_FRACTION_MASK),
+                                   (uint32_t)((resampleStep * 3) & FIXED_FRACTION_MASK)};
     adder_frac = vld1q_s32(data);
     cur_frac = vaddq_s32(cur_frac, adder_frac);
 
@@ -887,8 +887,8 @@ static void forge_audio_resample_stereo_neon(float *restrict dCache, float *rest
      * explanation.
      */
     cur_frac = vdupq_n_s32((uint32_t)(cur_scalar & FIXED_FRACTION_MASK) - DOUBLE_TO_FIXED(0.5));
-    ALIGN(int32_t, 16)
-    data[4] = {0, 0, (uint32_t)(resampleStep & FIXED_FRACTION_MASK), (uint32_t)(resampleStep & FIXED_FRACTION_MASK)};
+    alignas(16) int32_t data[4] = {0, 0, (uint32_t)(resampleStep & FIXED_FRACTION_MASK),
+                                   (uint32_t)(resampleStep & FIXED_FRACTION_MASK)};
     adder_frac = vld1q_s32(data);
     cur_frac = vaddq_s32(cur_frac, adder_frac);
 

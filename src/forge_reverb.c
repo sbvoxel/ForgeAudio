@@ -341,14 +341,14 @@ float room_size;            1 - 100 feet (NOT USED YET)
 #define REVERB_COUNT_APF_IN 1
 #define REVERB_COUNT_APF_OUT 4
 
-static float COMB_DELAYS[REVERB_COUNT_COMB] = {25.31f, 26.94f, 28.96f, 30.75f, 32.24f, 33.80f, 35.31f, 36.67f};
+static const float COMB_DELAYS[REVERB_COUNT_COMB] = {25.31f, 26.94f, 28.96f, 30.75f, 32.24f, 33.80f, 35.31f, 36.67f};
 
-static float APF_IN_DELAYS[REVERB_COUNT_APF_IN] = {
+static const float APF_IN_DELAYS[REVERB_COUNT_APF_IN] = {
     13.28f,
     /*    28.13f */
 };
 
-static float APF_OUT_DELAYS[REVERB_COUNT_APF_OUT] = {5.10f, 12.61f, 10.0f, 7.73f};
+static const float APF_OUT_DELAYS[REVERB_COUNT_APF_OUT] = {5.10f, 12.61f, 10.0f, 7.73f};
 
 typedef enum ForgeReverbChannelPositionFlags {
     Position_Left = 0x1,
@@ -836,7 +836,7 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(DspReverb *reverb, flo
 
 /* reverb ForgeEffect Implementation */
 
-static ForgeEffectInfo ReverbInfo = {
+static const ForgeEffectInfo ReverbInfo = {
     /*.flags = */ (FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH | FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH |
                    FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH | FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED),
     /*.min_input_buffer_count = */ 1,

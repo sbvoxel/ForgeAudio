@@ -15,7 +15,7 @@
 
 /* volume Meter ForgeEffect Implementation */
 
-static ForgeEffectInfo VolumeMeterInfo = {
+static const ForgeEffectInfo VolumeMeterInfo = {
     /*.flags = */ (FORGE_EFFECT_FLAG_CHANNELS_MUST_MATCH | FORGE_EFFECT_FLAG_SAMPLE_RATE_MUST_MATCH |
                    FORGE_EFFECT_FLAG_BITS_PER_SAMPLE_MUST_MATCH | FORGE_EFFECT_FLAG_BUFFER_COUNT_MUST_MATCH |
                    FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED | FORGE_EFFECT_FLAG_IN_PLACE_REQUIRED),

@@ -77,7 +77,7 @@ if(PLATFORM_WIN32)
 endif()
 
 if (FORCE_ENABLE_DEBUGCONFIGURATION)
-    target_compile_definitions(ForgeAudio PRIVATE FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION>)
+    target_compile_definitions(ForgeAudio PRIVATE FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION)
 else()
     # Only enable DebugConfiguration in non-release builds
     target_compile_definitions(ForgeAudio PRIVATE $<$<NOT:$<CONFIG:Release>>:FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION>)

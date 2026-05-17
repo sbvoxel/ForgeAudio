@@ -388,7 +388,7 @@ void forge_platform_quit(void *platformDevice) {
     forge_platform_release();
 }
 
-void forge_platform_add_ref() {
+void forge_platform_add_ref(void) {
     HRESULT hr;
     EnterCriticalSection(&faudio_cs);
     if (!device_enumerator) {
@@ -401,7 +401,7 @@ void forge_platform_add_ref() {
     LeaveCriticalSection(&faudio_cs);
 }
 
-void forge_platform_release() {
+void forge_platform_release(void) {
     EnterCriticalSection(&faudio_cs);
     if (!IMMDeviceEnumerator_Release(device_enumerator)) {
         device_enumerator = NULL;
@@ -627,7 +627,7 @@ void forge_audio_sleep(uint32_t ms) {
     Sleep(ms);
 }
 
-uint32_t forge_audio_time_ms() {
+uint32_t forge_audio_time_ms(void) {
     return GetTickCount();
 }
 

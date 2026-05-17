@@ -43,7 +43,7 @@ static void forge_audio_mix_callback(void *userdata, SDL_AudioStream *stream, in
 
 /* Platform Functions */
 
-static void forge_audio_prioritize_direct_sound() {
+static void forge_audio_prioritize_direct_sound(void) {
     int numdrivers, i, wasapi, directsound;
     void *dll, *proc;
 
@@ -90,7 +90,7 @@ static void forge_audio_prioritize_direct_sound() {
     }
 }
 
-void forge_platform_add_ref() {
+void forge_platform_add_ref(void) {
     forge_audio_prioritize_direct_sound();
 
     /* SDL tracks ref counts for each subsystem */
@@ -100,7 +100,7 @@ void forge_platform_add_ref() {
     forge_audio_init_simd_functions(SDL_HasSSE2(), SDL_HasNEON());
 }
 
-void forge_platform_release() {
+void forge_platform_release(void) {
     /* SDL tracks ref counts for each subsystem */
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
@@ -168,7 +168,7 @@ void forge_platform_quit(void *platformDevice) {
     SDL_free(dev);
 }
 
-uint32_t forge_platform_get_device_count() {
+uint32_t forge_platform_get_device_count(void) {
     int devcount;
     SDL_free(SDL_GetAudioPlaybackDevices(&devcount));
     if (devcount == 0) {
@@ -276,7 +276,7 @@ uint64_t forge_platform_get_thread_id(void) {
     return (uint64_t)SDL_GetCurrentThreadID();
 }
 
-ForgeAudioMutex forge_platform_create_mutex() {
+ForgeAudioMutex forge_platform_create_mutex(void) {
     return (ForgeAudioMutex)SDL_CreateMutex();
 }
 
@@ -298,7 +298,7 @@ void forge_audio_sleep(uint32_t ms) {
 
 /* Time */
 
-uint32_t forge_audio_time_ms() {
+uint32_t forge_audio_time_ms(void) {
     return SDL_GetTicks();
 }
 

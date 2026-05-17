@@ -12,6 +12,7 @@
 
 #include "forge_audio.h"
 #include "forge_effect_base_internal.h"
+#include <stdalign.h>
 #include <stdarg.h>
 #include <stdbool.h>
 
@@ -170,15 +171,6 @@ extern void forge_log_message(char const *msg);
 #define forge_min(val1, val2) (val1 < val2 ? val1 : val2)
 #define forge_max(val1, val2) (val1 > val2 ? val1 : val2)
 #define forge_clamp(val, min, max) (val > max ? max : (val < min ? min : val))
-
-/* Alignment macro for gcc/clang/msvc */
-#if defined(__clang__) || defined(__GNUC__)
-    #define ALIGN(type, boundary) type __attribute__((aligned(boundary)))
-#elif defined(_MSC_VER)
-    #define ALIGN(type, boundary) __declspec(align(boundary)) type
-#else
-    #define ALIGN(type, boundary) type
-#endif
 
 #if defined(__GNUC__) || defined(__clang__)
     #define FORGE_INTERNAL_API __attribute__((visibility("hidden")))
