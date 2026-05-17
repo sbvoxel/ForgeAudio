@@ -20,7 +20,7 @@ Current state:
 - SDL3 is the default portable backend path, with a native Win32 path still available behind `PLATFORM_WIN32`.
 - Effects, spatial audio, audio batches, format handling, and other APIs are being shaped for ForgeAudio rather than preserved as direct FAudio/XAudio surface area.
 
-Upstream FAudio remains useful reference material and a source of fixes, but compatibility with it is not a design goal.
+Upstream FAudio remains useful reference material and a source of fixes, but compatibility with it or XAudio is not a design goal.
 
 ## Goals
 
@@ -64,15 +64,11 @@ Useful options:
 - `LOG_ASSERTIONS`: log assertions instead of binding to the platform assert.
 - `DUMP_VOICES`: dump source voices to RIFF WAVE files for debugging.
 
-## Relationship To FAudio
-
-FAudio is focused on accurately providing DirectX audio runtime behavior for FNA and related projects. That is valuable, and ForgeAudio benefits from that foundation.
-
-ForgeAudio is different in intent. It is free to remove compatibility surface area, reshape the public API, simplify build and platform assumptions, and add engine-oriented features that would not belong in upstream FAudio.
-
-Upstream FAudio fixes are still worth tracking. The fork is mature enough to build on, while upstream is stable enough that carrying useful fixes is manageable.
-
 ## Comparison
+
+### FAudio
+
+FAudio accurately provides DirectX audio runtime behavior for FNA and related projects. ForgeAudio benefits from that foundation, but it is free to remove compatibility surface area, reshape the public API, simplify build and platform assumptions, and add engine-oriented features that would not belong in upstream FAudio.
 
 ### SoLoud
 
