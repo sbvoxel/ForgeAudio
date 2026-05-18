@@ -179,8 +179,8 @@ static void release_failed_create_effect_chain(ForgeVoice *voice) {
     forge_zero(&voice->effects, sizeof(voice->effects));
 }
 
-static void cleanup_failed_unlinked_source_voice(ForgeSourceVoice **source_voice) {
-    ForgeVoice *voice = *source_voice;
+static void cleanup_failed_unlinked_voice(ForgeVoice **failed_voice) {
+    ForgeVoice *voice = *failed_voice;
 
     if (voice == NULL) {
         return;
@@ -189,26 +189,29 @@ static void cleanup_failed_unlinked_source_voice(ForgeSourceVoice **source_voice
     free_voice_send_runtime(voice);
     release_failed_create_effect_chain(voice);
 
-    if (voice->filterState != NULL) {
-        voice->audio->free_func(voice->filterState);
-    }
-    if (voice->channelVolume != NULL) {
-        voice->audio->free_func(voice->channelVolume);
-    }
-    if (voice->channelVolumeAutomation.target != NULL) {
-        voice->audio->free_func(voice->channelVolumeAutomation.target);
-    }
-    if (voice->channelVolumeAutomation.step != NULL) {
-        voice->audio->free_func(voice->channelVolumeAutomation.step);
-    }
-    if (voice->src.format != NULL) {
-        voice->audio->free_func(voice->src.format);
+    if (voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+        voice->audio->free_func(voice->src.queued_buffers);
+        voice->audio->free_func(voice->src.flush_buffers);
+        if (voice->src.format != NULL) {
+            voice->audio->free_func(voice->src.format);
+        }
+        if (voice->src.bufferLock != NULL) {
+            LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
+            fa_platform_destroy_mutex(voice->src.bufferLock);
+        }
+    } else if (voice->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        if (voice->mix.inputCache != NULL) {
+            voice->audio->free_func(voice->mix.inputCache);
+        }
+    } else if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        if (voice->master.effectCache != NULL) {
+            voice->audio->free_func(voice->master.effectCache);
+        }
+        if (voice->audio->master == voice) {
+            voice->audio->master = NULL;
+        }
     }
 
-    if (voice->src.bufferLock != NULL) {
-        LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
-        fa_platform_destroy_mutex(voice->src.bufferLock);
-    }
     if (voice->sendLock != NULL) {
         LOG_MUTEX_DESTROY(voice->audio, voice->sendLock)
         fa_platform_destroy_mutex(voice->sendLock);
@@ -221,13 +224,25 @@ static void cleanup_failed_unlinked_source_voice(ForgeSourceVoice **source_voice
         LOG_MUTEX_DESTROY(voice->audio, voice->filterLock)
         fa_platform_destroy_mutex(voice->filterLock);
     }
+    if (voice->filterState != NULL) {
+        voice->audio->free_func(voice->filterState);
+    }
+    if (voice->channelVolume != NULL) {
+        voice->audio->free_func(voice->channelVolume);
+    }
+    if (voice->channelVolumeAutomation.target != NULL) {
+        voice->audio->free_func(voice->channelVolumeAutomation.target);
+    }
+    if (voice->channelVolumeAutomation.step != NULL) {
+        voice->audio->free_func(voice->channelVolumeAutomation.step);
+    }
     if (voice->volumeLock != NULL) {
         LOG_MUTEX_DESTROY(voice->audio, voice->volumeLock)
         fa_platform_destroy_mutex(voice->volumeLock);
     }
 
     voice->audio->free_func(voice);
-    *source_voice = NULL;
+    *failed_voice = NULL;
 }
 
 static uint32_t source_decode_frame_count(uint32_t resample_samples, float max_frequency_ratio,
@@ -543,7 +558,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     fa_audio_voice_output_frequency(*source_voice, send_list);
     result = forge_voice_set_effect_chain(*source_voice, effect_chain);
     if (result != 0) {
-        cleanup_failed_unlinked_source_voice(source_voice);
+        cleanup_failed_unlinked_voice(source_voice);
         LOG_API_EXIT(audio)
         return result;
     }
@@ -563,7 +578,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
 
     result = forge_voice_set_outputs(*source_voice, send_list);
     if (result != ForgeResultSuccess) {
-        cleanup_failed_unlinked_source_voice(source_voice);
+        cleanup_failed_unlinked_voice(source_voice);
         LOG_API_EXIT(audio)
         return result;
     }
@@ -606,9 +621,14 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
 
     LOG_API_ENTER(audio)
 
-    if (send_list == NULL && audio->master == NULL) {
+    if ((send_list == NULL || send_list->send_count == 0) && audio->master == NULL) {
         LOG_ERROR(audio, "%s", "CreateSubmixVoice called before mastering voice was initialized");
         return ForgeResultInvalidCall;
+    }
+
+    result = validate_voice_output_send_list(send_list);
+    if (result != ForgeResultSuccess) {
+        return result;
     }
 
     *submix_voice = (ForgeSubmixVoice *)audio->malloc_func(sizeof(ForgeVoice));
@@ -656,17 +676,7 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     fa_audio_voice_output_frequency(*submix_voice, send_list);
     result = forge_voice_set_effect_chain(*submix_voice, effect_chain);
     if (result != 0) {
-        audio->free_func((*submix_voice)->mix.inputCache);
-        LOG_MUTEX_DESTROY(audio, (*submix_voice)->sendLock)
-        fa_platform_destroy_mutex((*submix_voice)->sendLock);
-        LOG_MUTEX_DESTROY(audio, (*submix_voice)->effectLock)
-        fa_platform_destroy_mutex((*submix_voice)->effectLock);
-        LOG_MUTEX_DESTROY(audio, (*submix_voice)->filterLock)
-        fa_platform_destroy_mutex((*submix_voice)->filterLock);
-        LOG_MUTEX_DESTROY(audio, (*submix_voice)->volumeLock)
-        fa_platform_destroy_mutex((*submix_voice)->volumeLock);
-        audio->free_func(*submix_voice);
-        *submix_voice = NULL;
+        cleanup_failed_unlinked_voice(submix_voice);
         LOG_API_EXIT(audio)
         return result;
     }
@@ -684,7 +694,12 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
         (*submix_voice)->channelVolumeAutomation.step[i] = 0.0f;
     }
 
-    forge_voice_set_outputs(*submix_voice, send_list);
+    result = forge_voice_set_outputs(*submix_voice, send_list);
+    if (result != ForgeResultSuccess) {
+        cleanup_failed_unlinked_voice(submix_voice);
+        LOG_API_EXIT(audio)
+        return result;
+    }
 
     /* Filters */
     if (flags & FORGE_AUDIO_VOICE_USEFILTER) {
@@ -744,12 +759,7 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
     forge_zero(&(*mastering_voice)->sends, sizeof((*mastering_voice)->sends));
     result = forge_voice_set_effect_chain(*mastering_voice, effect_chain);
     if (result != 0) {
-        LOG_MUTEX_DESTROY(audio, (*mastering_voice)->effectLock)
-        fa_platform_destroy_mutex((*mastering_voice)->effectLock);
-        LOG_MUTEX_DESTROY(audio, (*mastering_voice)->volumeLock)
-        fa_platform_destroy_mutex((*mastering_voice)->volumeLock);
-        audio->free_func(*mastering_voice);
-        *mastering_voice = NULL;
+        cleanup_failed_unlinked_voice(mastering_voice);
         LOG_API_EXIT(audio)
         return result;
     }
@@ -820,15 +830,15 @@ ForgeResult forge_audio_test_create_virtual_master_voice(ForgeAudioEngine *audio
     (*mastering_voice)->master.inputSampleRate = input_sample_rate;
 
     audio->updateSize = update_size;
-    audio->master = *mastering_voice;
 
     result = forge_voice_set_effect_chain(*mastering_voice, effect_chain);
     if (result != 0) {
-        forge_voice_destroy(*mastering_voice);
-        *mastering_voice = NULL;
+        cleanup_failed_unlinked_voice(mastering_voice);
         LOG_API_EXIT(audio)
         return result;
     }
+
+    audio->master = *mastering_voice;
 
     fa_format_write_extensible(&audio->mixFormat, audio->master->outputChannels,
                                audio->master->master.inputSampleRate, fa_format_id_ieee_float);

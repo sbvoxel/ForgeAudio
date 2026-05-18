@@ -585,6 +585,165 @@ static int test_source_create_empty_outputs_without_master_fails_before_allocati
     return failed;
 }
 
+static int test_submix_create_effect_failure_cleans_allocations(void) {
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSubmixVoice *submix = NULL;
+    TestEffect effects[2];
+    ForgeEffectDesc effect_descs[2];
+    ForgeEffectChain effect_chain;
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_virtual_master_voice failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    init_test_effect(&effects[0], ForgeResultSuccess);
+    init_test_effect(&effects[1], ForgeResultInvalidCall);
+    effect_descs[0].effect = &effects[0].effect;
+    effect_descs[0].initial_state = 1;
+    effect_descs[0].output_channels = 1;
+    effect_descs[1].effect = &effects[1].effect;
+    effect_descs[1].initial_state = 1;
+    effect_descs[1].output_channels = 1;
+    effect_chain.effect_count = 2;
+    effect_chain.effects = effect_descs;
+
+    use_tracking_allocator(audio);
+    result = forge_audio_create_submix_voice(audio, &submix, 1, 48000, 0, 0, NULL, &effect_chain);
+    failed |= expect_no_tracked_allocations("submix_create_effect_failure_cleanup");
+    use_default_allocator(audio);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != ForgeResultInvalidCall) {
+        fprintf(stderr, "submix_create_effect_failure_cleanup: got %d, expected %d\n", result,
+                ForgeResultInvalidCall);
+        failed = 1;
+    }
+    if (submix != NULL) {
+        fprintf(stderr, "submix_create_effect_failure_cleanup: failed creation returned a voice\n");
+        failed = 1;
+    }
+    if (effects[0].lock_count != 1 || effects[0].unlock_count != 1 || effects[0].destroy_count != 0 ||
+        effects[1].lock_count != 1 || effects[1].unlock_count != 0 || effects[1].destroy_count != 0) {
+        fprintf(stderr, "submix_create_effect_failure_cleanup: unexpected effect ownership/lock state\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
+static int test_submix_create_invalid_outputs_cleans_allocations(void) {
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSubmixVoice *submix_a = NULL;
+    ForgeSubmixVoice *submix_b = NULL;
+    ForgeSubmixVoice *submix = NULL;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_virtual_master_voice failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+    if (forge_audio_create_submix_voice(audio, &submix_a, 1, 48000, 0, 0, NULL, NULL) != ForgeResultSuccess ||
+        forge_audio_create_submix_voice(audio, &submix_b, 1, 44100, 0, 0, NULL, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "submix_create_invalid_outputs_cleanup: setup submix creation failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    sends[0].flags = 0;
+    sends[0].output_voice = submix_a;
+    sends[1].flags = 0;
+    sends[1].output_voice = submix_b;
+    send_list.send_count = 2;
+    send_list.sends = sends;
+
+    use_tracking_allocator(audio);
+    result = forge_audio_create_submix_voice(audio, &submix, 1, 48000, 0, 0, &send_list, NULL);
+    failed |= expect_no_tracked_allocations("submix_create_invalid_outputs_cleanup");
+    use_default_allocator(audio);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != ForgeResultInvalidCall) {
+        fprintf(stderr, "submix_create_invalid_outputs_cleanup: got %d, expected %d\n", result,
+                ForgeResultInvalidCall);
+        failed = 1;
+    }
+    if (submix != NULL) {
+        fprintf(stderr, "submix_create_invalid_outputs_cleanup: failed creation returned a voice\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
+static int test_virtual_master_create_effect_failure_cleans_allocations(void) {
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    TestEffect effects[2];
+    ForgeEffectDesc effect_descs[2];
+    ForgeEffectChain effect_chain;
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    init_test_effect(&effects[0], ForgeResultSuccess);
+    init_test_effect(&effects[1], ForgeResultInvalidCall);
+    effect_descs[0].effect = &effects[0].effect;
+    effect_descs[0].initial_state = 1;
+    effect_descs[0].output_channels = 1;
+    effect_descs[1].effect = &effects[1].effect;
+    effect_descs[1].initial_state = 1;
+    effect_descs[1].output_channels = 1;
+    effect_chain.effect_count = 2;
+    effect_chain.effects = effect_descs;
+
+    use_tracking_allocator(audio);
+    result = forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, &effect_chain);
+    failed |= expect_no_tracked_allocations("virtual_master_create_effect_failure_cleanup");
+    use_default_allocator(audio);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != ForgeResultInvalidCall) {
+        fprintf(stderr, "virtual_master_create_effect_failure_cleanup: got %d, expected %d\n", result,
+                ForgeResultInvalidCall);
+        failed = 1;
+    }
+    if (master != NULL) {
+        fprintf(stderr, "virtual_master_create_effect_failure_cleanup: failed creation returned a voice\n");
+        failed = 1;
+    }
+    if (effects[0].lock_count != 1 || effects[0].unlock_count != 1 || effects[0].destroy_count != 0 ||
+        effects[1].lock_count != 1 || effects[1].unlock_count != 0 || effects[1].destroy_count != 0) {
+        fprintf(stderr, "virtual_master_create_effect_failure_cleanup: unexpected effect ownership/lock state\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
 
@@ -603,6 +762,9 @@ int main(void) {
     failed |= test_source_create_effect_failure_cleans_allocations();
     failed |= test_source_create_invalid_outputs_cleans_allocations();
     failed |= test_source_create_empty_outputs_without_master_fails_before_allocation();
+    failed |= test_submix_create_effect_failure_cleans_allocations();
+    failed |= test_submix_create_invalid_outputs_cleans_allocations();
+    failed |= test_virtual_master_create_effect_failure_cleans_allocations();
 
     return failed;
 }
