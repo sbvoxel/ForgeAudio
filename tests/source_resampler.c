@@ -88,6 +88,46 @@ static ForgeAudioTestSourceResampleResult render_buffers(const float *first, uin
     return result;
 }
 
+static int render_buffer_passes(const char *name, const float *first, uint32_t first_frames, const float *second,
+                                uint32_t second_frames, uint64_t resample_step, uint32_t pass_frames,
+                                uint32_t pass_count, float *output) {
+    SourceHarness harness;
+    int failed = 0;
+
+    init_harness(&harness, 16, pass_frames);
+    harness.voice.src.resampleStep = resample_step;
+    set_buffer(&harness, 0, first, first_frames);
+    harness.voice.src.queued_buffer_count = 1;
+    harness.voice.src.queued_buffers_capacity = 1;
+
+    if (second != NULL) {
+        set_buffer(&harness, 1, second, second_frames);
+        harness.voice.src.queued_buffer_count = 2;
+        harness.voice.src.queued_buffers_capacity = 2;
+    }
+
+    for (uint32_t i = 0; i < pass_count; i += 1) {
+        ForgeAudioTestSourceResampleResult result =
+            forge_audio_test_decode_resample_source(&harness.voice, output + (i * pass_frames));
+
+        if (result.resampled_frames != pass_frames) {
+            fprintf(stderr, "%s pass %u resampled_frames: expected %u, got %u\n", name, i, pass_frames,
+                    result.resampled_frames);
+            failed = 1;
+            break;
+        }
+    }
+
+    destroy_harness(&harness);
+    return failed;
+}
+
+static void fill_ramp(float *samples, uint32_t count) {
+    for (uint32_t i = 0; i < count; i += 1) {
+        samples[i] = (float)i;
+    }
+}
+
 static int check_values(const char *name, const float *actual, const float *expected, uint32_t count) {
     int failed = 0;
 
@@ -101,6 +141,46 @@ static int check_values(const char *name, const float *actual, const float *expe
             failed = 1;
         }
     }
+
+    return failed;
+}
+
+static int test_split_fast_fractional_ratio_matches_contiguous_across_passes(void) {
+    float samples[24];
+    float contiguous_out[12] = {0};
+    float split_out[12] = {0};
+    const uint64_t resample_step = DOUBLE_TO_FIXED(1.5);
+    const uint32_t pass_frames = 3;
+    const uint32_t pass_count = 4;
+    int failed = 0;
+
+    fill_ramp(samples, 24);
+
+    failed |= render_buffer_passes("fast-contiguous", samples, 24, NULL, 0, resample_step, pass_frames, pass_count,
+                                   contiguous_out);
+    failed |= render_buffer_passes("fast-split", samples, 4, samples + 4, 20, resample_step, pass_frames, pass_count,
+                                   split_out);
+    failed |= check_values("fast_split_vs_contiguous", split_out, contiguous_out, pass_frames * pass_count);
+
+    return failed;
+}
+
+static int test_split_source_rate_ratio_matches_contiguous_across_passes(void) {
+    float samples[32];
+    float contiguous_out[28] = {0};
+    float split_out[28] = {0};
+    const uint64_t resample_step = DOUBLE_TO_FIXED(44100.0 / 48000.0);
+    const uint32_t pass_frames = 7;
+    const uint32_t pass_count = 4;
+    int failed = 0;
+
+    fill_ramp(samples, 32);
+
+    failed |= render_buffer_passes("rate-contiguous", samples, 32, NULL, 0, resample_step, pass_frames, pass_count,
+                                   contiguous_out);
+    failed |= render_buffer_passes("rate-split", samples, 6, samples + 6, 26, resample_step, pass_frames, pass_count,
+                                   split_out);
+    failed |= check_values("rate_split_vs_contiguous", split_out, contiguous_out, pass_frames * pass_count);
 
     return failed;
 }
@@ -245,6 +325,10 @@ static int run_test(const char *name, int (*test_func)(void)) {
 int main(void) {
     int failures = 0;
 
+    failures += run_test("split_fast_fractional_ratio_matches_contiguous_across_passes",
+                         test_split_fast_fractional_ratio_matches_contiguous_across_passes);
+    failures += run_test("split_source_rate_ratio_matches_contiguous_across_passes",
+                         test_split_source_rate_ratio_matches_contiguous_across_passes);
     failures += run_test("split_ramp_matches_contiguous", test_split_ramp_matches_contiguous);
     failures += run_test("one_padding_frame_is_preserved", test_one_padding_frame_is_preserved);
     failures += run_test("padding_peeks_across_loop_boundary", test_padding_peeks_across_loop_boundary);
