@@ -146,6 +146,24 @@ int main(void) {
                          test_reverb_zero_duration_ramp_snaps_after_render);
     failures += run_test("reverb_invalid_arguments", test_reverb_invalid_arguments);
     failures += run_test("reverb_7point1_target_and_getter", test_reverb_7point1_target_and_getter);
+    failures += run_test("limiter_creation_kind_and_destroy", test_limiter_creation_kind_and_destroy);
+    failures += run_test("limiter_format_validation_rejects_channel_change",
+                         test_limiter_format_validation_rejects_channel_change);
+    failures += run_test("limiter_parameter_clamping", test_limiter_parameter_clamping);
+    failures += run_test("limiter_below_ceiling_outputs_delayed_input",
+                         test_limiter_below_ceiling_outputs_delayed_input);
+    failures += run_test("limiter_above_ceiling_limits_sample_peaks",
+                         test_limiter_above_ceiling_limits_sample_peaks);
+    failures += run_test("limiter_linked_channels_reduce_all_channels",
+                         test_limiter_linked_channels_reduce_all_channels);
+    failures += run_test("limiter_release_recovers_gradually", test_limiter_release_recovers_gradually);
+    failures += run_test("limiter_zero_lookahead_limits_without_delay",
+                         test_limiter_zero_lookahead_limits_without_delay);
+    failures += run_test("limiter_lookahead_uses_output_sample_rate",
+                         test_limiter_lookahead_uses_output_sample_rate);
+    failures += run_test("limiter_blob_parameter_set_updates_render",
+                         test_limiter_blob_parameter_set_updates_render);
+    failures += run_test("limiter_tail_drains_delayed_samples", test_limiter_tail_drains_delayed_samples);
 
     return failures == 0 ? 0 : 1;
 }

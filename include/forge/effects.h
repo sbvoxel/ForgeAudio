@@ -29,6 +29,13 @@ typedef struct ForgeVolumeMeterLevels {
     uint32_t channel_count;
 } ForgeVolumeMeterLevels;
 
+typedef struct ForgeLimiterParameters {
+    float input_gain_db;
+    float ceiling_db;
+    float lookahead_ms;
+    float release_ms;
+} ForgeLimiterParameters;
+
 typedef struct ForgeReverbParameters {
     float wet_dry_mix;
     uint32_t reflections_delay;
@@ -108,6 +115,22 @@ typedef struct ForgeReverbI3DL2Parameters {
 #pragma pack(pop)
 
 /* Constants */
+
+#define FORGE_LIMITER_MIN_INPUT_GAIN_DB -60.0f
+#define FORGE_LIMITER_MAX_INPUT_GAIN_DB 60.0f
+#define FORGE_LIMITER_DEFAULT_INPUT_GAIN_DB 0.0f
+
+#define FORGE_LIMITER_MIN_CEILING_DB -60.0f
+#define FORGE_LIMITER_MAX_CEILING_DB 0.0f
+#define FORGE_LIMITER_DEFAULT_CEILING_DB -1.0f
+
+#define FORGE_LIMITER_MIN_LOOKAHEAD_MS 0.0f
+#define FORGE_LIMITER_MAX_LOOKAHEAD_MS 5.0f
+#define FORGE_LIMITER_DEFAULT_LOOKAHEAD_MS 1.5f
+
+#define FORGE_LIMITER_MIN_RELEASE_MS 1.0f
+#define FORGE_LIMITER_MAX_RELEASE_MS 1000.0f
+#define FORGE_LIMITER_DEFAULT_RELEASE_MS 50.0f
 
 #define FORGE_REVERB_MIN_SAMPLE_RATE 20000
 #define FORGE_REVERB_MAX_SAMPLE_RATE 48000
@@ -252,6 +275,7 @@ typedef struct ForgeReverbI3DL2Parameters {
  * or transfer to a voice effect chain.
  */
 FORGE_AUDIO_API ForgeResult forge_create_volume_meter(ForgeEffect **effect, uint32_t flags);
+FORGE_AUDIO_API ForgeResult forge_create_limiter(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb_7point1(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API void forge_volume_meter_get_levels(ForgeEffect *effect, ForgeVolumeMeterLevels *levels);
@@ -260,6 +284,10 @@ FORGE_AUDIO_API ForgeResult forge_create_volume_meter_with_allocator(ForgeEffect
                                                                      ForgeMallocFunc custom_malloc,
                                                                      ForgeFreeFunc custom_free,
                                                                      ForgeReallocFunc custom_realloc);
+FORGE_AUDIO_API ForgeResult forge_create_limiter_with_allocator(ForgeEffect **effect, uint32_t flags,
+                                                                ForgeMallocFunc custom_malloc,
+                                                                ForgeFreeFunc custom_free,
+                                                                ForgeReallocFunc custom_realloc);
 FORGE_AUDIO_API ForgeResult forge_create_reverb_with_allocator(ForgeEffect **effect, uint32_t flags,
                                                                ForgeMallocFunc custom_malloc, ForgeFreeFunc custom_free,
                                                                ForgeReallocFunc custom_realloc);

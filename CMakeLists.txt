@@ -85,6 +85,7 @@ add_library(ForgeAudio
     src/spatial_audio.c
     src/effect_base.c
     src/audio.c
+    src/limiter.c
     src/reverb.c
     src/volume_meter.c
     src/debug.c
@@ -174,6 +175,7 @@ if(BUILD_TESTS)
         tests/engine_render_fade_stop.c
         tests/engine_render_filter.c
         tests/engine_render_gain.c
+        tests/engine_render_limiter.c
         tests/engine_render_output_matrix.c
         tests/engine_render_reverb.c
         tests/engine_render_tests.h

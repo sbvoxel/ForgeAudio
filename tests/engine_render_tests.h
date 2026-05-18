@@ -103,5 +103,16 @@ int test_reverb_batch_ramp_then_blob_order(void);
 int test_reverb_zero_duration_ramp_snaps_after_render(void);
 int test_reverb_invalid_arguments(void);
 int test_reverb_7point1_target_and_getter(void);
+int test_limiter_creation_kind_and_destroy(void);
+int test_limiter_format_validation_rejects_channel_change(void);
+int test_limiter_parameter_clamping(void);
+int test_limiter_below_ceiling_outputs_delayed_input(void);
+int test_limiter_above_ceiling_limits_sample_peaks(void);
+int test_limiter_linked_channels_reduce_all_channels(void);
+int test_limiter_release_recovers_gradually(void);
+int test_limiter_zero_lookahead_limits_without_delay(void);
+int test_limiter_lookahead_uses_output_sample_rate(void);
+int test_limiter_blob_parameter_set_updates_render(void);
+int test_limiter_tail_drains_delayed_samples(void);
 
 #endif /* FORGE_ENGINE_RENDER_TESTS_H */

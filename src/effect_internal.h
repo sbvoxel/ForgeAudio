@@ -95,7 +95,8 @@ typedef enum ForgeEffectKind {
     ForgeEffectKindUnknown,
     ForgeEffectKindReverb,
     ForgeEffectKindReverb7Point1,
-    ForgeEffectKindVolumeMeter
+    ForgeEffectKindVolumeMeter,
+    ForgeEffectKindLimiter
 } ForgeEffectKind;
 
 struct ForgeEffect {
