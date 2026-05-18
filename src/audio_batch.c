@@ -28,6 +28,7 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX,
     FORGE_AUDIO_COMMAND_START,
     FORGE_AUDIO_COMMAND_STOP,
+    FORGE_AUDIO_COMMAND_FADE_STOP,
     FORGE_AUDIO_COMMAND_EXIT_LOOP,
     FORGE_AUDIO_COMMAND_SET_FREQUENCY_RATIO
 } ForgeAudioCommandType;
@@ -79,6 +80,10 @@ struct ForgeAudioCommand {
         struct {
             uint32_t flags;
         } Stop;
+        struct {
+            float volume;
+            uint32_t duration_frames;
+        } FadeStop;
         /* No special data for ExitLoop
         struct
         {
@@ -161,6 +166,11 @@ static inline void execute_command(ForgeAudioCommand *op) {
 
     case FORGE_AUDIO_COMMAND_STOP:
         forge_source_voice_stop(op->voice, op->Data.Stop.flags, FORGE_AUDIO_BATCH_IMMEDIATE);
+        break;
+
+    case FORGE_AUDIO_COMMAND_FADE_STOP:
+        forge_source_voice_fade_stop(op->voice, op->Data.FadeStop.volume, op->Data.FadeStop.duration_frames,
+                                     FORGE_AUDIO_BATCH_IMMEDIATE);
         break;
 
     case FORGE_AUDIO_COMMAND_EXIT_LOOP:
@@ -468,6 +478,22 @@ void fa_batch_queue_stop(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatc
     op = queue_command(voice, FORGE_AUDIO_COMMAND_STOP, batch_id);
 
     op->Data.Stop.flags = flags;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_fade_stop(ForgeSourceVoice *voice, float volume, uint32_t duration_frames,
+                              ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_command(voice, FORGE_AUDIO_COMMAND_FADE_STOP, batch_id);
+
+    op->Data.FadeStop.volume = volume;
+    op->Data.FadeStop.duration_frames = duration_frames;
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)

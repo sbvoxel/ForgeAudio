@@ -1518,6 +1518,7 @@ ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBa
     voice->volume = forge_clamp(volume, -FORGE_AUDIO_MAX_VOLUME_LEVEL, FORGE_AUDIO_MAX_VOLUME_LEVEL);
     voice->volumeAutomation.active = 0;
     voice->volumeAutomation.remainingFrames = 0;
+    voice->volumeAutomation.stopSourceOnComplete = 0;
 
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
         recalc_mix_matrix(voice, i);
@@ -1559,10 +1560,12 @@ ForgeResult forge_voice_ramp_volume(ForgeVoice *voice, float volume, uint32_t du
         voice->volume = target;
         voice->volumeAutomation.active = 0;
         voice->volumeAutomation.remainingFrames = 0;
+        voice->volumeAutomation.stopSourceOnComplete = 0;
     } else {
         voice->volumeAutomation.target = target;
         voice->volumeAutomation.remainingFrames = duration_frames;
         voice->volumeAutomation.step = (target - voice->volume) / (float)duration_frames;
+        voice->volumeAutomation.stopSourceOnComplete = 0;
         voice->volumeAutomation.active = 1;
     }
 
@@ -1998,6 +2001,50 @@ ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uint32_t flags, For
     } else {
         voice->src.active = 0;
     }
+    LOG_API_EXIT(voice->audio)
+    return 0;
+}
+
+ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice, float volume, uint32_t duration_frames,
+                                         ForgeAudioBatchId batch_id) {
+    float target;
+
+    LOG_API_ENTER(voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        fa_batch_queue_fade_stop(voice, volume, duration_frames, batch_id);
+        LOG_API_EXIT(voice->audio)
+        return 0;
+    }
+
+    forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
+    target = forge_clamp(volume, -FORGE_AUDIO_MAX_VOLUME_LEVEL, FORGE_AUDIO_MAX_VOLUME_LEVEL);
+
+    fa_platform_lock_mutex(voice->volumeLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+
+    if (duration_frames == 0) {
+        voice->volume = target;
+        voice->volumeAutomation.active = 0;
+        voice->volumeAutomation.remainingFrames = 0;
+        voice->volumeAutomation.stopSourceOnComplete = 0;
+        voice->src.active = 0;
+    } else {
+        voice->volumeAutomation.target = target;
+        voice->volumeAutomation.remainingFrames = duration_frames;
+        voice->volumeAutomation.step = (target - voice->volume) / (float)duration_frames;
+        voice->volumeAutomation.stopSourceOnComplete = 1;
+        voice->volumeAutomation.active = 1;
+    }
+
+    fa_platform_unlock_mutex(voice->volumeLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
+
     LOG_API_EXIT(voice->audio)
     return 0;
 }

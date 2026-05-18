@@ -130,6 +130,7 @@ struct ForgeVoice {
         float target;
         float step;
         uint32_t remainingFrames;
+        uint8_t stopSourceOnComplete;
     } volumeAutomation;
 
     FORGE_AUDIO_NAMELESS union {

@@ -779,6 +779,17 @@ FORGE_AUDIO_API ForgeResult forge_source_voice_start(ForgeSourceVoice *voice, ui
 FORGE_AUDIO_API ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uint32_t flags,
                                                     ForgeAudioBatchId batch_id);
 
+/* Ramps the source voice volume, then stops the voice on the audio timeline.
+ *
+ * volume:        Target amplitude ratio. Same bounds as forge_voice_set_volume.
+ * duration_frames: Number of output sample frames over which to reach the target before stopping.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice, float volume,
+                                                         uint32_t duration_frames, ForgeAudioBatchId batch_id);
+
 /* Submits a block of wavedata for the source to process.
  *
  * buffer:    See ForgeBuffer for details.

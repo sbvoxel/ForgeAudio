@@ -437,6 +437,15 @@ static void apply_voice_volume_locked(ForgeVoice *voice, float *samples, uint32_
             if (voice->volumeAutomation.remainingFrames == 0) {
                 voice->volume = voice->volumeAutomation.target;
                 voice->volumeAutomation.active = 0;
+                if (voice->volumeAutomation.stopSourceOnComplete && voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+                    voice->volumeAutomation.stopSourceOnComplete = 0;
+                    voice->src.active = 0;
+                    frame += 1;
+                    if (frame < frames) {
+                        forge_zero(samples + (frame * channels), (frames - frame) * channels * sizeof(float));
+                    }
+                    return;
+                }
             } else {
                 voice->volume += voice->volumeAutomation.step;
             }
@@ -455,6 +464,10 @@ static void advance_voice_volume_locked(ForgeVoice *voice, uint32_t frames) {
         if (voice->volumeAutomation.remainingFrames == 0) {
             voice->volume = voice->volumeAutomation.target;
             voice->volumeAutomation.active = 0;
+            if (voice->volumeAutomation.stopSourceOnComplete && voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+                voice->volumeAutomation.stopSourceOnComplete = 0;
+                voice->src.active = 0;
+            }
         } else {
             voice->volume += voice->volumeAutomation.step;
         }

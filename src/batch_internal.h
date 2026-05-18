@@ -46,6 +46,8 @@ FORGE_INTERNAL_API void fa_batch_queue_set_output_matrix(ForgeVoice *voice, Forg
                                                          const float *level_matrix, ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_start(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_stop(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void fa_batch_queue_fade_stop(ForgeSourceVoice *voice, float volume, uint32_t duration_frames,
+                                                 ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_exit_loop(ForgeSourceVoice *voice, ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio,
                                                            ForgeAudioBatchId batch_id);
