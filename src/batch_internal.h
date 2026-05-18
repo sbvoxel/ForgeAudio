@@ -23,6 +23,30 @@ FORGE_INTERNAL_API void fa_batch_execute(ForgeAudioEngine *audio);
 
 FORGE_INTERNAL_API void fa_batch_clear_all(ForgeAudioEngine *audio);
 FORGE_INTERNAL_API void fa_batch_clear_all_for_voice(ForgeVoice *voice);
+FORGE_INTERNAL_API void fa_batch_clear_ready_immediate_volume_automation(ForgeVoice *voice);
+FORGE_INTERNAL_API void fa_batch_clear_ready_immediate_channel_volume_automation(ForgeVoice *voice);
+FORGE_INTERNAL_API void fa_batch_clear_ready_immediate_output_matrix_automation(ForgeVoice *voice,
+                                                                               ForgeVoice *destination_voice);
+
+FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_volume(ForgeVoice *voice, float volume,
+                                                            uint32_t duration_frames);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_set_volume(ForgeVoice *voice, float volume);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_set_channel_volumes(ForgeVoice *voice, uint32_t channels,
+                                                                    const float *volumes);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                                  uint32_t source_channels,
+                                                                  uint32_t destination_channels,
+                                                                  const float *level_matrix);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels,
+                                                                     const float *volumes,
+                                                                     uint32_t duration_frames);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                                   uint32_t source_channels,
+                                                                   uint32_t destination_channels,
+                                                                   const float *level_matrix,
+                                                                   uint32_t duration_frames);
+FORGE_INTERNAL_API ForgeResult fa_source_voice_install_fade_stop(ForgeSourceVoice *voice, float volume,
+                                                                 uint32_t duration_frames);
 
 FORGE_INTERNAL_API void fa_batch_queue_enable_effect(ForgeVoice *voice, uint32_t effect_index,
                                                      ForgeAudioBatchId batch_id);

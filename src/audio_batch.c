@@ -158,38 +158,37 @@ static inline void execute_command(ForgeAudioCommand *op) {
         break;
 
     case FORGE_AUDIO_COMMAND_SET_VOLUME:
-        forge_voice_set_volume(op->voice, op->Data.SetVolume.volume, FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_set_volume(op->voice, op->Data.SetVolume.volume);
         break;
 
     case FORGE_AUDIO_COMMAND_RAMP_VOLUME:
-        forge_voice_ramp_volume(op->voice, op->Data.RampVolume.volume, op->Data.RampVolume.duration_frames,
-                                FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_ramp_volume(op->voice, op->Data.RampVolume.volume, op->Data.RampVolume.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES:
-        forge_voice_set_channel_volumes(op->voice, op->Data.SetChannelVolumes.channels,
-                                        op->Data.SetChannelVolumes.volumes, FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_set_channel_volumes(op->voice, op->Data.SetChannelVolumes.channels,
+                                             op->Data.SetChannelVolumes.volumes);
         break;
 
     case FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES:
-        forge_voice_ramp_channel_volumes(op->voice, op->Data.RampChannelVolumes.channels,
-                                         op->Data.RampChannelVolumes.volumes,
-                                         op->Data.RampChannelVolumes.duration_frames, FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_ramp_channel_volumes(op->voice, op->Data.RampChannelVolumes.channels,
+                                              op->Data.RampChannelVolumes.volumes,
+                                              op->Data.RampChannelVolumes.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX:
-        forge_voice_set_output_matrix(op->voice, op->Data.SetOutputMatrix.destination_voice,
-                                      op->Data.SetOutputMatrix.source_channels,
-                                      op->Data.SetOutputMatrix.destination_channels,
-                                      op->Data.SetOutputMatrix.level_matrix, FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_set_output_matrix(op->voice, op->Data.SetOutputMatrix.destination_voice,
+                                           op->Data.SetOutputMatrix.source_channels,
+                                           op->Data.SetOutputMatrix.destination_channels,
+                                           op->Data.SetOutputMatrix.level_matrix);
         break;
 
     case FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX:
-        forge_voice_ramp_output_matrix(op->voice, op->Data.RampOutputMatrix.destination_voice,
-                                       op->Data.RampOutputMatrix.source_channels,
-                                       op->Data.RampOutputMatrix.destination_channels,
-                                       op->Data.RampOutputMatrix.level_matrix,
-                                       op->Data.RampOutputMatrix.duration_frames, FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_ramp_output_matrix(op->voice, op->Data.RampOutputMatrix.destination_voice,
+                                            op->Data.RampOutputMatrix.source_channels,
+                                            op->Data.RampOutputMatrix.destination_channels,
+                                            op->Data.RampOutputMatrix.level_matrix,
+                                            op->Data.RampOutputMatrix.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_START:
@@ -201,8 +200,7 @@ static inline void execute_command(ForgeAudioCommand *op) {
         break;
 
     case FORGE_AUDIO_COMMAND_FADE_STOP:
-        forge_source_voice_fade_stop(op->voice, op->Data.FadeStop.volume, op->Data.FadeStop.duration_frames,
-                                     FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_source_voice_install_fade_stop(op->voice, op->Data.FadeStop.volume, op->Data.FadeStop.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_EXIT_LOOP:
@@ -315,12 +313,11 @@ void fa_batch_execute(ForgeAudioEngine *audio) {
 
 /* Command queueing */
 
-static inline ForgeAudioCommand *queue_command(ForgeVoice *voice, ForgeAudioCommandType type,
-                                               ForgeAudioBatchId batch_id) {
+static inline ForgeAudioCommand *queue_command_to_list(ForgeVoice *voice, ForgeAudioCommandType type,
+                                                       ForgeAudioBatchId batch_id, ForgeAudioCommand **list) {
     ForgeAudioCommand *latest;
     ForgeAudioCommand *newop = voice->audio->malloc_func(sizeof(ForgeAudioCommand));
 
-    forge_assert(batch_id != FORGE_AUDIO_BATCH_IMMEDIATE);
     forge_assert(batch_id != FORGE_AUDIO_BATCH_ALL);
 
     newop->type = type;
@@ -328,10 +325,10 @@ static inline ForgeAudioCommand *queue_command(ForgeVoice *voice, ForgeAudioComm
     newop->batch_id = batch_id;
     newop->next = NULL;
 
-    if (voice->audio->pending_commands == NULL) {
-        voice->audio->pending_commands = newop;
+    if (*list == NULL) {
+        *list = newop;
     } else {
-        latest = voice->audio->pending_commands;
+        latest = *list;
         while (latest->next != NULL) {
             latest = latest->next;
         }
@@ -339,6 +336,20 @@ static inline ForgeAudioCommand *queue_command(ForgeVoice *voice, ForgeAudioComm
     }
 
     return newop;
+}
+
+static inline ForgeAudioCommand *queue_command(ForgeVoice *voice, ForgeAudioCommandType type,
+                                               ForgeAudioBatchId batch_id) {
+    forge_assert(batch_id != FORGE_AUDIO_BATCH_IMMEDIATE);
+    return queue_command_to_list(voice, type, batch_id, &voice->audio->pending_commands);
+}
+
+static inline ForgeAudioCommand *queue_automation_command(ForgeVoice *voice, ForgeAudioCommandType type,
+                                                          ForgeAudioBatchId batch_id) {
+    if (batch_id == FORGE_AUDIO_BATCH_IMMEDIATE) {
+        return queue_command_to_list(voice, type, batch_id, &voice->audio->ready_commands);
+    }
+    return queue_command(voice, type, batch_id);
 }
 
 void fa_batch_queue_enable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {
@@ -439,7 +450,7 @@ void fa_batch_queue_ramp_volume(ForgeVoice *voice, float volume, uint32_t durati
     fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
-    op = queue_command(voice, FORGE_AUDIO_COMMAND_RAMP_VOLUME, batch_id);
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_VOLUME, batch_id);
 
     op->Data.RampVolume.volume = volume;
     op->Data.RampVolume.duration_frames = duration_frames;
@@ -472,7 +483,7 @@ void fa_batch_queue_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, c
     fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
-    op = queue_command(voice, FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES, batch_id);
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES, batch_id);
 
     op->Data.RampChannelVolumes.channels = channels;
     op->Data.RampChannelVolumes.volumes = voice->audio->malloc_func(sizeof(float) * channels);
@@ -513,7 +524,7 @@ void fa_batch_queue_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destinatio
     fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
-    op = queue_command(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX, batch_id);
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX, batch_id);
 
     op->Data.RampOutputMatrix.destination_voice = destination_voice;
     op->Data.RampOutputMatrix.source_channels = source_channels;
@@ -563,7 +574,7 @@ void fa_batch_queue_fade_stop(ForgeSourceVoice *voice, float volume, uint32_t du
     fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
-    op = queue_command(voice, FORGE_AUDIO_COMMAND_FADE_STOP, batch_id);
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_FADE_STOP, batch_id);
 
     op->Data.FadeStop.volume = volume;
     op->Data.FadeStop.duration_frames = duration_frames;
@@ -649,6 +660,66 @@ static inline void remove_voice_commands(ForgeVoice *voice, ForgeAudioCommand **
         }
         current = next;
     }
+}
+
+static inline void remove_ready_immediate_automation_commands(ForgeVoice *voice, ForgeAudioCommandType type,
+                                                              ForgeVoice *destination_voice) {
+    ForgeAudioCommand *current, *next, *prev;
+
+    current = voice->audio->ready_commands;
+    prev = NULL;
+    while (current != NULL) {
+        uint8_t remove = current->batch_id == FORGE_AUDIO_BATCH_IMMEDIATE && current->voice == voice &&
+                         current->type == type;
+
+        if (remove && type == FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX) {
+            remove = current->Data.RampOutputMatrix.destination_voice == destination_voice;
+        }
+
+        next = current->next;
+        if (remove) {
+            if (prev == NULL) {
+                voice->audio->ready_commands = next;
+            } else {
+                prev->next = next;
+            }
+            destroy_command(current, voice->audio->free_func);
+        } else {
+            prev = current;
+        }
+        current = next;
+    }
+}
+
+void fa_batch_clear_ready_immediate_volume_automation(ForgeVoice *voice) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    remove_ready_immediate_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_VOLUME, NULL);
+    remove_ready_immediate_automation_commands(voice, FORGE_AUDIO_COMMAND_FADE_STOP, NULL);
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_clear_ready_immediate_channel_volume_automation(ForgeVoice *voice) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    remove_ready_immediate_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES, NULL);
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_clear_ready_immediate_output_matrix_automation(ForgeVoice *voice, ForgeVoice *destination_voice) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    remove_ready_immediate_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX, destination_voice);
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
 void fa_batch_clear_all_for_voice(ForgeVoice *voice) {

@@ -1084,7 +1084,7 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
         return;
     }
 
-    /* Apply deferred batch commands that are ready */
+    /* Apply pass-boundary commands that are ready */
     fa_batch_execute(audio);
 
     /* ProcessingPassStart callbacks */

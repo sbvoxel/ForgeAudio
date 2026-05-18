@@ -686,7 +686,8 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volu
  *
  * volume:        Target amplitude ratio. Same bounds as forge_voice_set_volume.
  * duration_frames: Number of output sample frames over which to reach the target.
- * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *              the engine is active, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -715,7 +716,8 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, u
  * channels:        Must match the channel count of this voice!
  * volumes:        Target amplitude ratios for each channel. Same bounds as forge_voice_set_volume.
  * duration_frames: Number of output sample frames over which to reach the targets.
- * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *              the engine is active, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -758,7 +760,8 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, For
  * destination_channels:    Must match the destination's input channel count!
  * level_matrix:    Target matrix, as a float[source_channels * destination_channels].
  * duration_frames: Number of output sample frames over which to reach the target matrix.
- * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *              the engine is active, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
@@ -812,7 +815,8 @@ FORGE_AUDIO_API ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uin
  *
  * volume:        Target amplitude ratio. Same bounds as forge_voice_set_volume.
  * duration_frames: Number of output sample frames over which to reach the target before stopping.
- * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *              the engine is active, or pass a valid deferred batch id to defer.
  *
  * Returns ForgeResultSuccess on success.
  */
