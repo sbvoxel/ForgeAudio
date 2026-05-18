@@ -516,6 +516,19 @@ FORGE_AUDIO_API void forge_audio_set_debug_configuration(ForgeAudioEngine *audio
 FORGE_AUDIO_API void forge_audio_get_processing_quantum(ForgeAudioEngine *audio, uint32_t *quantumNumerator,
                                                         uint32_t *quantumDenominator);
 
+/* Converts a duration in milliseconds to engine output sample frames.
+ *
+ * duration_ms: Duration in milliseconds. 0.0 converts to 0 frames. Positive
+ *              finite values round to the nearest frame, and positive values
+ *              that round to 0 are clamped to 1 frame.
+ * frames:      Filled with the converted frame count.
+ *
+ * Returns ForgeResultSuccess on success. Returns ForgeResultInvalidCall for
+ * NULL frames, negative/NaN/infinite durations, unavailable sample rate, or
+ * overflow.
+ */
+FORGE_AUDIO_API ForgeResult forge_audio_ms_to_frames(ForgeAudioEngine *audio, double duration_ms, uint32_t *frames);
+
 /* ForgeVoice Interface */
 
 /* Requests basic information about a voice.
@@ -673,8 +686,23 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_volume_target(ForgeVoice *voice, flo
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_voice_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames,
-                                                    ForgeAudioBatchId batch_id);
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_volume_frames(ForgeVoice *voice, float volume, uint32_t duration_frames,
+                                                           ForgeAudioBatchId batch_id);
+
+/* Ramps the global volume of a voice over a duration in milliseconds.
+ *
+ * duration_ms is converted to engine output sample frames using
+ * forge_audio_ms_to_frames when this function is called.
+ *
+ * volume:        Target amplitude ratio. Same bounds as forge_voice_set_volume.
+ * duration_ms:   Duration in milliseconds. See forge_audio_ms_to_frames.
+ * batch_id:      Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *                the engine is active, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_volume_ms(ForgeVoice *voice, float volume, double duration_ms,
+                                                       ForgeAudioBatchId batch_id);
 
 /* Requests the global volume of a voice.
  *
@@ -716,9 +744,26 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_channel_volumes_target(ForgeVoice *v
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_voice_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels,
-                                                             const float *volumes, uint32_t duration_frames,
-                                                             ForgeAudioBatchId batch_id);
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_channel_volumes_frames(ForgeVoice *voice, uint32_t channels,
+                                                                    const float *volumes, uint32_t duration_frames,
+                                                                    ForgeAudioBatchId batch_id);
+
+/* Ramps the per-channel volumes of a voice over a duration in milliseconds.
+ *
+ * duration_ms is converted to engine output sample frames using
+ * forge_audio_ms_to_frames when this function is called.
+ *
+ * channels:      Must match the channel count of this voice!
+ * volumes:       Target amplitude ratios for each channel. Same bounds as forge_voice_set_volume.
+ * duration_ms:   Duration in milliseconds. See forge_audio_ms_to_frames.
+ * batch_id:      Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *                the engine is active, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_channel_volumes_ms(ForgeVoice *voice, uint32_t channels,
+                                                                const float *volumes, double duration_ms,
+                                                                ForgeAudioBatchId batch_id);
 
 /* Requests the per-channel volumes of a voice.
  *
@@ -777,10 +822,33 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_output_matrix_target(ForgeVoice *voi
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
-                                                           uint32_t source_channels, uint32_t destination_channels,
-                                                           const float *level_matrix, uint32_t duration_frames,
-                                                           ForgeAudioBatchId batch_id);
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_matrix_frames(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                                  uint32_t source_channels,
+                                                                  uint32_t destination_channels,
+                                                                  const float *level_matrix,
+                                                                  uint32_t duration_frames,
+                                                                  ForgeAudioBatchId batch_id);
+
+/* Ramps the volumes of a send's output channels over a duration in milliseconds.
+ *
+ * duration_ms is converted to engine output sample frames using
+ * forge_audio_ms_to_frames when this function is called.
+ *
+ * destination_voice:    An output voice from the voice's send list.
+ * source_channels:    Must match the voice's rendered output channel count!
+ * destination_channels:    Must match the destination's input channel count!
+ * level_matrix:    Target matrix, as a float[source_channels * destination_channels].
+ * duration_ms: Duration in milliseconds. See forge_audio_ms_to_frames.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *              the engine is active, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_matrix_ms(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                              uint32_t source_channels,
+                                                              uint32_t destination_channels,
+                                                              const float *level_matrix, double duration_ms,
+                                                              ForgeAudioBatchId batch_id);
 
 /* Gets the volumes of a send's output channels. See forge_voice_set_output_matrix.
  *
@@ -832,8 +900,24 @@ FORGE_AUDIO_API ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uin
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice, float volume,
-                                                         uint32_t duration_frames, ForgeAudioBatchId batch_id);
+FORGE_AUDIO_API ForgeResult forge_source_voice_fade_stop_frames(ForgeSourceVoice *voice, float volume,
+                                                                uint32_t duration_frames, ForgeAudioBatchId batch_id);
+
+/* Ramps the source voice volume over a duration in milliseconds, then stops the
+ * voice on the audio timeline.
+ *
+ * duration_ms is converted to engine output sample frames using
+ * forge_audio_ms_to_frames when this function is called.
+ *
+ * volume:      Target amplitude ratio. Same bounds as forge_voice_set_volume.
+ * duration_ms: Duration in milliseconds. See forge_audio_ms_to_frames.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply at the start of the next processing pass while
+ *              the engine is active, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_source_voice_fade_stop_ms(ForgeSourceVoice *voice, float volume, double duration_ms,
+                                                            ForgeAudioBatchId batch_id);
 
 /* Submits a block of wavedata for the source to process.
  *

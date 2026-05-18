@@ -59,6 +59,50 @@ int test_output_matrix_target_default_duration(void) {
     return failed;
 }
 
+int test_output_matrix_ramp_ms_uses_engine_rate(void) {
+    enum {
+        source_channels = 1,
+        destination_channels = 2,
+        sample_rate = 48000,
+        quantum = 8,
+        buffer_frames = quantum * 2
+    };
+    static const float start_matrix[destination_channels * source_channels] = {1.0f, 0.0f};
+    static const float target_matrix[destination_channels * source_channels] = {0.0f, 1.0f};
+    static const float expected[quantum * destination_channels] = {
+        1.0f, 0.0f, 0.75f, 0.25f, 0.5f, 0.5f, 0.25f, 0.75f,
+        0.0f, 1.0f, 0.0f,  1.0f,  0.0f, 1.0f, 0.0f,  1.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames * source_channels];
+    float output[quantum * destination_channels];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, destination_channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, source_channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_output_matrix(voice, harness.master, source_channels, destination_channels,
+                                               start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_output_matrix_ms(voice, harness.master, source_channels, destination_channels,
+                                                   target_matrix, (1000.0 * 4.0) / sample_rate,
+                                                   FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("output_matrix_ramp_ms_uses_engine_rate", output, expected,
+                                        quantum * destination_channels, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_output_matrix_ramp_mono_to_stereo_four_frames(void) {
     enum {
         source_channels = 1,
@@ -87,7 +131,7 @@ int test_output_matrix_ramp_mono_to_stereo_four_frames(void) {
                                                start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 target_matrix, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -133,7 +177,7 @@ int test_inactive_output_matrix_null_destination_single_send(void) {
                                                FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, NULL, source_channels, destination_channels, target_matrix, 2,
+        failed = forge_voice_ramp_output_matrix_frames(voice, NULL, source_channels, destination_channels, target_matrix, 2,
                                                 FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -182,7 +226,7 @@ int test_output_matrix_ramp_reaches_target_mid_block(void) {
                                                start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 target_matrix, 2, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -236,7 +280,7 @@ int test_deferred_start_and_output_matrix_ramp_same_batch(void) {
         failed = forge_source_voice_start(voice, 0, batch_id) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 target_matrix, 4, batch_id) != 0;
     }
     if (!failed) {
@@ -292,7 +336,7 @@ int test_output_matrix_ramp_retarget_uses_current_values(void) {
                                                start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 first_target, 8, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -303,7 +347,7 @@ int test_output_matrix_ramp_retarget_uses_current_values(void) {
                                         quantum * destination_channels, 0.000001f);
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 second_target, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -349,7 +393,7 @@ int test_set_output_matrix_cancels_active_ramp(void) {
                                                start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 target_matrix, 8, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -404,7 +448,7 @@ int test_set_output_matrix_cancels_ready_deferred_ramp(void) {
                                                start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 target_matrix, quantum, batch_id) != 0;
     }
     if (!failed) {
@@ -464,14 +508,14 @@ int test_scalar_channel_and_output_matrix_ramps_multiply(void) {
                                                start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_volume(voice, 1.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+        failed = forge_voice_ramp_volume_frames(voice, 1.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, source_channels, target_channel_volume, 4,
+        failed = forge_voice_ramp_channel_volumes_frames(voice, source_channels, target_channel_volume, 4,
                                                  FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 target_matrix, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -520,7 +564,7 @@ int test_stopped_source_output_matrix_ramp_advances_on_engine_timeline(void) {
                                                start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_output_matrix(voice, harness.master, source_channels, destination_channels,
+        failed = forge_voice_ramp_output_matrix_frames(voice, harness.master, source_channels, destination_channels,
                                                 target_matrix, quantum, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {

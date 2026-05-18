@@ -1129,6 +1129,48 @@ void forge_audio_get_processing_quantum(ForgeAudioEngine *audio, uint32_t *quant
     }
 }
 
+static ForgeResult ms_to_frames_with_rate(uint32_t sample_rate, double duration_ms, uint32_t *frames) {
+    double frame_count;
+    double rounded_frames;
+
+    if (frames == NULL || sample_rate == 0) {
+        return ForgeResultInvalidCall;
+    }
+
+    if (!(duration_ms >= 0.0)) {
+        return ForgeResultInvalidCall;
+    }
+
+    if (duration_ms == 0.0) {
+        *frames = 0;
+        return ForgeResultSuccess;
+    }
+
+    frame_count = (duration_ms * (double)sample_rate) / 1000.0;
+    if (!(frame_count <= (double)UINT32_MAX + 0.499999999)) {
+        return ForgeResultInvalidCall;
+    }
+
+    rounded_frames = forge_floor(frame_count + 0.5);
+    if (rounded_frames < 1.0) {
+        rounded_frames = 1.0;
+    }
+    if (!(rounded_frames <= (double)UINT32_MAX)) {
+        return ForgeResultInvalidCall;
+    }
+
+    *frames = (uint32_t)rounded_frames;
+    return ForgeResultSuccess;
+}
+
+ForgeResult forge_audio_ms_to_frames(ForgeAudioEngine *audio, double duration_ms, uint32_t *frames) {
+    if (audio == NULL || audio->master == NULL) {
+        return ForgeResultInvalidCall;
+    }
+
+    return ms_to_frames_with_rate(audio->master->master.inputSampleRate, duration_ms, frames);
+}
+
 /* ForgeVoice Interface */
 
 void fa_voice_recalc_mix_matrix(ForgeVoice *voice, uint32_t sendIndex) {
@@ -2098,12 +2140,27 @@ ForgeResult forge_voice_set_volume_target(ForgeVoice *voice, float volume, Forge
     return result;
 }
 
-ForgeResult forge_voice_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames,
-                                    ForgeAudioBatchId batch_id) {
+ForgeResult forge_voice_ramp_volume_frames(ForgeVoice *voice, float volume, uint32_t duration_frames,
+                                           ForgeAudioBatchId batch_id) {
     ForgeResult result;
     LOG_API_ENTER(voice->audio)
 
     result = queue_or_install_ramp_volume(voice, volume, duration_frames, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_volume_ms(ForgeVoice *voice, float volume, double duration_ms,
+                                       ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+    LOG_API_ENTER(voice->audio)
+
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_volume(voice, volume, duration_frames, batch_id);
+    }
 
     LOG_API_EXIT(voice->audio)
     return result;
@@ -2195,12 +2252,27 @@ ForgeResult forge_voice_set_channel_volumes_target(ForgeVoice *voice, uint32_t c
     return result;
 }
 
-ForgeResult forge_voice_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
-                                             uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+ForgeResult forge_voice_ramp_channel_volumes_frames(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                                    uint32_t duration_frames, ForgeAudioBatchId batch_id) {
     ForgeResult result;
     LOG_API_ENTER(voice->audio)
 
     result = queue_or_install_ramp_channel_volumes(voice, channels, volumes, duration_frames, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_channel_volumes_ms(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                                double duration_ms, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+    LOG_API_ENTER(voice->audio)
+
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_channel_volumes(voice, channels, volumes, duration_frames, batch_id);
+    }
 
     LOG_API_EXIT(voice->audio)
     return result;
@@ -2298,14 +2370,33 @@ ForgeResult forge_voice_set_output_matrix_target(ForgeVoice *voice, ForgeVoice *
     return result;
 }
 
-ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t source_channels,
-                                           uint32_t destination_channels, const float *level_matrix,
-                                           uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+ForgeResult forge_voice_ramp_output_matrix_frames(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                  uint32_t source_channels, uint32_t destination_channels,
+                                                  const float *level_matrix, uint32_t duration_frames,
+                                                  ForgeAudioBatchId batch_id) {
     ForgeResult result;
     LOG_API_ENTER(voice->audio)
 
     result = queue_or_install_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
                                                  level_matrix, duration_frames, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_output_matrix_ms(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                              uint32_t source_channels, uint32_t destination_channels,
+                                              const float *level_matrix, double duration_ms,
+                                              ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+    LOG_API_ENTER(voice->audio)
+
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
+                                                     level_matrix, duration_frames, batch_id);
+    }
 
     LOG_API_EXIT(voice->audio)
     return result;
@@ -2560,9 +2651,40 @@ ForgeResult forge_source_voice_stop(ForgeSourceVoice *voice, uint32_t flags, For
     return 0;
 }
 
-ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice, float volume, uint32_t duration_frames,
-                                         ForgeAudioBatchId batch_id) {
+ForgeResult forge_source_voice_fade_stop_frames(ForgeSourceVoice *voice, float volume, uint32_t duration_frames,
+                                                ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
+
+    if (voice->audio->active) {
+        fa_batch_queue_fade_stop(voice, volume, duration_frames, batch_id);
+        LOG_API_EXIT(voice->audio)
+        return 0;
+    }
+
+    fa_source_voice_install_fade_stop(voice, volume, duration_frames);
+
+    LOG_API_EXIT(voice->audio)
+    return 0;
+}
+
+ForgeResult forge_source_voice_fade_stop_ms(ForgeSourceVoice *voice, float volume, double duration_ms,
+                                            ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+    LOG_API_ENTER(voice->audio)
+
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result != ForgeResultSuccess) {
+        LOG_API_EXIT(voice->audio)
+        return result;
+    }
 
     if (batch_id == FORGE_AUDIO_BATCH_ALL) {
         LOG_API_EXIT(voice->audio)

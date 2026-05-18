@@ -57,6 +57,48 @@ int test_channel_volume_target_default_duration(void) {
     return failed;
 }
 
+int test_channel_volume_ramp_ms_uses_engine_rate(void) {
+    enum {
+        channels = 2,
+        sample_rate = 48000,
+        quantum = 8,
+        buffer_frames = quantum * 2
+    };
+    static const float start_volumes[channels] = {0.0f, 1.0f};
+    static const float target_volumes[channels] = {1.0f, 0.0f};
+    static const float expected[quantum * channels] = {0.0f,  1.0f, 0.25f, 0.75f, 0.5f,  0.5f,
+                                                       0.75f, 0.25f, 1.0f,  0.0f,  1.0f,  0.0f,
+                                                       1.0f,  0.0f,  1.0f,  0.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames * channels];
+    float output[quantum * channels];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_channel_volumes_ms(voice, channels, target_volumes,
+                                                     (1000.0 * 4.0) / sample_rate,
+                                                     FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("channel_volume_ramp_ms_uses_engine_rate", output, expected,
+                                        quantum * channels, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_channel_volume_ramp_stereo_four_frames(void) {
     enum {
         channels = 2,
@@ -83,7 +125,7 @@ int test_channel_volume_ramp_stereo_four_frames(void) {
         failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, target_volumes, 4,
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, target_volumes, 4,
                                                  FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -124,7 +166,7 @@ int test_channel_volume_ramp_reaches_target_mid_block(void) {
         failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, target_volumes, 2,
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, target_volumes, 2,
                                                  FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -176,7 +218,7 @@ int test_deferred_start_and_channel_volume_ramp_same_batch(void) {
         failed = forge_source_voice_start(voice, 0, batch_id) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, target_volumes, 4, batch_id) != 0;
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, target_volumes, 4, batch_id) != 0;
     }
     if (!failed) {
         failed = audio_render_harness_render(&harness, output, quantum);
@@ -228,7 +270,7 @@ int test_channel_volume_ramp_retarget_uses_current_values(void) {
         failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, first_target, 8, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, first_target, 8, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
         failed = audio_render_harness_render(&harness, output, quantum);
@@ -238,7 +280,7 @@ int test_channel_volume_ramp_retarget_uses_current_values(void) {
                                         0.000001f);
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, second_target, 4,
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, second_target, 4,
                                                  FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -282,7 +324,7 @@ int test_set_channel_volumes_cancels_active_ramp(void) {
         failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, target_volumes, 8,
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, target_volumes, 8,
                                                  FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
@@ -334,7 +376,7 @@ int test_set_channel_volumes_cancels_ready_deferred_ramp(void) {
         failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, target_volumes, quantum, batch_id) != 0;
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, target_volumes, quantum, batch_id) != 0;
     }
     if (!failed) {
         failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
@@ -384,10 +426,10 @@ int test_scalar_and_channel_volume_ramps_multiply(void) {
         failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_volume(voice, 1.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+        failed = forge_voice_ramp_volume_frames(voice, 1.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_channel_volumes(voice, channels, target_volumes, 4,
+        failed = forge_voice_ramp_channel_volumes_frames(voice, channels, target_volumes, 4,
                                                  FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {

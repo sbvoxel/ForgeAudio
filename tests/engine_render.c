@@ -24,7 +24,9 @@ int main(void) {
     failures += run_test("deferred_stop_boundary", test_deferred_stop_boundary);
     failures += run_test("source_rate_change_continuity_smoke", test_source_rate_change_continuity_smoke);
     failures += run_test("render_api_rejects_invalid_inputs", test_render_api_rejects_invalid_inputs);
+    failures += run_test("ms_to_frames_conversion", test_ms_to_frames_conversion);
     failures += run_test("volume_target_default_duration", test_volume_target_default_duration);
+    failures += run_test("volume_ramp_ms_uses_engine_rate", test_volume_ramp_ms_uses_engine_rate);
     failures += run_test("volume_target_immediate_getter_visibility",
                          test_volume_target_immediate_getter_visibility);
     failures += run_test("deferred_start_and_volume_target_same_batch",
@@ -56,6 +58,8 @@ int main(void) {
     failures += run_test("submix_volume_ramp", test_submix_volume_ramp);
     failures += run_test("channel_volume_target_default_duration",
                          test_channel_volume_target_default_duration);
+    failures += run_test("channel_volume_ramp_ms_uses_engine_rate",
+                         test_channel_volume_ramp_ms_uses_engine_rate);
     failures += run_test("channel_volume_ramp_stereo_four_frames", test_channel_volume_ramp_stereo_four_frames);
     failures += run_test("channel_volume_ramp_reaches_target_mid_block",
                          test_channel_volume_ramp_reaches_target_mid_block);
@@ -70,6 +74,8 @@ int main(void) {
                          test_scalar_and_channel_volume_ramps_multiply);
     failures += run_test("output_matrix_target_default_duration",
                          test_output_matrix_target_default_duration);
+    failures += run_test("output_matrix_ramp_ms_uses_engine_rate",
+                         test_output_matrix_ramp_ms_uses_engine_rate);
     failures += run_test("output_matrix_ramp_mono_to_stereo_four_frames",
                          test_output_matrix_ramp_mono_to_stereo_four_frames);
     failures += run_test("inactive_output_matrix_null_destination_single_send",
@@ -93,6 +99,7 @@ int main(void) {
     failures += run_test("gain_ramp_invalid_arguments", test_gain_ramp_invalid_arguments);
     failures += run_test("master_volume_ramp", test_master_volume_ramp);
     failures += run_test("source_fade_stop_stops_on_timeline", test_source_fade_stop_stops_on_timeline);
+    failures += run_test("source_fade_stop_ms_stops_on_timeline", test_source_fade_stop_ms_stops_on_timeline);
     failures += run_test("deferred_source_fade_stop_waits_for_apply", test_deferred_source_fade_stop_waits_for_apply);
     failures += run_test("source_fade_stop_zero_duration_stops_at_boundary",
                          test_source_fade_stop_zero_duration_stops_at_boundary);

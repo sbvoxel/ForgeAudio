@@ -31,7 +31,7 @@ int test_source_fade_stop_stops_on_timeline(void) {
         failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
         failed = audio_render_harness_render(&harness, output, quantum);
@@ -44,6 +44,45 @@ int test_source_fade_stop_stops_on_timeline(void) {
     }
     if (!failed) {
         failed = audio_test_check_constant("fade_stop_second_quantum", output, quantum, channels, 0.0f, 0.0f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_source_fade_stop_ms_stops_on_timeline(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 8,
+        buffer_frames = quantum * 3
+    };
+    static const float expected[quantum] = {1.0f, 0.75f, 0.5f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames];
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_source_voice_fade_stop_ms(voice, 0.0f, (1000.0 * 4.0) / sample_rate,
+                                                 FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("fade_stop_ms_first_quantum", output, expected, quantum, 0.000001f);
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_constant("fade_stop_ms_second_quantum", output, quantum, channels, 0.0f, 0.0f);
     }
 
     audio_render_harness_destroy(&harness);
@@ -70,7 +109,7 @@ int test_deferred_source_fade_stop_waits_for_apply(void) {
         failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, 4, batch_id) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, 4, batch_id) != 0;
     }
     if (!failed) {
         failed = audio_render_harness_render(&harness, output, quantum);
@@ -117,7 +156,7 @@ int test_source_fade_stop_zero_duration_stops_at_boundary(void) {
         failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
         failed = audio_render_harness_render(&harness, output, quantum);
@@ -151,7 +190,7 @@ int test_batch_fade_stop_then_set_volume_cancels_terminal_stop(void) {
         failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, quantum, batch_id) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, quantum, batch_id) != 0;
     }
     if (!failed) {
         failed = forge_voice_set_volume(voice, 0.5f, batch_id) != 0;
@@ -205,10 +244,10 @@ int test_batch_ramp_then_fade_stop_order(void) {
         failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
     }
     if (!failed) {
-        failed = forge_voice_ramp_volume(voice, 0.5f, quantum, batch_id) != 0;
+        failed = forge_voice_ramp_volume_frames(voice, 0.5f, quantum, batch_id) != 0;
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, 4, batch_id) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, 4, batch_id) != 0;
     }
     if (!failed) {
         failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
@@ -252,10 +291,10 @@ int test_batch_fade_stop_then_ramp_cancels_terminal_stop(void) {
         failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, quantum, batch_id) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, quantum, batch_id) != 0;
     }
     if (!failed) {
-        failed = forge_voice_ramp_volume(voice, 0.5f, quantum, batch_id) != 0;
+        failed = forge_voice_ramp_volume_frames(voice, 0.5f, quantum, batch_id) != 0;
     }
     if (!failed) {
         failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
@@ -315,7 +354,7 @@ int test_stopped_source_fade_stop_completes_on_engine_timeline(void) {
         failed = forge_voice_set_volume(voice, 1.0f, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, quantum, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, quantum, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
         failed = audio_render_harness_render(&harness, output, quantum);
@@ -364,7 +403,7 @@ int test_fade_stop_samples_played_stops_advancing(void) {
         failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
     }
     if (!failed) {
-        failed = forge_source_voice_fade_stop(voice, 0.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+        failed = forge_source_voice_fade_stop_frames(voice, 0.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
     }
     if (!failed) {
         failed = audio_render_harness_render(&harness, output, quantum);
