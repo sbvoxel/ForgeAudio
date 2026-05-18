@@ -449,6 +449,19 @@ static void apply_voice_volume_locked(ForgeVoice *voice, float *samples, uint32_
     }
 }
 
+static void advance_voice_volume_locked(ForgeVoice *voice, uint32_t frames) {
+    while (frames > 0 && voice->volumeAutomation.active) {
+        voice->volumeAutomation.remainingFrames -= 1;
+        if (voice->volumeAutomation.remainingFrames == 0) {
+            voice->volume = voice->volumeAutomation.target;
+            voice->volumeAutomation.active = 0;
+        } else {
+            voice->volume += voice->volumeAutomation.step;
+        }
+        frames -= 1;
+    }
+}
+
 #ifdef FORGE_AUDIO_TESTING
 float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples) {
     return process_effect_chain(voice, buffer, samples);
@@ -664,8 +677,14 @@ sendwork:
     fa_platform_unlock_mutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
 
-    /* Nowhere to send it? Just skip the rest...*/
+    /* No sends means no audible output, but source automation still follows the rendered audio timeline. */
     if (voice->sends.send_count == 0) {
+        fa_platform_lock_mutex(voice->volumeLock);
+        LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+        advance_voice_volume_locked(voice, mixed);
+        fa_platform_unlock_mutex(voice->volumeLock);
+        LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
+
         fa_platform_unlock_mutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
         LOG_FUNC_EXIT(voice->audio)
@@ -953,6 +972,12 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
         if (audio->processingSource->src.active) {
             mix_source(audio->processingSource);
             flush_pending_buffers(audio->processingSource);
+        } else {
+            fa_platform_lock_mutex(audio->processingSource->volumeLock);
+            LOG_MUTEX_LOCK(audio, audio->processingSource->volumeLock)
+            advance_voice_volume_locked(audio->processingSource, audio->updateSize);
+            fa_platform_unlock_mutex(audio->processingSource->volumeLock);
+            LOG_MUTEX_UNLOCK(audio, audio->processingSource->volumeLock)
         }
 
         list = list->next;
