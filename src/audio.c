@@ -1761,7 +1761,7 @@ ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBa
     }
 
     if (voice->audio->active) {
-        fa_batch_clear_ready_immediate_volume_automation(voice);
+        fa_batch_clear_ready_volume_automation(voice);
     }
 
     fa_voice_install_set_volume(voice, volume);
@@ -1828,7 +1828,7 @@ ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels
     }
 
     if (voice->audio->active) {
-        fa_batch_clear_ready_immediate_channel_volume_automation(voice);
+        fa_batch_clear_ready_channel_volume_automation(voice);
     }
 
     fa_voice_install_set_channel_volumes(voice, channels, volumes);
@@ -1913,7 +1913,7 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
             return 0;
         }
 
-        fa_batch_clear_ready_immediate_output_matrix_automation(voice, destination_voice);
+        fa_batch_clear_ready_output_matrix_automation(voice, destination_voice);
     }
 
     result = fa_voice_install_set_output_matrix(voice, destination_voice, source_channels, destination_channels,
