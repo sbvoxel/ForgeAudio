@@ -682,6 +682,17 @@ FORGE_AUDIO_API void forge_voice_get_output_filter_parameters(ForgeVoice *voice,
  */
 FORGE_AUDIO_API ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id);
 
+/* Ramps the global volume of a voice over an exact number of rendered sample frames.
+ *
+ * volume:        Target amplitude ratio. Same bounds as forge_voice_set_volume.
+ * duration_frames: Number of output sample frames over which to reach the target.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames,
+                                                    ForgeAudioBatchId batch_id);
+
 /* Requests the global volume of a voice.
  *
  * volume: Filled with the current voice amplitude ratio.

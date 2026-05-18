@@ -23,6 +23,7 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_VOLUME,
+    FORGE_AUDIO_COMMAND_RAMP_VOLUME,
     FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES,
     FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX,
     FORGE_AUDIO_COMMAND_START,
@@ -58,6 +59,10 @@ struct ForgeAudioCommand {
         struct {
             float volume;
         } SetVolume;
+        struct {
+            float volume;
+            uint32_t duration_frames;
+        } RampVolume;
         struct {
             uint32_t channels;
             float *volumes;
@@ -131,6 +136,11 @@ static inline void execute_command(ForgeAudioCommand *op) {
 
     case FORGE_AUDIO_COMMAND_SET_VOLUME:
         forge_voice_set_volume(op->voice, op->Data.SetVolume.volume, FORGE_AUDIO_BATCH_IMMEDIATE);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_VOLUME:
+        forge_voice_ramp_volume(op->voice, op->Data.RampVolume.volume, op->Data.RampVolume.duration_frames,
+                                FORGE_AUDIO_BATCH_IMMEDIATE);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES:
@@ -375,6 +385,22 @@ void fa_batch_queue_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchI
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_VOLUME, batch_id);
 
     op->Data.SetVolume.volume = volume;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames,
+                                ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_command(voice, FORGE_AUDIO_COMMAND_RAMP_VOLUME, batch_id);
+
+    op->Data.RampVolume.volume = volume;
+    op->Data.RampVolume.duration_frames = duration_frames;
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)

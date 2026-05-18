@@ -420,6 +420,35 @@ static inline float *process_effect_chain(ForgeVoice *voice, float *buffer, uint
     return (float *)dstParams.buffer;
 }
 
+static void apply_voice_volume_locked(ForgeVoice *voice, float *samples, uint32_t frames, uint32_t channels) {
+    uint32_t frame = 0;
+
+    if (voice->volumeAutomation.active) {
+        while (frame < frames && voice->volumeAutomation.active) {
+            float volume = voice->volume;
+
+            if (volume != 1.0f) {
+                for (uint32_t channel = 0; channel < channels; channel += 1) {
+                    samples[frame * channels + channel] *= volume;
+                }
+            }
+
+            voice->volumeAutomation.remainingFrames -= 1;
+            if (voice->volumeAutomation.remainingFrames == 0) {
+                voice->volume = voice->volumeAutomation.target;
+                voice->volumeAutomation.active = 0;
+            } else {
+                voice->volume += voice->volumeAutomation.step;
+            }
+            frame += 1;
+        }
+    }
+
+    if (frame < frames && voice->volume != 1.0f) {
+        fa_mix_amplify(samples + (frame * channels), (frames - frame) * channels, voice->volume);
+    }
+}
+
 #ifdef FORGE_AUDIO_TESTING
 float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples) {
     return process_effect_chain(voice, buffer, samples);
@@ -643,9 +672,10 @@ sendwork:
         return;
     }
 
-    /* Send float cache to sends */
+    /* Apply source volume, then send float cache to sends. */
     fa_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+    apply_voice_volume_locked(voice, finalSamples, mixed, voice->outputChannels);
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
         out = voice->sends.sends[i].output_voice;
         if (out->type == FORGE_AUDIO_VOICE_MASTER) {
@@ -772,11 +802,14 @@ static void mix_submix(ForgeSubmixVoice *voice) {
     }
     resampled = voice->mix.outputSamples * voice->mix.inputChannels;
 
-    /* Submix overall volume is applied _before_ effects/filters, blech! */
-    if (voice->volume != 1.0f) {
-        fa_mix_amplify(finalSamples, resampled, voice->volume);
-    }
     resampled /= voice->mix.inputChannels;
+
+    /* Submix volume is applied before effects/filters. */
+    fa_platform_lock_mutex(voice->volumeLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+    apply_voice_volume_locked(voice, finalSamples, resampled, voice->mix.inputChannels);
+    fa_platform_unlock_mutex(voice->volumeLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
 
     /* Filters */
     if (voice->flags & FORGE_AUDIO_VOICE_USEFILTER) {
@@ -939,11 +972,13 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
     fa_platform_unlock_mutex(audio->submixLock);
     LOG_MUTEX_UNLOCK(audio, audio->submixLock)
 
-    /* Apply master volume */
-    if (audio->master->volume != 1.0f) {
-        fa_mix_amplify(audio->master->master.output, audio->updateSize * audio->master->master.inputChannels,
-                       audio->master->volume);
-    }
+    /* Apply master volume before the master effect chain. */
+    fa_platform_lock_mutex(audio->master->volumeLock);
+    LOG_MUTEX_LOCK(audio, audio->master->volumeLock)
+    apply_voice_volume_locked(audio->master, audio->master->master.output, audio->updateSize,
+                              audio->master->master.inputChannels);
+    fa_platform_unlock_mutex(audio->master->volumeLock);
+    LOG_MUTEX_UNLOCK(audio, audio->master->volumeLock)
 
     /* process master effect chain */
     fa_platform_lock_mutex(audio->master->effectLock);

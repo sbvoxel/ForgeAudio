@@ -125,6 +125,12 @@ struct ForgeVoice {
     float *channelVolume;
     uint32_t outputChannels;
     ForgeAudioMutex volumeLock;
+    struct {
+        uint8_t active;
+        float target;
+        float step;
+        uint32_t remainingFrames;
+    } volumeAutomation;
 
     FORGE_AUDIO_NAMELESS union {
         struct {

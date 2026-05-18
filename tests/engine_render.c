@@ -502,6 +502,241 @@ static int test_render_api_rejects_invalid_inputs(void) {
     return failed;
 }
 
+static int create_started_dc_source(AudioRenderHarness *harness, ForgeSourceVoice **voice, float *source,
+                                    uint32_t buffer_frames, uint32_t channels, uint32_t sample_rate,
+                                    float source_value) {
+    int failed;
+
+    for (uint32_t i = 0; i < buffer_frames * channels; i += 1) {
+        source[i] = source_value;
+    }
+
+    failed = audio_render_harness_create_float_source(harness, voice, channels, sample_rate);
+    if (!failed) {
+        failed = audio_render_harness_submit_float_buffer(*voice, source, buffer_frames, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(*voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+
+    return failed;
+}
+
+static int test_volume_ramp_four_frames(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 8,
+        buffer_frames = quantum * 2
+    };
+    static const float expected[quantum] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 1.0f, 1.0f, 1.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames];
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_volume(voice, 0.0f, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_volume(voice, 1.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("volume_ramp_four_frames", output, expected, quantum, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_volume_ramp_reaches_target_mid_block(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 8,
+        buffer_frames = quantum * 2
+    };
+    static const float expected[quantum] = {0.0f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames];
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_volume(voice, 0.0f, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_volume(voice, 1.0f, 2, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("volume_ramp_mid_block", output, expected, quantum, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_deferred_start_and_volume_ramp_same_batch(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 8,
+        buffer_frames = quantum * 3
+    };
+    const ForgeAudioBatchId batch_id = 456;
+    static const float expected[quantum] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f, 1.0f, 1.0f, 1.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames];
+    float output[quantum];
+    int failed = 0;
+
+    for (uint32_t i = 0; i < buffer_frames; i += 1) {
+        source[i] = 1.0f;
+    }
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = audio_render_harness_create_float_source(&harness, &voice, channels, sample_rate);
+    }
+    if (!failed) {
+        failed = audio_render_harness_submit_float_buffer(voice, source, buffer_frames, channels);
+    }
+    if (!failed) {
+        failed = forge_voice_set_volume(voice, 0.0f, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_volume(voice, 1.0f, 4, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_constant("before_start_ramp_batch", output, quantum, channels, 0.0f, 0.0f);
+    }
+    if (!failed) {
+        failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("start_ramp_same_batch", output, expected, quantum, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_volume_ramp_retarget_uses_current_value(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 4,
+        buffer_frames = quantum * 4
+    };
+    static const float first_expected[quantum] = {0.0f, 0.125f, 0.25f, 0.375f};
+    static const float second_expected[quantum * 2] = {0.5f, 0.375f, 0.25f, 0.125f,
+                                                       0.0f, 0.0f,   0.0f,  0.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames];
+    float output[quantum * 2];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_volume(voice, 0.0f, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_volume(voice, 1.0f, 8, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("retarget_first_quantum", output, first_expected, quantum, 0.000001f);
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_volume(voice, 0.0f, 4, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum * 2);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("retarget_second_quantum", output, second_expected, quantum * 2, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_set_volume_cancels_active_ramp(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 4,
+        buffer_frames = quantum * 4
+    };
+    static const float first_expected[quantum] = {0.0f, 0.125f, 0.25f, 0.375f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames];
+    float output[quantum * 2];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_volume(voice, 0.0f, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_volume(voice, 1.0f, 8, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("cancel_ramp_first_quantum", output, first_expected, quantum, 0.000001f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_volume(voice, 0.75f, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum * 2);
+    }
+    if (!failed) {
+        failed = audio_test_check_constant("set_volume_cancels_ramp", output, quantum * 2, channels, 0.75f, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 static int run_test(const char *name, int (*test_func)(void)) {
     int failed = test_func();
 
@@ -526,6 +761,11 @@ int main(void) {
     failures += run_test("deferred_stop_boundary", test_deferred_stop_boundary);
     failures += run_test("source_rate_change_continuity_smoke", test_source_rate_change_continuity_smoke);
     failures += run_test("render_api_rejects_invalid_inputs", test_render_api_rejects_invalid_inputs);
+    failures += run_test("volume_ramp_four_frames", test_volume_ramp_four_frames);
+    failures += run_test("volume_ramp_reaches_target_mid_block", test_volume_ramp_reaches_target_mid_block);
+    failures += run_test("deferred_start_and_volume_ramp_same_batch", test_deferred_start_and_volume_ramp_same_batch);
+    failures += run_test("volume_ramp_retarget_uses_current_value", test_volume_ramp_retarget_uses_current_value);
+    failures += run_test("set_volume_cancels_active_ramp", test_set_volume_cancels_active_ramp);
 
     return failures == 0 ? 0 : 1;
 }
