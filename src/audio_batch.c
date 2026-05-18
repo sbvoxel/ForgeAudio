@@ -611,19 +611,24 @@ void fa_batch_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio, Fo
 
 /* Called when releasing the engine */
 
-void fa_batch_clear_all(ForgeAudioEngine *audio) {
+static inline void destroy_command_list(ForgeAudioCommand **list, ForgeFreeFunc free_func) {
     ForgeAudioCommand *current, *next;
 
+    current = *list;
+    while (current != NULL) {
+        next = current->next;
+        destroy_command(current, free_func);
+        current = next;
+    }
+    *list = NULL;
+}
+
+void fa_batch_clear_all(ForgeAudioEngine *audio) {
     fa_platform_lock_mutex(audio->batchLock);
     LOG_MUTEX_LOCK(audio, audio->batchLock)
 
-    current = audio->pending_commands;
-    while (current != NULL) {
-        next = current->next;
-        destroy_command(current, audio->free_func);
-        current = next;
-    }
-    audio->pending_commands = NULL;
+    destroy_command_list(&audio->pending_commands, audio->free_func);
+    destroy_command_list(&audio->ready_commands, audio->free_func);
 
     fa_platform_unlock_mutex(audio->batchLock);
     LOG_MUTEX_UNLOCK(audio, audio->batchLock)
