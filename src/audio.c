@@ -1646,11 +1646,11 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
             dstLockParams.max_frame_count = voice->audio->updateSize;
         }
 
-        /* The first source is the voice input data... */
+        /* The effect chain processes post-resample PCM32F buffers. */
         srcFmt.format.bits_per_sample = 32;
         srcFmt.format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
         srcFmt.format.channels = voiceDetails.input_channels;
-        srcFmt.format.sample_rate = voiceDetails.input_sample_rate;
+        srcFmt.format.sample_rate = voice_filter_sample_rate(voice);
         srcFmt.format.block_align = srcFmt.format.channels * (srcFmt.format.bits_per_sample / 8);
         srcFmt.format.average_bytes_per_second = srcFmt.format.sample_rate * srcFmt.format.block_align;
         srcFmt.format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);

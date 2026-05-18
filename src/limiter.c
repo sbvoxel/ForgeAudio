@@ -237,6 +237,7 @@ static void fa_limiter_process(ForgeLimiter *effect, uint32_t input_buffer_count
         if (input != output && input_buffers->buffer_flags != FORGE_EFFECT_BUFFER_SILENT) {
             forge_memcpy(output, input, frame_count * effect->channels * sizeof(float));
         }
+        limiter_reset_ring(effect);
         fa_effect_base_end_process(&effect->base);
         return;
     }

@@ -61,6 +61,43 @@ static int create_limiter_source(AudioRenderHarness *harness, ForgeSourceVoice *
     return 0;
 }
 
+static int create_limiter_submix(AudioRenderHarness *harness, ForgeSubmixVoice **voice, uint32_t channels,
+                                 uint32_t sample_rate, const ForgeLimiterParameters *params) {
+    ForgeEffect *limiter = NULL;
+    ForgeEffectDesc desc;
+    ForgeEffectChain chain;
+    ForgeResult result;
+
+    result = forge_create_limiter(&limiter, 0);
+    if (result != ForgeResultSuccess) {
+        fprintf(stderr, "forge_create_limiter failed: %d\n", result);
+        return 1;
+    }
+
+    desc.effect = limiter;
+    desc.initial_state = 1;
+    desc.output_channels = channels;
+    chain.effect_count = 1;
+    chain.effects = &desc;
+
+    result = forge_audio_create_submix_voice(harness->audio, voice, channels, sample_rate, 0, 0, NULL, &chain);
+    if (result != ForgeResultSuccess) {
+        forge_effect_destroy(limiter);
+        fprintf(stderr, "forge_audio_create_submix_voice limiter failed: %d\n", result);
+        return 1;
+    }
+
+    if (params != NULL) {
+        result = forge_voice_set_effect_parameters(*voice, 0, params, sizeof(*params), FORGE_AUDIO_BATCH_IMMEDIATE);
+        if (result != ForgeResultSuccess) {
+            fprintf(stderr, "forge_voice_set_effect_parameters limiter submix failed: %d\n", result);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int test_limiter_creation_kind_and_destroy(void) {
     ForgeEffect *effect = NULL;
     ForgeResult result = forge_create_limiter(&effect, 0);
@@ -373,6 +410,116 @@ int test_limiter_lookahead_uses_output_sample_rate(void) {
     return failed;
 }
 
+int test_limiter_source_lookahead_uses_render_sample_rate(void) {
+    enum {
+        channels = 1,
+        source_rate = 24000,
+        render_rate = 48000,
+        frames = 50,
+        source_frames = 64
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeLimiterParameters params = limiter_params(0.0f, 0.0f, 1.0f, 50.0f);
+    float source[source_frames];
+    float output[frames];
+    int failed = 0;
+
+    for (uint32_t i = 0; i < source_frames; i += 1) {
+        source[i] = 0.25f;
+    }
+
+    failed = audio_render_harness_init(&harness, channels, render_rate, frames);
+    if (!failed) {
+        failed = create_limiter_source(&harness, &voice, channels, source_rate, &params);
+    }
+    if (!failed) {
+        failed = audio_render_harness_submit_float_buffer(voice, source, source_frames, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, frames);
+    }
+    for (uint32_t i = 0; !failed && i < 48; i += 1) {
+        if (audio_test_absf(output[i]) > 0.000001f) {
+            fprintf(stderr, "limiter source render-rate lookahead[%u]: expected silence, got %.8f\n", i, output[i]);
+            failed = 1;
+        }
+    }
+    for (uint32_t i = 48; !failed && i < frames; i += 1) {
+        if (audio_test_absf(output[i] - 0.25f) > 0.000001f) {
+            fprintf(stderr, "limiter source render-rate lookahead[%u]: expected 0.25, got %.8f\n", i, output[i]);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_limiter_submix_lookahead_uses_render_sample_rate(void) {
+    enum {
+        channels = 1,
+        submix_rate = 24000,
+        render_rate = 48000,
+        frames = 50,
+        source_frames = 64
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *submix = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeLimiterParameters params = limiter_params(0.0f, 0.0f, 1.0f, 50.0f);
+    ForgeAudioFormat source_format = audio_test_float_format(channels, submix_rate);
+    ForgeSend send;
+    ForgeSendList send_list;
+    float source[source_frames];
+    float output[frames];
+    int failed = 0;
+
+    for (uint32_t i = 0; i < source_frames; i += 1) {
+        source[i] = 0.25f;
+    }
+
+    failed = audio_render_harness_init(&harness, channels, render_rate, frames);
+    if (!failed) {
+        failed = create_limiter_submix(&harness, &submix, channels, submix_rate, &params);
+    }
+    if (!failed) {
+        send.flags = 0;
+        send.output_voice = submix;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &source_format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_submit_float_buffer(voice, source, source_frames, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, frames);
+    }
+    for (uint32_t i = 0; !failed && i < 48; i += 1) {
+        if (audio_test_absf(output[i]) > 0.000001f) {
+            fprintf(stderr, "limiter submix render-rate lookahead[%u]: expected silence, got %.8f\n", i, output[i]);
+            failed = 1;
+        }
+    }
+    for (uint32_t i = 48; !failed && i < frames; i += 1) {
+        if (audio_test_absf(output[i] - 0.25f) > 0.000001f) {
+            fprintf(stderr, "limiter submix render-rate lookahead[%u]: expected 0.25, got %.8f\n", i, output[i]);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_limiter_blob_parameter_set_updates_render(void) {
     enum {
         channels = 1,
@@ -469,6 +616,56 @@ int test_limiter_tail_drains_delayed_samples(void) {
     if (!failed && (audio_test_absf(output[0]) > 0.000001f || audio_test_absf(output[1]) > 0.000001f ||
                     audio_test_absf(output[2] - 0.25f) > 0.000001f)) {
         fprintf(stderr, "limiter tail: %.8f %.8f %.8f\n", output[0], output[1], output[2]);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_limiter_disabled_clears_delayed_samples(void) {
+    enum {
+        channels = 1,
+        sample_rate = 1000,
+        quantum = 1,
+        frames = 6
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeLimiterParameters params = limiter_params(0.0f, 0.0f, 2.0f, 50.0f);
+    float source[frames] = {0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    float output[4];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_limiter_source(&harness, &voice, channels, sample_rate, &params);
+    }
+    if (!failed) {
+        failed = audio_render_harness_submit_float_buffer(voice, source, frames, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, &output[0], 1);
+    }
+    if (!failed) {
+        failed = forge_voice_disable_effect(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, &output[1], 1);
+    }
+    if (!failed) {
+        failed = forge_voice_enable_effect(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    for (uint32_t i = 2; !failed && i < 4; i += 1) {
+        failed = audio_render_harness_render(&harness, &output[i], 1);
+    }
+    if (!failed && (audio_test_absf(output[0]) > 0.000001f || audio_test_absf(output[1]) > 0.000001f ||
+                    audio_test_absf(output[2]) > 0.000001f || audio_test_absf(output[3]) > 0.000001f)) {
+        fprintf(stderr, "limiter disabled stale output: %.8f %.8f %.8f %.8f\n", output[0], output[1], output[2],
+                output[3]);
         failed = 1;
     }
 

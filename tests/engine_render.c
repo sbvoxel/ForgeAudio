@@ -161,9 +161,15 @@ int main(void) {
                          test_limiter_zero_lookahead_limits_without_delay);
     failures += run_test("limiter_lookahead_uses_output_sample_rate",
                          test_limiter_lookahead_uses_output_sample_rate);
+    failures += run_test("limiter_source_lookahead_uses_render_sample_rate",
+                         test_limiter_source_lookahead_uses_render_sample_rate);
+    failures += run_test("limiter_submix_lookahead_uses_render_sample_rate",
+                         test_limiter_submix_lookahead_uses_render_sample_rate);
     failures += run_test("limiter_blob_parameter_set_updates_render",
                          test_limiter_blob_parameter_set_updates_render);
     failures += run_test("limiter_tail_drains_delayed_samples", test_limiter_tail_drains_delayed_samples);
+    failures += run_test("limiter_disabled_clears_delayed_samples",
+                         test_limiter_disabled_clears_delayed_samples);
 
     return failures == 0 ? 0 : 1;
 }

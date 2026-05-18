@@ -112,7 +112,10 @@ int test_limiter_linked_channels_reduce_all_channels(void);
 int test_limiter_release_recovers_gradually(void);
 int test_limiter_zero_lookahead_limits_without_delay(void);
 int test_limiter_lookahead_uses_output_sample_rate(void);
+int test_limiter_source_lookahead_uses_render_sample_rate(void);
+int test_limiter_submix_lookahead_uses_render_sample_rate(void);
 int test_limiter_blob_parameter_set_updates_render(void);
 int test_limiter_tail_drains_delayed_samples(void);
+int test_limiter_disabled_clears_delayed_samples(void);
 
 #endif /* FORGE_ENGINE_RENDER_TESTS_H */
