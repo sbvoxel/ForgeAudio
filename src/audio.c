@@ -1880,20 +1880,20 @@ static ForgeResult validate_reverb_effect_slot(ForgeVoice *voice, uint32_t effec
     ForgeEffect *slot_effect;
     ForgeResult result = ForgeResultSuccess;
 
-    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
-        return ForgeResultInvalidCall;
-    }
-
     fa_platform_lock_mutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
-    slot_effect = voice->effects.desc[effect_index].effect;
-    if (slot_effect == NULL || slot_effect->set_reverb_target == NULL) {
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
         result = ForgeResultInvalidCall;
-    } else if (slot_effect->kind != ForgeEffectKindReverb &&
-               (!allow_7point1 || slot_effect->kind != ForgeEffectKindReverb7Point1)) {
-        result = ForgeResultInvalidCall;
-    } else if (effect != NULL) {
-        *effect = slot_effect;
+    } else {
+        slot_effect = voice->effects.desc[effect_index].effect;
+        if (slot_effect == NULL || slot_effect->set_reverb_target == NULL) {
+            result = ForgeResultInvalidCall;
+        } else if (slot_effect->kind != ForgeEffectKindReverb &&
+                   (!allow_7point1 || slot_effect->kind != ForgeEffectKindReverb7Point1)) {
+            result = ForgeResultInvalidCall;
+        } else if (effect != NULL) {
+            *effect = slot_effect;
+        }
     }
     fa_platform_unlock_mutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
@@ -1909,18 +1909,19 @@ ForgeResult fa_voice_install_ramp_reverb_parameters(ForgeVoice *voice, uint32_t 
     if (result != ForgeResultSuccess) {
         return result;
     }
-    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
-        return ForgeResultInvalidCall;
-    }
 
     fa_platform_lock_mutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
-    effect = voice->effects.desc[effect_index].effect;
-    if (effect == NULL || effect->set_reverb_target == NULL ||
-        (effect->kind != ForgeEffectKindReverb && effect->kind != ForgeEffectKindReverb7Point1)) {
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
         result = ForgeResultInvalidCall;
     } else {
-        result = effect->set_reverb_target(effect, target, duration_frames);
+        effect = voice->effects.desc[effect_index].effect;
+        if (effect == NULL || effect->set_reverb_target == NULL ||
+            (effect->kind != ForgeEffectKindReverb && effect->kind != ForgeEffectKindReverb7Point1)) {
+            result = ForgeResultInvalidCall;
+        } else {
+            result = effect->set_reverb_target(effect, target, duration_frames);
+        }
     }
     fa_platform_unlock_mutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
@@ -1991,41 +1992,53 @@ ForgeResult forge_voice_ramp_reverb_parameters_ms(ForgeVoice *voice, uint32_t ef
 ForgeResult forge_voice_get_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
                                               ForgeReverbParameters *parameters) {
     ForgeEffect *effect;
+    ForgeResult result = ForgeResultSuccess;
 
     if (parameters == NULL) {
-        return ForgeResultInvalidCall;
-    }
-    if (validate_reverb_effect_slot(voice, effect_index, 0, &effect) != ForgeResultSuccess ||
-        effect->kind != ForgeEffectKindReverb) {
         return ForgeResultInvalidCall;
     }
 
     fa_platform_lock_mutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
-    effect->get_parameters(effect, parameters, sizeof(*parameters));
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        result = ForgeResultInvalidCall;
+    } else {
+        effect = voice->effects.desc[effect_index].effect;
+        if (effect == NULL || effect->kind != ForgeEffectKindReverb) {
+            result = ForgeResultInvalidCall;
+        } else {
+            effect->get_parameters(effect, parameters, sizeof(*parameters));
+        }
+    }
     fa_platform_unlock_mutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-    return ForgeResultSuccess;
+    return result;
 }
 
 ForgeResult forge_voice_get_reverb_7point1_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                       ForgeReverbParameters7Point1 *parameters) {
     ForgeEffect *effect;
+    ForgeResult result = ForgeResultSuccess;
 
     if (parameters == NULL) {
-        return ForgeResultInvalidCall;
-    }
-    if (validate_reverb_effect_slot(voice, effect_index, 1, &effect) != ForgeResultSuccess ||
-        effect->kind != ForgeEffectKindReverb7Point1) {
         return ForgeResultInvalidCall;
     }
 
     fa_platform_lock_mutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
-    effect->get_parameters(effect, parameters, sizeof(*parameters));
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        result = ForgeResultInvalidCall;
+    } else {
+        effect = voice->effects.desc[effect_index].effect;
+        if (effect == NULL || effect->kind != ForgeEffectKindReverb7Point1) {
+            result = ForgeResultInvalidCall;
+        } else {
+            effect->get_parameters(effect, parameters, sizeof(*parameters));
+        }
+    }
     fa_platform_unlock_mutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-    return ForgeResultSuccess;
+    return result;
 }
 
 static ForgeResult validate_filter_target_arg(const ForgeFilterTarget *target) {

@@ -1462,6 +1462,7 @@ static void fa_reverb_process(ForgeReverb *effect, uint32_t input_buffer_count,
                                   input_buffers->valid_frame_count);
         }
 
+        fa_reverb_advance_automation(effect, input_buffers->valid_frame_count);
         fa_effect_base_end_process(&effect->base);
         return;
     }

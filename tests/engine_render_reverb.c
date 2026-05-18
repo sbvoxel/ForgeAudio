@@ -232,6 +232,58 @@ int test_stopped_source_reverb_ramp_advances_on_engine_timeline(void) {
     return failed;
 }
 
+int test_disabled_reverb_ramp_advances_on_engine_timeline(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 4,
+        buffer_frames = 8
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeReverbParameters got;
+    ForgeReverbTarget target;
+    float source[buffer_frames];
+    float output[quantum];
+    int failed = 0;
+
+    for (uint32_t i = 0; i < buffer_frames; i += 1) {
+        source[i] = 0.0f;
+    }
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_reverb_source(&harness, &voice, channels, sample_rate, channels, 0);
+    }
+    if (!failed) {
+        failed = audio_render_harness_submit_float_buffer(voice, source, buffer_frames, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_disable_effect(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        target = reverb_target(FORGE_REVERB_TARGET_WET_DRY_MIX, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        failed = forge_voice_ramp_reverb_parameters_frames(voice, 0, &target, quantum,
+                                                           FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_voice_get_reverb_parameters(voice, 0, &got) != 0;
+    }
+    if (!failed && audio_test_absf(got.wet_dry_mix) > 0.000001f) {
+        fprintf(stderr, "disabled reverb ramp: expected wet 0, got %.8f\n", got.wet_dry_mix);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_reverb_batch_blob_then_ramp_order(void) {
     enum {
         channels = 1,

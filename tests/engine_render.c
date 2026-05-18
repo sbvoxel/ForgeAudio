@@ -138,6 +138,8 @@ int main(void) {
                          test_reverb_field_mask_preserves_other_active_ramps);
     failures += run_test("stopped_source_reverb_ramp_advances_on_engine_timeline",
                          test_stopped_source_reverb_ramp_advances_on_engine_timeline);
+    failures += run_test("disabled_reverb_ramp_advances_on_engine_timeline",
+                         test_disabled_reverb_ramp_advances_on_engine_timeline);
     failures += run_test("reverb_batch_blob_then_ramp_order", test_reverb_batch_blob_then_ramp_order);
     failures += run_test("reverb_batch_ramp_then_blob_order", test_reverb_batch_ramp_then_blob_order);
     failures += run_test("reverb_zero_duration_ramp_snaps_after_render",
