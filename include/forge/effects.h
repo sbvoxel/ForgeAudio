@@ -36,6 +36,13 @@ typedef struct ForgeLimiterParameters {
     float release_ms;
 } ForgeLimiterParameters;
 
+typedef struct ForgeDelayParameters {
+    float wet_dry_mix; /* Percent, [FORGE_DELAY_MIN_WET_DRY_MIX, FORGE_DELAY_MAX_WET_DRY_MIX] */
+    float delay_ms;    /* Milliseconds. Hard-set in v1; changes may click or pitch-warp. */
+    float feedback;    /* Linear feedback gain, clamped below 1.0 to avoid runaway. */
+    float lowpass_hz;  /* Feedback damping cutoff. 0 disables damping; values at/above Nyquist bypass. */
+} ForgeDelayParameters;
+
 typedef struct ForgeReverbParameters {
     float wet_dry_mix;
     uint32_t reflections_delay;
@@ -131,6 +138,23 @@ typedef struct ForgeReverbI3DL2Parameters {
 #define FORGE_LIMITER_MIN_RELEASE_MS 1.0f
 #define FORGE_LIMITER_MAX_RELEASE_MS 1000.0f
 #define FORGE_LIMITER_DEFAULT_RELEASE_MS 50.0f
+
+#define FORGE_DELAY_MIN_WET_DRY_MIX 0.0f
+#define FORGE_DELAY_MAX_WET_DRY_MIX 100.0f
+#define FORGE_DELAY_DEFAULT_WET_DRY_MIX 50.0f
+
+#define FORGE_DELAY_MIN_DELAY_MS 1.0f
+#define FORGE_DELAY_MAX_DELAY_MS 2000.0f
+#define FORGE_DELAY_DEFAULT_DELAY_MS 250.0f
+
+#define FORGE_DELAY_MIN_FEEDBACK 0.0f
+#define FORGE_DELAY_MAX_FEEDBACK 0.95f
+#define FORGE_DELAY_DEFAULT_FEEDBACK 0.35f
+
+#define FORGE_DELAY_BYPASS_LOWPASS_HZ 0.0f
+#define FORGE_DELAY_MIN_LOWPASS_HZ 0.0f
+#define FORGE_DELAY_MAX_LOWPASS_HZ 20000.0f
+#define FORGE_DELAY_DEFAULT_LOWPASS_HZ FORGE_DELAY_BYPASS_LOWPASS_HZ
 
 #define FORGE_REVERB_MIN_SAMPLE_RATE 20000
 #define FORGE_REVERB_MAX_SAMPLE_RATE 48000
@@ -276,6 +300,7 @@ typedef struct ForgeReverbI3DL2Parameters {
  */
 FORGE_AUDIO_API ForgeResult forge_create_volume_meter(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_limiter(ForgeEffect **effect, uint32_t flags);
+FORGE_AUDIO_API ForgeResult forge_create_delay(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb_7point1(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API void forge_volume_meter_get_levels(ForgeEffect *effect, ForgeVolumeMeterLevels *levels);
@@ -288,6 +313,10 @@ FORGE_AUDIO_API ForgeResult forge_create_limiter_with_allocator(ForgeEffect **ef
                                                                 ForgeMallocFunc custom_malloc,
                                                                 ForgeFreeFunc custom_free,
                                                                 ForgeReallocFunc custom_realloc);
+FORGE_AUDIO_API ForgeResult forge_create_delay_with_allocator(ForgeEffect **effect, uint32_t flags,
+                                                              ForgeMallocFunc custom_malloc,
+                                                              ForgeFreeFunc custom_free,
+                                                              ForgeReallocFunc custom_realloc);
 FORGE_AUDIO_API ForgeResult forge_create_reverb_with_allocator(ForgeEffect **effect, uint32_t flags,
                                                                ForgeMallocFunc custom_malloc, ForgeFreeFunc custom_free,
                                                                ForgeReallocFunc custom_realloc);

@@ -150,6 +150,24 @@ int main(void) {
                          test_reverb_zero_duration_ramp_snaps_after_render);
     failures += run_test("reverb_invalid_arguments", test_reverb_invalid_arguments);
     failures += run_test("reverb_7point1_target_and_getter", test_reverb_7point1_target_and_getter);
+    failures += run_test("delay_creation_kind_and_destroy", test_delay_creation_kind_and_destroy);
+    failures += run_test("delay_format_validation_rejects_channel_change",
+                         test_delay_format_validation_rejects_channel_change);
+    failures += run_test("delay_parameter_clamping", test_delay_parameter_clamping);
+    failures += run_test("delay_blob_parameter_set_get_on_voice", test_delay_blob_parameter_set_get_on_voice);
+    failures += run_test("delay_impulse_after_expected_frames", test_delay_impulse_after_expected_frames);
+    failures += run_test("delay_wet_dry_mix", test_delay_wet_dry_mix);
+    failures += run_test("delay_feedback_repeats_decay", test_delay_feedback_repeats_decay);
+    failures += run_test("delay_feedback_clamp_prevents_runaway", test_delay_feedback_clamp_prevents_runaway);
+    failures += run_test("delay_lowpass_damps_feedback_path", test_delay_lowpass_damps_feedback_path);
+    failures += run_test("delay_source_timing_uses_render_sample_rate",
+                         test_delay_source_timing_uses_render_sample_rate);
+    failures += run_test("delay_in_place_processing", test_delay_in_place_processing);
+    failures += run_test("delay_disabled_clears_delayed_samples", test_delay_disabled_clears_delayed_samples);
+    failures += run_test("delay_reset_clears_delayed_samples", test_delay_reset_clears_delayed_samples);
+    failures += run_test("delay_tail_flags_clear_after_consumed_sample",
+                         test_delay_tail_flags_clear_after_consumed_sample);
+    failures += run_test("delay_tail_drains_with_play_tails", test_delay_tail_drains_with_play_tails);
     failures += run_test("limiter_creation_kind_and_destroy", test_limiter_creation_kind_and_destroy);
     failures += run_test("limiter_format_validation_rejects_channel_change",
                          test_limiter_format_validation_rejects_channel_change);
