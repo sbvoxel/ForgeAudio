@@ -346,6 +346,80 @@ int test_filter_field_mask_preserves_other_active_ramps(void) {
     return failed;
 }
 
+int test_set_filter_parameters_does_not_delete_pending_deferred_ramp(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    const ForgeAudioBatchId batch_id = 1181;
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeFilterParameters set_params;
+    ForgeFilterParameters snap_params;
+    ForgeFilterParameters got_params;
+    ForgeFilterTarget target;
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_filter_source(&harness, &voice, channels, sample_rate);
+    }
+    if (!failed) {
+        set_params.type = ForgeFilterLowPass;
+        set_params.cutoff_hz = 0.0f;
+        set_params.q = 1.0f;
+        set_params.wet_dry_mix = 0.0f;
+        failed = forge_voice_set_filter_parameters(voice, &set_params, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        target.field_mask = FORGE_FILTER_TARGET_ALL;
+        target.cutoff_hz = 400.0f;
+        target.q = 5.0f;
+        target.wet_dry_mix = 1.0f;
+        failed = forge_voice_ramp_filter_frames(voice, &target, quantum, batch_id) != 0;
+    }
+    if (!failed) {
+        snap_params.type = ForgeFilterHighPass;
+        snap_params.cutoff_hz = 100.0f;
+        snap_params.q = 2.0f;
+        snap_params.wet_dry_mix = 0.25f;
+        failed = forge_voice_set_filter_parameters(voice, &snap_params, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        forge_voice_get_filter_parameters(voice, &got_params);
+        if (got_params.type != ForgeFilterHighPass ||
+            audio_test_absf(got_params.cutoff_hz - 100.0f) > 0.000001f ||
+            audio_test_absf(got_params.q - 2.0f) > 0.000001f ||
+            audio_test_absf(got_params.wet_dry_mix - 0.25f) > 0.000001f) {
+            fprintf(stderr, "filter pending ramp before apply: type=%d cutoff=%.8f q=%.8f wet=%.8f\n",
+                    got_params.type, got_params.cutoff_hz, got_params.q, got_params.wet_dry_mix);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        forge_voice_get_filter_parameters(voice, &got_params);
+        if (got_params.type != ForgeFilterHighPass ||
+            audio_test_absf(got_params.cutoff_hz - 400.0f) > 0.000001f ||
+            audio_test_absf(got_params.q - 5.0f) > 0.000001f ||
+            audio_test_absf(got_params.wet_dry_mix - 1.0f) > 0.000001f) {
+            fprintf(stderr, "filter pending ramp after apply: type=%d cutoff=%.8f q=%.8f wet=%.8f\n",
+                    got_params.type, got_params.cutoff_hz, got_params.q, got_params.wet_dry_mix);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_stopped_source_filter_ramp_advances_on_engine_timeline(void) {
     enum {
         channels = 1,
@@ -533,6 +607,91 @@ int test_output_filter_type_preserves_ready_ramp(void) {
             audio_test_absf(got_params.q - 1.03125f) > 0.000001f ||
             audio_test_absf(got_params.wet_dry_mix - 0.2734375f) > 0.000001f) {
             fprintf(stderr, "output filter type/ramp: type=%d cutoff=%.8f q=%.8f wet=%.8f\n",
+                    got_params.type, got_params.cutoff_hz, got_params.q, got_params.wet_dry_mix);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_set_output_filter_parameters_does_not_delete_pending_deferred_ramp(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    const ForgeAudioBatchId batch_id = 1182;
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    ForgeFilterParameters set_params;
+    ForgeFilterParameters snap_params;
+    ForgeFilterParameters got_params;
+    ForgeFilterTarget target;
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        format = audio_test_float_format(channels, sample_rate);
+        send.flags = FORGE_AUDIO_SEND_USEFILTER;
+        send.output_voice = harness.master;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        set_params.type = ForgeFilterLowPass;
+        set_params.cutoff_hz = 0.0f;
+        set_params.q = 1.0f;
+        set_params.wet_dry_mix = 0.0f;
+        failed = forge_voice_set_output_filter_parameters(voice, harness.master, &set_params,
+                                                          FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        target.field_mask = FORGE_FILTER_TARGET_ALL;
+        target.cutoff_hz = 400.0f;
+        target.q = 5.0f;
+        target.wet_dry_mix = 1.0f;
+        failed = forge_voice_ramp_output_filter_frames(voice, harness.master, &target, quantum, batch_id) != 0;
+    }
+    if (!failed) {
+        snap_params.type = ForgeFilterHighPass;
+        snap_params.cutoff_hz = 100.0f;
+        snap_params.q = 2.0f;
+        snap_params.wet_dry_mix = 0.25f;
+        failed = forge_voice_set_output_filter_parameters(voice, harness.master, &snap_params,
+                                                          FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        forge_voice_get_output_filter_parameters(voice, harness.master, &got_params);
+        if (got_params.type != ForgeFilterHighPass ||
+            audio_test_absf(got_params.cutoff_hz - 100.0f) > 0.000001f ||
+            audio_test_absf(got_params.q - 2.0f) > 0.000001f ||
+            audio_test_absf(got_params.wet_dry_mix - 0.25f) > 0.000001f) {
+            fprintf(stderr, "output filter pending ramp before apply: type=%d cutoff=%.8f q=%.8f wet=%.8f\n",
+                    got_params.type, got_params.cutoff_hz, got_params.q, got_params.wet_dry_mix);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        forge_voice_get_output_filter_parameters(voice, harness.master, &got_params);
+        if (got_params.type != ForgeFilterHighPass ||
+            audio_test_absf(got_params.cutoff_hz - 400.0f) > 0.000001f ||
+            audio_test_absf(got_params.q - 5.0f) > 0.000001f ||
+            audio_test_absf(got_params.wet_dry_mix - 1.0f) > 0.000001f) {
+            fprintf(stderr, "output filter pending ramp after apply: type=%d cutoff=%.8f q=%.8f wet=%.8f\n",
                     got_params.type, got_params.cutoff_hz, got_params.q, got_params.wet_dry_mix);
             failed = 1;
         }

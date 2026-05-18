@@ -380,6 +380,65 @@ int test_reverb_batch_ramp_then_blob_order(void) {
     return failed;
 }
 
+int test_reverb_blob_set_does_not_delete_pending_deferred_ramp(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    const ForgeAudioBatchId batch_id = 1203;
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeReverbParameters params;
+    ForgeReverbParameters got;
+    ForgeReverbTarget target;
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_reverb_source(&harness, &voice, channels, sample_rate, channels, 0);
+    }
+    if (!failed) {
+        failed = forge_voice_get_reverb_parameters(voice, 0, &params) != 0;
+    }
+    if (!failed) {
+        target = reverb_target(FORGE_REVERB_TARGET_WET_DRY_MIX, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        failed = forge_voice_ramp_reverb_parameters_frames(voice, 0, &target, quantum, batch_id) != 0;
+    }
+    if (!failed) {
+        params.wet_dry_mix = 75.0f;
+        failed = forge_voice_set_effect_parameters(voice, 0, &params, sizeof(params),
+                                                   FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_voice_get_reverb_parameters(voice, 0, &got) != 0;
+    }
+    if (!failed && audio_test_absf(got.wet_dry_mix - 75.0f) > 0.000001f) {
+        fprintf(stderr, "reverb pending ramp before apply: expected wet 75, got %.8f\n", got.wet_dry_mix);
+        failed = 1;
+    }
+    if (!failed) {
+        failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_voice_get_reverb_parameters(voice, 0, &got) != 0;
+    }
+    if (!failed && audio_test_absf(got.wet_dry_mix) > 0.000001f) {
+        fprintf(stderr, "reverb pending ramp after apply: expected wet 0, got %.8f\n", got.wet_dry_mix);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_reverb_zero_duration_ramp_snaps_after_render(void) {
     enum {
         channels = 1,

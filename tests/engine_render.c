@@ -39,6 +39,8 @@ int main(void) {
                          test_source_rate_ramp_retarget_uses_current_rate);
     failures += run_test("set_source_rate_cancels_active_and_ready_ramps",
                          test_set_source_rate_cancels_active_and_ready_ramps);
+    failures += run_test("set_source_rate_does_not_delete_pending_deferred_ramp",
+                         test_set_source_rate_does_not_delete_pending_deferred_ramp);
     failures += run_test("source_rate_zero_duration_ramp_snaps_at_boundary",
                          test_source_rate_zero_duration_ramp_snaps_at_boundary);
     failures += run_test("stopped_source_rate_ramp_advances_on_engine_timeline",
@@ -70,6 +72,8 @@ int main(void) {
     failures += run_test("set_volume_cancels_active_ramp", test_set_volume_cancels_active_ramp);
     failures += run_test("set_volume_cancels_ready_deferred_ramp",
                          test_set_volume_cancels_ready_deferred_ramp);
+    failures += run_test("set_volume_does_not_delete_pending_deferred_ramp",
+                         test_set_volume_does_not_delete_pending_deferred_ramp);
     failures += run_test("stopped_source_ramp_advances_on_engine_timeline",
                          test_stopped_source_ramp_advances_on_engine_timeline);
     failures += run_test("deferred_volume_ramp_waits_for_apply", test_deferred_volume_ramp_waits_for_apply);
@@ -92,6 +96,8 @@ int main(void) {
     failures += run_test("set_channel_volumes_cancels_active_ramp", test_set_channel_volumes_cancels_active_ramp);
     failures += run_test("set_channel_volumes_cancels_ready_deferred_ramp",
                          test_set_channel_volumes_cancels_ready_deferred_ramp);
+    failures += run_test("set_channel_volumes_does_not_delete_pending_deferred_ramp",
+                         test_set_channel_volumes_does_not_delete_pending_deferred_ramp);
     failures += run_test("scalar_and_channel_volume_ramps_multiply",
                          test_scalar_and_channel_volume_ramps_multiply);
     failures += run_test("output_matrix_target_default_duration",
@@ -111,6 +117,8 @@ int main(void) {
     failures += run_test("set_output_matrix_cancels_active_ramp", test_set_output_matrix_cancels_active_ramp);
     failures += run_test("set_output_matrix_cancels_ready_deferred_ramp",
                          test_set_output_matrix_cancels_ready_deferred_ramp);
+    failures += run_test("set_output_matrix_does_not_delete_pending_deferred_ramp",
+                         test_set_output_matrix_does_not_delete_pending_deferred_ramp);
     failures += run_test("scalar_channel_and_output_matrix_ramps_multiply",
                          test_scalar_channel_and_output_matrix_ramps_multiply);
     failures += run_test("stopped_source_output_matrix_ramp_advances_on_engine_timeline",
@@ -143,12 +151,16 @@ int main(void) {
                          test_filter_type_preserves_ready_ramp);
     failures += run_test("filter_field_mask_preserves_other_active_ramps",
                          test_filter_field_mask_preserves_other_active_ramps);
+    failures += run_test("set_filter_parameters_does_not_delete_pending_deferred_ramp",
+                         test_set_filter_parameters_does_not_delete_pending_deferred_ramp);
     failures += run_test("stopped_source_filter_ramp_advances_on_engine_timeline",
                          test_stopped_source_filter_ramp_advances_on_engine_timeline);
     failures += run_test("stopped_source_filter_ramp_uses_output_rate",
                          test_stopped_source_filter_ramp_uses_output_rate);
     failures += run_test("output_filter_type_preserves_ready_ramp",
                          test_output_filter_type_preserves_ready_ramp);
+    failures += run_test("set_output_filter_parameters_does_not_delete_pending_deferred_ramp",
+                         test_set_output_filter_parameters_does_not_delete_pending_deferred_ramp);
     failures += run_test("stopped_source_output_filter_ramp_uses_output_rate",
                          test_stopped_source_output_filter_ramp_uses_output_rate);
     failures += run_test("filter_invalid_type_rejected", test_filter_invalid_type_rejected);
@@ -164,6 +176,8 @@ int main(void) {
                          test_disabled_reverb_ramp_advances_on_engine_timeline);
     failures += run_test("reverb_batch_blob_then_ramp_order", test_reverb_batch_blob_then_ramp_order);
     failures += run_test("reverb_batch_ramp_then_blob_order", test_reverb_batch_ramp_then_blob_order);
+    failures += run_test("reverb_blob_set_does_not_delete_pending_deferred_ramp",
+                         test_reverb_blob_set_does_not_delete_pending_deferred_ramp);
     failures += run_test("reverb_zero_duration_ramp_snaps_after_render",
                          test_reverb_zero_duration_ramp_snaps_after_render);
     failures += run_test("reverb_invalid_arguments", test_reverb_invalid_arguments);
@@ -182,6 +196,8 @@ int main(void) {
     failures += run_test("biquad_typed_automation_getter_and_masks", test_biquad_typed_automation_getter_and_masks);
     failures += run_test("biquad_deferred_zero_duration_and_blob_cancel",
                          test_biquad_deferred_zero_duration_and_blob_cancel);
+    failures += run_test("biquad_blob_set_does_not_delete_pending_deferred_ramp",
+                         test_biquad_blob_set_does_not_delete_pending_deferred_ramp);
     failures += run_test("biquad_uses_render_sample_rate_for_clamp", test_biquad_uses_render_sample_rate_for_clamp);
     failures += run_test("delay_creation_kind_and_destroy", test_delay_creation_kind_and_destroy);
     failures += run_test("delay_format_validation_rejects_channel_change",

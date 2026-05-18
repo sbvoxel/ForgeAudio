@@ -620,6 +620,60 @@ int test_biquad_deferred_zero_duration_and_blob_cancel(void) {
     return failed;
 }
 
+int test_biquad_blob_set_does_not_delete_pending_deferred_ramp(void) {
+    enum {
+        channels = 1,
+        sample_rate = 1000,
+        quantum = 4
+    };
+    const ForgeAudioBatchId batch_id = 1301;
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeBiquadParameters blob = biquad_params(ForgeBiquadLowPass, 200.0f, 2.0f, 3.0f, 0.25f);
+    ForgeBiquadTarget target = biquad_target(FORGE_BIQUAD_TARGET_WET_DRY_MIX, 0.0f, 0.0f, 0.0f, 1.0f);
+    ForgeBiquadParameters got;
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_biquad_source(&harness, &voice, channels, sample_rate, NULL);
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_biquad_parameters_frames(voice, 0, &target, quantum, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_set_effect_parameters(voice, 0, &blob, sizeof(blob),
+                                                   FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_voice_get_biquad_parameters(voice, 0, &got) != 0;
+    }
+    if (!failed && (got.type != blob.type || audio_test_absf(got.wet_dry_mix - blob.wet_dry_mix) > 0.000001f)) {
+        fprintf(stderr, "biquad pending ramp before apply: type=%d wet=%.8f\n", got.type, got.wet_dry_mix);
+        failed = 1;
+    }
+    if (!failed) {
+        failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_voice_get_biquad_parameters(voice, 0, &got) != 0;
+    }
+    if (!failed && (got.type != blob.type || audio_test_absf(got.wet_dry_mix - 1.0f) > 0.000001f)) {
+        fprintf(stderr, "biquad pending ramp after apply: type=%d wet=%.8f\n", got.type, got.wet_dry_mix);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_biquad_uses_render_sample_rate_for_clamp(void) {
     enum {
         channels = 1,
