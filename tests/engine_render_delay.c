@@ -746,6 +746,100 @@ int test_delay_blob_set_does_not_delete_pending_deferred_ramp(void) {
     return failed;
 }
 
+int test_delay_batch_blob_then_ramp_order(void) {
+    enum {
+        channels = 1,
+        sample_rate = 1000,
+        quantum = 4
+    };
+    const ForgeAudioBatchId batch_id = 1403;
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeDelayParameters blob = delay_params(25.0f, 2.0f, 0.2f, 100.0f);
+    ForgeDelayTarget target = delay_target(FORGE_DELAY_TARGET_WET_DRY_MIX, 100.0f, 0.0f, 0.0f);
+    ForgeDelayParameters got;
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_delay_source(&harness, &voice, channels, sample_rate, NULL);
+    }
+    if (!failed) {
+        failed = forge_voice_set_effect_parameters(voice, 0, &blob, sizeof(blob), batch_id) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_delay_parameters_frames(voice, 0, &target, quantum, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_voice_get_delay_parameters(voice, 0, &got) != 0;
+    }
+    if (!failed && (audio_test_absf(got.wet_dry_mix - 100.0f) > 0.000001f ||
+                    audio_test_absf(got.delay_ms - blob.delay_ms) > 0.000001f ||
+                    audio_test_absf(got.feedback - blob.feedback) > 0.000001f ||
+                    audio_test_absf(got.lowpass_hz - blob.lowpass_hz) > 0.000001f)) {
+        fprintf(stderr, "delay blob then ramp order: wet=%.8f delay=%.8f feedback=%.8f lowpass=%.8f\n",
+                got.wet_dry_mix, got.delay_ms, got.feedback, got.lowpass_hz);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_delay_batch_ramp_then_blob_order(void) {
+    enum {
+        channels = 1,
+        sample_rate = 1000,
+        quantum = 4
+    };
+    const ForgeAudioBatchId batch_id = 1404;
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeDelayParameters blob = delay_params(75.0f, 2.0f, 0.2f, 100.0f);
+    ForgeDelayTarget target = delay_target(FORGE_DELAY_TARGET_WET_DRY_MIX, 0.0f, 0.0f, 0.0f);
+    ForgeDelayParameters got;
+    float output[quantum];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_delay_source(&harness, &voice, channels, sample_rate, NULL);
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_delay_parameters_frames(voice, 0, &target, quantum, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_set_effect_parameters(voice, 0, &blob, sizeof(blob), batch_id) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_apply_batch(harness.audio, batch_id) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_voice_get_delay_parameters(voice, 0, &got) != 0;
+    }
+    if (!failed && (audio_test_absf(got.wet_dry_mix - blob.wet_dry_mix) > 0.000001f ||
+                    audio_test_absf(got.delay_ms - blob.delay_ms) > 0.000001f ||
+                    audio_test_absf(got.feedback - blob.feedback) > 0.000001f ||
+                    audio_test_absf(got.lowpass_hz - blob.lowpass_hz) > 0.000001f)) {
+        fprintf(stderr, "delay ramp then blob order: wet=%.8f delay=%.8f feedback=%.8f lowpass=%.8f\n",
+                got.wet_dry_mix, got.delay_ms, got.feedback, got.lowpass_hz);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_stopped_source_delay_ramp_advances_on_engine_timeline(void) {
     enum {
         channels = 1,

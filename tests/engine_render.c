@@ -219,6 +219,8 @@ int main(void) {
                          test_delay_blob_set_cancels_typed_automation_when_applied);
     failures += run_test("delay_blob_set_does_not_delete_pending_deferred_ramp",
                          test_delay_blob_set_does_not_delete_pending_deferred_ramp);
+    failures += run_test("delay_batch_blob_then_ramp_order", test_delay_batch_blob_then_ramp_order);
+    failures += run_test("delay_batch_ramp_then_blob_order", test_delay_batch_ramp_then_blob_order);
     failures += run_test("stopped_source_delay_ramp_advances_on_engine_timeline",
                          test_stopped_source_delay_ramp_advances_on_engine_timeline);
     failures += run_test("disabled_delay_ramp_advances_on_engine_timeline",

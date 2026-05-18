@@ -150,6 +150,8 @@ int test_delay_field_mask_preserves_other_active_ramps(void);
 int test_delay_deferred_ramp_waits_for_apply(void);
 int test_delay_blob_set_cancels_typed_automation_when_applied(void);
 int test_delay_blob_set_does_not_delete_pending_deferred_ramp(void);
+int test_delay_batch_blob_then_ramp_order(void);
+int test_delay_batch_ramp_then_blob_order(void);
 int test_stopped_source_delay_ramp_advances_on_engine_timeline(void);
 int test_disabled_delay_ramp_advances_on_engine_timeline(void);
 int test_delay_wet_dry_ramp_renders_expected_mix(void);
