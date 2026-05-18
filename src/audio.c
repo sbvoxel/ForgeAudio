@@ -717,7 +717,7 @@ void forge_audio_get_performance_data(ForgeAudioEngine *audio, ForgePerformanceD
 void forge_audio_set_debug_configuration(ForgeAudioEngine *audio, ForgeDebugConfiguration *debug_configuration,
                                          void *reserved) {
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
-    char *env;
+    const char *env;
 
     LOG_API_ENTER(audio)
 
@@ -754,15 +754,15 @@ void forge_audio_set_debug_configuration(ForgeAudioEngine *audio, ForgeDebugConf
     CHECK_ENV(MEMORY)
     CHECK_ENV(STREAMING)
 #undef CHECK_ENV
-#define CHECK_ENV(envvar, boolvar)                                                                                     \
+#define CHECK_ENV(envvar, field)                                                                                       \
     env = forge_getenv("FORGE_AUDIO_LOG_LOG" #envvar);                                                                 \
     if (env != NULL) {                                                                                                 \
-        audio->debug.Log##boolvar = (*env == '1');                                                                     \
+        audio->debug.field = (*env == '1');                                                                            \
     }
-    CHECK_ENV(THREADID, ThreadID)
-    CHECK_ENV(FILELINE, Fileline)
-    CHECK_ENV(FUNCTIONNAME, FunctionName)
-    CHECK_ENV(TIMING, Timing)
+    CHECK_ENV(THREADID, log_thread_id)
+    CHECK_ENV(FILELINE, log_fileline)
+    CHECK_ENV(FUNCTIONNAME, log_function_name)
+    CHECK_ENV(TIMING, log_timing)
 #undef CHECK_ENV
 
     LOG_API_EXIT(audio)
