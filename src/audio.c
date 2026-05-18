@@ -154,8 +154,12 @@ ForgeResult forge_audio_create(ForgeAudioEngine **engine, uint32_t flags) {
 
 static ForgeResult engine_construct_with_allocator(ForgeAudioEngine **engine, ForgeMallocFunc custom_malloc,
                                                    ForgeFreeFunc custom_free, ForgeReallocFunc custom_realloc);
+static ForgeResult engine_construct_offline_with_allocator(ForgeAudioEngine **engine, ForgeMallocFunc custom_malloc,
+                                                           ForgeFreeFunc custom_free,
+                                                           ForgeReallocFunc custom_realloc);
 
 static ForgeResult engine_initialize(ForgeAudioEngine *audio, uint32_t flags);
+static void engine_destroy(ForgeAudioEngine *audio, uint8_t release_platform);
 
 ForgeResult forge_audio_create_with_allocator(ForgeAudioEngine **engine, uint32_t flags, ForgeMallocFunc custom_malloc,
                                               ForgeFreeFunc custom_free, ForgeReallocFunc custom_realloc) {
@@ -166,11 +170,16 @@ ForgeResult forge_audio_create_with_allocator(ForgeAudioEngine **engine, uint32_
 
 static ForgeResult engine_construct_with_allocator(ForgeAudioEngine **engine, ForgeMallocFunc custom_malloc,
                                                    ForgeFreeFunc custom_free, ForgeReallocFunc custom_realloc) {
+    fa_platform_add_ref();
+    return engine_construct_offline_with_allocator(engine, custom_malloc, custom_free, custom_realloc);
+}
 
+static ForgeResult engine_construct_offline_with_allocator(ForgeAudioEngine **engine, ForgeMallocFunc custom_malloc,
+                                                           ForgeFreeFunc custom_free,
+                                                           ForgeReallocFunc custom_realloc) {
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
     ForgeDebugConfiguration debugInit = {0};
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
-    fa_platform_add_ref();
     *engine = (ForgeAudioEngine *)custom_malloc(sizeof(ForgeAudioEngine));
     forge_zero(*engine, sizeof(ForgeAudioEngine));
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
@@ -193,6 +202,22 @@ static ForgeResult engine_construct_with_allocator(ForgeAudioEngine **engine, Fo
 static void destroy_voice(ForgeVoice *voice);
 
 void forge_audio_destroy(ForgeAudioEngine *audio) {
+    engine_destroy(audio, 1);
+}
+
+#ifdef FORGE_AUDIO_TESTING
+ForgeResult forge_audio_test_create_offline_engine(ForgeAudioEngine **engine) {
+    engine_construct_offline_with_allocator(engine, forge_malloc, forge_free, forge_realloc);
+    engine_initialize(*engine, 0);
+    return 0;
+}
+
+void forge_audio_test_destroy_offline_engine(ForgeAudioEngine *audio) {
+    engine_destroy(audio, 0);
+}
+#endif
+
+static void engine_destroy(ForgeAudioEngine *audio, uint8_t release_platform) {
     ForgeVoice *voice;
 
     LOG_API_ENTER(audio)
@@ -222,7 +247,9 @@ void forge_audio_destroy(ForgeAudioEngine *audio) {
     LOG_MUTEX_DESTROY(audio, audio->batchLock)
     fa_platform_destroy_mutex(audio->batchLock);
     audio->free_func(audio);
-    fa_platform_release();
+    if (release_platform) {
+        fa_platform_release();
+    }
 }
 
 ForgeResult forge_audio_get_device_count(ForgeAudioEngine *audio, uint32_t *count) {
