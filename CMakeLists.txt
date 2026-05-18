@@ -88,7 +88,11 @@ add_library(ForgeAudio
     src/audio.c
     src/reverb.c
     src/volume_meter.c
-    src/audio_internal.c
+    src/debug.c
+    src/decode.c
+    src/engine.c
+    src/format.c
+    src/util.c
     src/audio_simd.c
     src/audio_batch.c
     src/platform_sdl3.c
