@@ -408,14 +408,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
             }
 #undef DECODER
         } else if (COMPARE_FORMAT_ID(ieee_float)) {
-            /* FIXME: Decide whether ForgeAudio should keep accepting
-             * IEEE_FLOAT format IDs with 16-bit PCM payloads.
-             */
-            if (fmtex->format.bits_per_sample == 16) {
-                (*source_voice)->src.decode = fa_decode_pcm16;
-            } else {
-                (*source_voice)->src.decode = fa_decode_pcm32f;
-            }
+            (*source_voice)->src.decode = fa_decode_pcm32f;
         } else if (COMPARE_FORMAT_ID(wmaudio2) || COMPARE_FORMAT_ID(wmaudio3) || COMPARE_FORMAT_ID(wmaudio_lossless)) {
         } else {
             forge_assert(0 && "Unsupported extensible audio format identifier!");
