@@ -103,14 +103,6 @@ extern void fa_platform_log_message(char const *msg);
 #define forge_swap64le(x) SDL_Swap64LE(x)
 #define forge_swap64be(x) SDL_Swap64BE(x)
 
-/* SDL3 allows memcpy/memset for compiler optimization reasons */
-#ifdef SDL_SLOW_MEMCPY
-#define STB_MEMCPY_OVERRIDE
-#endif
-#ifdef SDL_SLOW_MEMSET
-#define STB_MEMSET_OVERRIDE
-#endif
-
 #define forge_malloc SDL_malloc
 #define forge_realloc SDL_realloc
 #define forge_free SDL_free

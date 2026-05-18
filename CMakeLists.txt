@@ -81,7 +81,6 @@ add_library(ForgeAudio
     src/simd_internal.h
     src/batch_internal.h
     src/dump_internal.h
-    src/stb_modified.h
     # Source Files
     src/spatial_audio.c
     src/effect_base.c
