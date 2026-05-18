@@ -29,8 +29,8 @@ typedef struct ForgeAudioIOStreamOut {
     void *lock;
 } ForgeAudioIOStreamOut;
 
-FORGE_INTERNAL_API ForgeAudioIOStreamOut *forge_audio_fopen_out(const char *path, const char *mode);
-FORGE_INTERNAL_API void forge_audio_close_out(ForgeAudioIOStreamOut *io);
+FORGE_INTERNAL_API ForgeAudioIOStreamOut *fa_dump_fopen_out(const char *path, const char *mode);
+FORGE_INTERNAL_API void fa_dump_close_out(ForgeAudioIOStreamOut *io);
 
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 

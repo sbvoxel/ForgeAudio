@@ -14,34 +14,34 @@
 
 /* ForgeEffectBase Interface */
 
-void forge_effect_base_init(ForgeEffectBase *effect, const ForgeEffectInfo *effect_info, uint8_t *parameters,
-                            uint32_t parameter_block_byte_size) {
-    forge_effect_base_init_with_allocator(effect, effect_info, parameters, parameter_block_byte_size, forge_malloc,
-                                          forge_free, forge_realloc);
+void fa_effect_base_init(ForgeEffectBase *effect, const ForgeEffectInfo *effect_info, uint8_t *parameters,
+                         uint32_t parameter_block_byte_size) {
+    fa_effect_base_init_with_allocator(effect, effect_info, parameters, parameter_block_byte_size, forge_malloc,
+                                       forge_free, forge_realloc);
 }
 
-void forge_effect_base_init_with_allocator(ForgeEffectBase *effect, const ForgeEffectInfo *effect_info,
-                                           uint8_t *parameters, uint32_t parameter_block_byte_size,
-                                           ForgeMallocFunc custom_malloc, ForgeFreeFunc custom_free,
-                                           ForgeReallocFunc custom_realloc) {
+void fa_effect_base_init_with_allocator(ForgeEffectBase *effect, const ForgeEffectInfo *effect_info,
+                                        uint8_t *parameters, uint32_t parameter_block_byte_size,
+                                        ForgeMallocFunc custom_malloc, ForgeFreeFunc custom_free,
+                                        ForgeReallocFunc custom_realloc) {
     /* Base Classes/Interfaces */
-    effect->base.destroy = (ForgeEffectDestroyFunc)forge_effect_base_destroy;
-    effect->base.get_info = (ForgeEffectGetInfoFunc)forge_effect_base_get_info;
+    effect->base.destroy = (ForgeEffectDestroyFunc)fa_effect_base_destroy;
+    effect->base.get_info = (ForgeEffectGetInfoFunc)fa_effect_base_get_info;
     effect->base.is_input_format_supported =
-        (ForgeEffectIsInputFormatSupportedFunc)forge_effect_base_is_input_format_supported;
+        (ForgeEffectIsInputFormatSupportedFunc)fa_effect_base_is_input_format_supported;
     effect->base.is_output_format_supported =
-        (ForgeEffectIsOutputFormatSupportedFunc)forge_effect_base_is_output_format_supported;
-    effect->base.initialize = (ForgeEffectInitializeFunc)forge_effect_base_initialize;
-    effect->base.reset = (ForgeEffectResetFunc)forge_effect_base_reset;
-    effect->base.lock_for_process = (ForgeEffectLockForProcessFunc)forge_effect_base_lock_for_process;
-    effect->base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)forge_effect_base_unlock_for_process;
-    effect->base.calc_input_frames = (ForgeEffectCalcInputFramesFunc)forge_effect_base_calc_input_frames;
-    effect->base.calc_output_frames = (ForgeEffectCalcOutputFramesFunc)forge_effect_base_calc_output_frames;
-    effect->base.set_parameters = (ForgeEffectSetParametersFunc)forge_effect_base_set_parameters;
-    effect->base.get_parameters = (ForgeEffectGetParametersFunc)forge_effect_base_get_parameters;
+        (ForgeEffectIsOutputFormatSupportedFunc)fa_effect_base_is_output_format_supported;
+    effect->base.initialize = (ForgeEffectInitializeFunc)fa_effect_base_initialize;
+    effect->base.reset = (ForgeEffectResetFunc)fa_effect_base_reset;
+    effect->base.lock_for_process = (ForgeEffectLockForProcessFunc)fa_effect_base_lock_for_process;
+    effect->base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)fa_effect_base_unlock_for_process;
+    effect->base.calc_input_frames = (ForgeEffectCalcInputFramesFunc)fa_effect_base_calc_input_frames;
+    effect->base.calc_output_frames = (ForgeEffectCalcOutputFramesFunc)fa_effect_base_calc_output_frames;
+    effect->base.set_parameters = (ForgeEffectSetParametersFunc)fa_effect_base_set_parameters;
+    effect->base.get_parameters = (ForgeEffectGetParametersFunc)fa_effect_base_get_parameters;
 
     /* Public Virtual Functions */
-    effect->on_set_parameters = (ForgeEffectBaseSetParametersFunc)forge_effect_base_on_set_parameters;
+    effect->on_set_parameters = (ForgeEffectBaseSetParametersFunc)fa_effect_base_on_set_parameters;
 
     /* Private Variables */
     effect->effect_info = effect_info;
@@ -60,17 +60,17 @@ void forge_effect_destroy(ForgeEffect *effect) {
     effect->destroy(effect);
 }
 
-void forge_effect_base_destroy(ForgeEffectBase *effect) {
+void fa_effect_base_destroy(ForgeEffectBase *effect) {
     effect->destructor(effect);
 }
 
-void forge_effect_base_get_info(ForgeEffectBase *effect, ForgeEffectInfo *effect_info) {
+void fa_effect_base_get_info(ForgeEffectBase *effect, ForgeEffectInfo *effect_info) {
     forge_memcpy(effect_info, effect->effect_info, sizeof(ForgeEffectInfo));
 }
 
-ForgeResult forge_effect_base_is_input_format_supported(ForgeEffectBase *effect, const ForgeAudioFormat *output_format,
-                                                        const ForgeAudioFormat *requested_input_format,
-                                                        ForgeAudioFormat **supported_input_format) {
+ForgeResult fa_effect_base_is_input_format_supported(ForgeEffectBase *effect, const ForgeAudioFormat *output_format,
+                                                     const ForgeAudioFormat *requested_input_format,
+                                                     ForgeAudioFormat **supported_input_format) {
     if (requested_input_format->format_tag != FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG ||
         requested_input_format->channels < FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
         requested_input_format->channels > FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
@@ -92,9 +92,9 @@ ForgeResult forge_effect_base_is_input_format_supported(ForgeEffectBase *effect,
     return 0;
 }
 
-ForgeResult forge_effect_base_is_output_format_supported(ForgeEffectBase *effect, const ForgeAudioFormat *input_format,
-                                                         const ForgeAudioFormat *requested_output_format,
-                                                         ForgeAudioFormat **supported_output_format) {
+ForgeResult fa_effect_base_is_output_format_supported(ForgeEffectBase *effect, const ForgeAudioFormat *input_format,
+                                                      const ForgeAudioFormat *requested_output_format,
+                                                      ForgeAudioFormat **supported_output_format) {
     if (requested_output_format->format_tag != FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG ||
         requested_output_format->channels < FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
         requested_output_format->channels > FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
@@ -116,17 +116,17 @@ ForgeResult forge_effect_base_is_output_format_supported(ForgeEffectBase *effect
     return 0;
 }
 
-ForgeResult forge_effect_base_initialize(ForgeEffectBase *effect, const void *data, uint32_t data_byte_size) {
+ForgeResult fa_effect_base_initialize(ForgeEffectBase *effect, const void *data, uint32_t data_byte_size) {
     return 0;
 }
 
-void forge_effect_base_reset(ForgeEffectBase *effect) {
+void fa_effect_base_reset(ForgeEffectBase *effect) {
 }
 
-ForgeResult forge_effect_base_lock_for_process(ForgeEffectBase *effect, uint32_t input_locked_parameter_count,
-                                               const ForgeEffectLockBuffer *input_locked_parameters,
-                                               uint32_t output_locked_parameter_count,
-                                               const ForgeEffectLockBuffer *output_locked_parameters) {
+ForgeResult fa_effect_base_lock_for_process(ForgeEffectBase *effect, uint32_t input_locked_parameter_count,
+                                            const ForgeEffectLockBuffer *input_locked_parameters,
+                                            uint32_t output_locked_parameter_count,
+                                            const ForgeEffectLockBuffer *output_locked_parameters) {
     /* Verify parameter counts... */
     if (input_locked_parameter_count < effect->effect_info->min_input_buffer_count ||
         input_locked_parameter_count > effect->effect_info->max_input_buffer_count ||
@@ -153,20 +153,20 @@ ForgeResult forge_effect_base_lock_for_process(ForgeEffectBase *effect, uint32_t
     return 0;
 }
 
-void forge_effect_base_unlock_for_process(ForgeEffectBase *effect) {
+void fa_effect_base_unlock_for_process(ForgeEffectBase *effect) {
     effect->is_locked = 0;
 }
 
-uint32_t forge_effect_base_calc_input_frames(ForgeEffectBase *effect, uint32_t output_frame_count) {
+uint32_t fa_effect_base_calc_input_frames(ForgeEffectBase *effect, uint32_t output_frame_count) {
     return output_frame_count;
 }
 
-uint32_t forge_effect_base_calc_output_frames(ForgeEffectBase *effect, uint32_t input_frame_count) {
+uint32_t fa_effect_base_calc_output_frames(ForgeEffectBase *effect, uint32_t input_frame_count) {
     return input_frame_count;
 }
 
-ForgeResult forge_effect_base_validate_default_format(ForgeEffectBase *effect, ForgeAudioFormat *format,
-                                                      uint8_t overwrite) {
+ForgeResult fa_effect_base_validate_default_format(ForgeEffectBase *effect, ForgeAudioFormat *format,
+                                                   uint8_t overwrite) {
     if (format->format_tag != FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG ||
         format->channels < FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
         format->channels > FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
@@ -186,8 +186,8 @@ ForgeResult forge_effect_base_validate_default_format(ForgeEffectBase *effect, F
     return 0;
 }
 
-ForgeResult forge_effect_base_validate_format_pair(ForgeEffectBase *effect, const ForgeAudioFormat *supported_format,
-                                                   ForgeAudioFormat *requested_format, uint8_t overwrite) {
+ForgeResult fa_effect_base_validate_format_pair(ForgeEffectBase *effect, const ForgeAudioFormat *supported_format,
+                                                ForgeAudioFormat *requested_format, uint8_t overwrite) {
     if (requested_format->format_tag != FORGE_EFFECT_BASE_DEFAULT_FORMAT_TAG ||
         requested_format->channels < FORGE_EFFECT_BASE_DEFAULT_FORMAT_MIN_CHANNELS ||
         requested_format->channels > FORGE_EFFECT_BASE_DEFAULT_FORMAT_MAX_CHANNELS ||
@@ -209,9 +209,9 @@ ForgeResult forge_effect_base_validate_format_pair(ForgeEffectBase *effect, cons
     return 0;
 }
 
-void forge_effect_base_process_through(ForgeEffectBase *effect, void *input_buffer, float *output_buffer,
-                                       uint32_t frame_count, uint16_t input_channel_count,
-                                       uint16_t output_channel_count, uint8_t mix_with_output) {
+void fa_effect_base_process_through(ForgeEffectBase *effect, void *input_buffer, float *output_buffer,
+                                    uint32_t frame_count, uint16_t input_channel_count, uint16_t output_channel_count,
+                                    uint8_t mix_with_output) {
     uint32_t i, co, ci;
     float *input = (float *)input_buffer;
 
@@ -234,7 +234,7 @@ void forge_effect_base_process_through(ForgeEffectBase *effect, void *input_buff
     }
 }
 
-void forge_effect_base_set_parameters(ForgeEffectBase *effect, const void *parameters, uint32_t parameter_byte_size) {
+void fa_effect_base_set_parameters(ForgeEffectBase *effect, const void *parameters, uint32_t parameter_byte_size) {
     forge_assert(parameter_byte_size == effect->parameter_block_byte_size);
     if (parameter_byte_size != effect->parameter_block_byte_size) {
         return;
@@ -247,7 +247,7 @@ void forge_effect_base_set_parameters(ForgeEffectBase *effect, const void *param
     effect->parameters_changed = 1;
 }
 
-void forge_effect_base_get_parameters(ForgeEffectBase *effect, void *parameters, uint32_t parameter_byte_size) {
+void fa_effect_base_get_parameters(ForgeEffectBase *effect, void *parameters, uint32_t parameter_byte_size) {
     forge_assert(parameter_byte_size == effect->parameter_block_byte_size);
     if (parameter_byte_size != effect->parameter_block_byte_size) {
         return;
@@ -256,17 +256,17 @@ void forge_effect_base_get_parameters(ForgeEffectBase *effect, void *parameters,
     forge_memcpy(parameters, effect->parameters, parameter_byte_size);
 }
 
-void forge_effect_base_on_set_parameters(ForgeEffectBase *effect, const void *parameters, uint32_t parametersSize) {
+void fa_effect_base_on_set_parameters(ForgeEffectBase *effect, const void *parameters, uint32_t parametersSize) {
 }
 
-uint8_t forge_effect_base_parameters_changed(ForgeEffectBase *effect) {
+uint8_t fa_effect_base_parameters_changed(ForgeEffectBase *effect) {
     return effect->parameters_changed;
 }
 
-uint8_t *forge_effect_base_begin_process(ForgeEffectBase *effect) {
+uint8_t *fa_effect_base_begin_process(ForgeEffectBase *effect) {
     return effect->parameters;
 }
 
-void forge_effect_base_end_process(ForgeEffectBase *effect) {
+void fa_effect_base_end_process(ForgeEffectBase *effect) {
     effect->parameters_changed = 0;
 }

@@ -12,7 +12,7 @@
 
 #include "core_internal.h"
 
-bool forge_array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity, size_t count, size_t size) {
+bool fa_array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity, size_t count, size_t size) {
     size_t new_capacity, max_capacity;
     void *new_elements;
 
@@ -43,13 +43,12 @@ bool forge_array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capac
     return true;
 }
 
-void forge_linked_list_add_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock,
-                                 ForgeMallocFunc malloc_func) {
+void fa_linked_list_add_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock, ForgeMallocFunc malloc_func) {
     ForgeLinkedList *newEntry, *latest;
     newEntry = (ForgeLinkedList *)malloc_func(sizeof(ForgeLinkedList));
     newEntry->entry = toAdd;
     newEntry->next = NULL;
-    forge_platform_lock_mutex(lock);
+    fa_platform_lock_mutex(lock);
     if (*start == NULL) {
         *start = newEntry;
     } else {
@@ -59,24 +58,24 @@ void forge_linked_list_add_entry(ForgeLinkedList **start, void *toAdd, ForgeAudi
         }
         latest->next = newEntry;
     }
-    forge_platform_unlock_mutex(lock);
+    fa_platform_unlock_mutex(lock);
 }
 
-void forge_linked_list_prepend_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock,
-                                     ForgeMallocFunc malloc_func) {
+void fa_linked_list_prepend_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock,
+                                  ForgeMallocFunc malloc_func) {
     ForgeLinkedList *newEntry;
     newEntry = (ForgeLinkedList *)malloc_func(sizeof(ForgeLinkedList));
     newEntry->entry = toAdd;
-    forge_platform_lock_mutex(lock);
+    fa_platform_lock_mutex(lock);
     newEntry->next = *start;
     *start = newEntry;
-    forge_platform_unlock_mutex(lock);
+    fa_platform_unlock_mutex(lock);
 }
 
-void forge_linked_list_remove_entry(ForgeLinkedList **start, void *toRemove, ForgeAudioMutex lock,
-                                    ForgeFreeFunc free_func) {
+void fa_linked_list_remove_entry(ForgeLinkedList **start, void *toRemove, ForgeAudioMutex lock,
+                                 ForgeFreeFunc free_func) {
     ForgeLinkedList *latest, *prev;
-    forge_platform_lock_mutex(lock);
+    fa_platform_lock_mutex(lock);
     latest = *start;
     prev = latest;
     while (latest != NULL) {
@@ -88,12 +87,12 @@ void forge_linked_list_remove_entry(ForgeLinkedList **start, void *toRemove, For
                 prev->next = latest->next;
             }
             free_func(latest);
-            forge_platform_unlock_mutex(lock);
+            fa_platform_unlock_mutex(lock);
             return;
         }
         prev = latest;
         latest = latest->next;
     }
-    forge_platform_unlock_mutex(lock);
+    fa_platform_unlock_mutex(lock);
     forge_assert(0 && "ForgeLinkedList element not found!");
 }

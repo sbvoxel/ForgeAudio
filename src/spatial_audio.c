@@ -55,8 +55,8 @@
 #define SPEEDOFSOUND(spatializer) ((spatializer)->speed_of_sound)
 #define SPEEDOFSOUNDEPSILON(spatializer) ((spatializer)->speed_of_sound_epsilon)
 
-static bool forge_spatializer_check_init_params(uint32_t speaker_channel_mask, float speed_of_sound,
-                                                ForgeSpatializer *spatializer) {
+static bool fa_spatializer_check_init_params(uint32_t speaker_channel_mask, float speed_of_sound,
+                                             ForgeSpatializer *spatializer) {
     const uint32_t kAllowedSpeakerMasks[] = {
         FORGE_SPEAKER_MONO,     FORGE_SPEAKER_STEREO,           FORGE_SPEAKER_2POINT1, FORGE_SPEAKER_QUAD,
         FORGE_SPEAKER_SURROUND, FORGE_SPEAKER_4POINT1,          FORGE_SPEAKER_5POINT1, FORGE_SPEAKER_5POINT1_SURROUND,
@@ -103,7 +103,7 @@ bool forge_spatializer_init(uint32_t speaker_channel_mask, float speed_of_sound,
     } epsilonHack;
     uint32_t speakerCount = 0;
 
-    if (!forge_spatializer_check_init_params(speaker_channel_mask, speed_of_sound, spatializer)) {
+    if (!fa_spatializer_check_init_params(speaker_channel_mask, speed_of_sound, spatializer)) {
         return false;
     }
 
@@ -219,10 +219,10 @@ static inline uint8_t CheckCurve(ForgeSpatialDistanceCurve *curve) {
     return PARAM_CHECK_OK;
 }
 
-static uint8_t forge_spatializer_check_calculate_params(const ForgeSpatializer *spatializer,
-                                                        const ForgeSpatialListener *listener,
-                                                        const ForgeSpatialEmitter *emitter, uint32_t flags,
-                                                        ForgeSpatialDspSettings *dsp_settings) {
+static uint8_t fa_spatializer_check_calculate_params(const ForgeSpatializer *spatializer,
+                                                     const ForgeSpatialListener *listener,
+                                                     const ForgeSpatialEmitter *emitter, uint32_t flags,
+                                                     ForgeSpatialDspSettings *dsp_settings) {
     uint32_t i, channel_count;
 
     POINTER_CHECK(spatializer);
@@ -1070,7 +1070,7 @@ void forge_spatializer_calculate(const ForgeSpatializer *spatializer, const Forg
     eToLDistance = VectorLength(emitterToListener);
     dsp_settings->emitter_to_listener_distance = eToLDistance;
 
-    forge_spatializer_check_calculate_params(spatializer, listener, emitter, flags, dsp_settings);
+    fa_spatializer_check_calculate_params(spatializer, listener, emitter, flags, dsp_settings);
 
     /* This is used by MATRIX, LPF, and REVERB */
     normalizedDistance = eToLDistance / emitter->curve_distance_scaler;

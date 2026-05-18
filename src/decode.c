@@ -12,19 +12,19 @@
 
 #include "simd_internal.h"
 
-void forge_audio_decode_pcm8(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
+void fa_decode_pcm8(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
     LOG_FUNC_ENTER(voice->audio)
-    forge_audio_convert_u8_to_f32(src, decodeCache, samples * voice->src.format->channels);
+    fa_convert_u8_to_f32(src, decodeCache, samples * voice->src.format->channels);
     LOG_FUNC_EXIT(voice->audio)
 }
 
-void forge_audio_decode_pcm16(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
+void fa_decode_pcm16(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
     LOG_FUNC_ENTER(voice->audio)
-    forge_audio_convert_s16_to_f32(src, decodeCache, samples * voice->src.format->channels);
+    fa_convert_s16_to_f32(src, decodeCache, samples * voice->src.format->channels);
     LOG_FUNC_EXIT(voice->audio)
 }
 
-void forge_audio_decode_pcm24(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
+void fa_decode_pcm24(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
     const uint8_t *buf = src;
     LOG_FUNC_ENTER(voice->audio)
 
@@ -40,19 +40,19 @@ void forge_audio_decode_pcm24(ForgeVoice *voice, const void *src, float *decodeC
     LOG_FUNC_EXIT(voice->audio)
 }
 
-void forge_audio_decode_pcm32(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
+void fa_decode_pcm32(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
     LOG_FUNC_ENTER(voice->audio)
-    forge_audio_convert_s32_to_f32(src, decodeCache, samples * voice->src.format->channels);
+    fa_convert_s32_to_f32(src, decodeCache, samples * voice->src.format->channels);
     LOG_FUNC_EXIT(voice->audio)
 }
 
-void forge_audio_decode_pcm32f(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
+void fa_decode_pcm32f(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
     LOG_FUNC_ENTER(voice->audio)
     forge_memcpy(decodeCache, src, sizeof(float) * samples * voice->src.format->channels);
     LOG_FUNC_EXIT(voice->audio)
 }
 
-void forge_audio_decode_wma_error(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
+void fa_decode_wma_error(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
     LOG_FUNC_ENTER(voice->audio)
     LOG_ERROR(voice->audio, "%s", "WMA IS NOT SUPPORTED IN THIS BUILD!")
     forge_zero(decodeCache, samples * voice->src.format->channels * sizeof(float));

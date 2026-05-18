@@ -13,8 +13,7 @@
 #include "core_internal.h"
 
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
-void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func, const char *fmt,
-                       ...) {
+void fa_debug_log(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func, const char *fmt, ...) {
     char output[1024];
     char *out = output;
     va_list va;
@@ -22,8 +21,8 @@ void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line,
 
     /* Logging extras */
     if (audio->debug.log_thread_id) {
-        out += forge_snprintf(out, sizeof(output) - (out - output), "0x%" FORGE_PRIx64 " ",
-                              forge_platform_get_thread_id());
+        out +=
+            forge_snprintf(out, sizeof(output) - (out - output), "0x%" FORGE_PRIx64 " ", fa_platform_get_thread_id());
     }
     if (audio->debug.log_fileline) {
         out += forge_snprintf(out, sizeof(output) - (out - output), "%s:%u ", file, line);
@@ -32,7 +31,7 @@ void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line,
         out += forge_snprintf(out, sizeof(output) - (out - output), "%s ", func);
     }
     if (audio->debug.log_timing) {
-        out += forge_snprintf(out, sizeof(output) - (out - output), "%dms ", forge_audio_time_ms());
+        out += forge_snprintf(out, sizeof(output) - (out - output), "%dms ", fa_platform_time_ms());
     }
 
     /* The actual message... */
@@ -41,7 +40,7 @@ void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line,
     va_end(va);
 
     /* Print, finally. */
-    forge_log_message(output);
+    fa_platform_log_message(output);
 }
 
 static const char *get_wformattag_string(const ForgeAudioFormat *fmt) {
@@ -65,27 +64,27 @@ static const char *get_format_id_string(const ForgeAudioFormat *fmt) {
     if (fmt->format_tag != FORGE_AUDIO_FORMAT_EXTENSIBLE) {
         return "N/A";
     }
-    if (forge_audio_format_id_equals(fmtex->format_id, forge_audio_format_id_ieee_float)) {
+    if (fa_format_id_equals(fmtex->format_id, fa_format_id_ieee_float)) {
         return "IEEE_FLOAT";
     }
-    if (forge_audio_format_id_equals(fmtex->format_id, forge_audio_format_id_pcm)) {
+    if (fa_format_id_equals(fmtex->format_id, fa_format_id_pcm)) {
         return "PCM";
     }
     return "UNKNOWN!";
 }
 
-void forge_audio_debug_fmt(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
-                           const ForgeAudioFormat *fmt) {
-    forge_audio_debug(audio, file, line, func,
-                      ("{"
-                       "format_tag: 0x%x %s, "
-                       "channels: %u, "
-                       "sample_rate: %u, "
-                       "bits_per_sample: %u, "
-                       "block_align: %u, "
-                       "format_id: %s"
-                       "}"),
-                      fmt->format_tag, get_wformattag_string(fmt), fmt->channels, fmt->sample_rate,
-                      fmt->bits_per_sample, fmt->block_align, get_format_id_string(fmt));
+void fa_debug_log_format(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
+                         const ForgeAudioFormat *fmt) {
+    fa_debug_log(audio, file, line, func,
+                 ("{"
+                  "format_tag: 0x%x %s, "
+                  "channels: %u, "
+                  "sample_rate: %u, "
+                  "bits_per_sample: %u, "
+                  "block_align: %u, "
+                  "format_id: %s"
+                  "}"),
+                 fmt->format_tag, get_wformattag_string(fmt), fmt->channels, fmt->sample_rate, fmt->bits_per_sample,
+                 fmt->block_align, get_format_id_string(fmt));
 }
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */

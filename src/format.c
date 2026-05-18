@@ -13,22 +13,22 @@
 #include "format_internal.h"
 
 #define MAKE_FORMAT_ID(name, fmt)                                                                                      \
-    const uint8_t forge_audio_format_id_##name[FORGE_AUDIO_FORMAT_ID_SIZE] = {(uint8_t)((fmt) & 0xFF),                 \
-                                                                              (uint8_t)(((fmt) >> 8) & 0xFF),          \
-                                                                              0x00,                                    \
-                                                                              0x00,                                    \
-                                                                              0x00,                                    \
-                                                                              0x00,                                    \
-                                                                              0x10,                                    \
-                                                                              0x00,                                    \
-                                                                              0x80,                                    \
-                                                                              0x00,                                    \
-                                                                              0x00,                                    \
-                                                                              0xAA,                                    \
-                                                                              0x00,                                    \
-                                                                              0x38,                                    \
-                                                                              0x9B,                                    \
-                                                                              0x71}
+    const uint8_t fa_format_id_##name[FORGE_AUDIO_FORMAT_ID_SIZE] = {(uint8_t)((fmt) & 0xFF),                          \
+                                                                     (uint8_t)(((fmt) >> 8) & 0xFF),                   \
+                                                                     0x00,                                             \
+                                                                     0x00,                                             \
+                                                                     0x00,                                             \
+                                                                     0x00,                                             \
+                                                                     0x10,                                             \
+                                                                     0x00,                                             \
+                                                                     0x80,                                             \
+                                                                     0x00,                                             \
+                                                                     0x00,                                             \
+                                                                     0xAA,                                             \
+                                                                     0x00,                                             \
+                                                                     0x38,                                             \
+                                                                     0x9B,                                             \
+                                                                     0x71}
 MAKE_FORMAT_ID(pcm, 1);
 MAKE_FORMAT_ID(ieee_float, 3);
 MAKE_FORMAT_ID(xmaudio2, FORGE_AUDIO_FORMAT_XMAUDIO2);

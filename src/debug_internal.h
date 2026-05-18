@@ -19,19 +19,19 @@
 
 #if defined(_MSC_VER)
 /* VC doesn't support __attribute__ at all, and there's no replacement for format. */
-FORGE_INTERNAL_API void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
-                                          const char *fmt, ...);
+FORGE_INTERNAL_API void fa_debug_log(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
+                                     const char *fmt, ...);
 #else
-FORGE_INTERNAL_API void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
-                                          const char *fmt, ...) __attribute__((format(printf, 5, 6)));
+FORGE_INTERNAL_API void fa_debug_log(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
+                                     const char *fmt, ...) __attribute__((format(printf, 5, 6)));
 #endif
 
-FORGE_INTERNAL_API void forge_audio_debug_fmt(ForgeAudioEngine *audio, const char *file, uint32_t line,
-                                              const char *func, const ForgeAudioFormat *fmt);
+FORGE_INTERNAL_API void fa_debug_log_format(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func,
+                                            const ForgeAudioFormat *fmt);
 
 #define PRINT_DEBUG(engine, cond, type, fmt, ...)                                                                      \
     if (engine->debug.trace_mask & FORGE_AUDIO_LOG_##cond) {                                                           \
-        forge_audio_debug(engine, __FILE__, __LINE__, __func__, type ": " fmt, __VA_ARGS__);                           \
+        fa_debug_log(engine, __FILE__, __LINE__, __func__, type ": " fmt, __VA_ARGS__);                                \
     }
 
 #define LOG_ERROR(engine, fmt, ...) PRINT_DEBUG(engine, ERRORS, "ERROR", fmt, __VA_ARGS__)
@@ -48,7 +48,7 @@ FORGE_INTERNAL_API void forge_audio_debug_fmt(ForgeAudioEngine *audio, const cha
 #define LOG_MUTEX_UNLOCK(engine, mutex) PRINT_DEBUG(engine, LOCKS, "Mutex Unlock", "%p (%s)", mutex, #mutex)
 #define LOG_FORMAT(engine, wave_format)                                                                                \
     if (engine->debug.trace_mask & FORGE_AUDIO_LOG_INFO) {                                                             \
-        forge_audio_debug_fmt(engine, __FILE__, __LINE__, __func__, wave_format);                                      \
+        fa_debug_log_format(engine, __FILE__, __LINE__, __func__, wave_format);                                        \
     }
 
 #else

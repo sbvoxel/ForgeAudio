@@ -167,14 +167,14 @@ static inline void execute_command(ForgeAudioCommand *op) {
     }
 }
 
-void forge_audio_batch_apply_all(ForgeAudioEngine *audio) {
+void fa_batch_apply_all(ForgeAudioEngine *audio) {
     ForgeAudioCommand *op, *next, **ready_end;
 
-    forge_platform_lock_mutex(audio->batchLock);
+    fa_platform_lock_mutex(audio->batchLock);
     LOG_MUTEX_LOCK(audio, audio->batchLock)
 
     if (audio->pending_commands == NULL) {
-        forge_platform_unlock_mutex(audio->batchLock);
+        fa_platform_unlock_mutex(audio->batchLock);
         LOG_MUTEX_UNLOCK(audio, audio->batchLock)
         return;
     }
@@ -196,18 +196,18 @@ void forge_audio_batch_apply_all(ForgeAudioEngine *audio) {
     } while (op != NULL);
     audio->pending_commands = NULL;
 
-    forge_platform_unlock_mutex(audio->batchLock);
+    fa_platform_unlock_mutex(audio->batchLock);
     LOG_MUTEX_UNLOCK(audio, audio->batchLock)
 }
 
-void forge_audio_batch_apply(ForgeAudioEngine *audio, ForgeAudioBatchId batch_id) {
+void fa_batch_apply(ForgeAudioEngine *audio, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op, *next, *prev, **ready_end;
 
-    forge_platform_lock_mutex(audio->batchLock);
+    fa_platform_lock_mutex(audio->batchLock);
     LOG_MUTEX_LOCK(audio, audio->batchLock)
 
     if (audio->pending_commands == NULL) {
-        forge_platform_unlock_mutex(audio->batchLock);
+        fa_platform_unlock_mutex(audio->batchLock);
         LOG_MUTEX_UNLOCK(audio, audio->batchLock)
         return;
     }
@@ -238,14 +238,14 @@ void forge_audio_batch_apply(ForgeAudioEngine *audio, ForgeAudioBatchId batch_id
         op = next;
     } while (op != NULL);
 
-    forge_platform_unlock_mutex(audio->batchLock);
+    fa_platform_unlock_mutex(audio->batchLock);
     LOG_MUTEX_UNLOCK(audio, audio->batchLock)
 }
 
-void forge_audio_batch_execute(ForgeAudioEngine *audio) {
+void fa_batch_execute(ForgeAudioEngine *audio) {
     ForgeAudioCommand *op, *next;
 
-    forge_platform_lock_mutex(audio->batchLock);
+    fa_platform_lock_mutex(audio->batchLock);
     LOG_MUTEX_LOCK(audio, audio->batchLock)
 
     op = audio->ready_commands;
@@ -257,7 +257,7 @@ void forge_audio_batch_execute(ForgeAudioEngine *audio) {
     }
     audio->ready_commands = NULL;
 
-    forge_platform_unlock_mutex(audio->batchLock);
+    fa_platform_unlock_mutex(audio->batchLock);
     LOG_MUTEX_UNLOCK(audio, audio->batchLock)
 }
 
@@ -289,39 +289,39 @@ static inline ForgeAudioCommand *queue_command(ForgeVoice *voice, ForgeAudioComm
     return newop;
 }
 
-void forge_audio_batch_queue_enable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_enable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_ENABLE_EFFECT, batch_id);
 
     op->Data.EnableEffect.effect_index = effect_index;
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_disable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_disable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_DISABLE_EFFECT, batch_id);
 
     op->Data.DisableEffect.effect_index = effect_index;
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index, const void *parameters,
-                                                   uint32_t parameters_byte_size, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index, const void *parameters,
+                                          uint32_t parameters_byte_size, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS, batch_id);
@@ -331,31 +331,30 @@ void forge_audio_batch_queue_set_effect_parameters(ForgeVoice *voice, uint32_t e
     forge_memcpy(op->Data.SetEffectParameters.parameters, parameters, parameters_byte_size);
     op->Data.SetEffectParameters.parameters_byte_size = parameters_byte_size;
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_set_filter_parameters(ForgeVoice *voice, const ForgeFilterParameters *parameters,
-                                                   ForgeAudioBatchId batch_id) {
+void fa_batch_queue_set_filter_parameters(ForgeVoice *voice, const ForgeFilterParameters *parameters,
+                                          ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS, batch_id);
 
     forge_memcpy(&op->Data.SetFilterParameters.Parameters, parameters, sizeof(ForgeFilterParameters));
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
-                                                          const ForgeFilterParameters *parameters,
-                                                          ForgeAudioBatchId batch_id) {
+void fa_batch_queue_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                 const ForgeFilterParameters *parameters, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_PARAMETERS, batch_id);
@@ -363,29 +362,29 @@ void forge_audio_batch_queue_set_output_filter_parameters(ForgeVoice *voice, For
     op->Data.SetOutputFilterParameters.destination_voice = destination_voice;
     forge_memcpy(&op->Data.SetOutputFilterParameters.Parameters, parameters, sizeof(ForgeFilterParameters));
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_VOLUME, batch_id);
 
     op->Data.SetVolume.volume = volume;
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_set_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
-                                                 ForgeAudioBatchId batch_id) {
+void fa_batch_queue_set_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                        ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES, batch_id);
@@ -394,16 +393,16 @@ void forge_audio_batch_queue_set_channel_volumes(ForgeVoice *voice, uint32_t cha
     op->Data.SetChannelVolumes.volumes = voice->audio->malloc_func(sizeof(float) * channels);
     forge_memcpy(op->Data.SetChannelVolumes.volumes, volumes, sizeof(float) * channels);
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
-                                               uint32_t source_channels, uint32_t destination_channels,
-                                               const float *level_matrix, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t source_channels,
+                                      uint32_t destination_channels, const float *level_matrix,
+                                      ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX, batch_id);
@@ -416,70 +415,70 @@ void forge_audio_batch_queue_set_output_matrix(ForgeVoice *voice, ForgeVoice *de
     forge_memcpy(op->Data.SetOutputMatrix.level_matrix, level_matrix,
                  sizeof(float) * source_channels * destination_channels);
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_start(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_start(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_START, batch_id);
 
     op->Data.Start.flags = flags;
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_stop(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_stop(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_STOP, batch_id);
 
     op->Data.Stop.flags = flags;
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_exit_loop(ForgeSourceVoice *voice, ForgeAudioBatchId batch_id) {
-    forge_platform_lock_mutex(voice->audio->batchLock);
+void fa_batch_queue_exit_loop(ForgeSourceVoice *voice, ForgeAudioBatchId batch_id) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     queue_command(voice, FORGE_AUDIO_COMMAND_EXIT_LOOP, batch_id);
 
     /* No special data for ExitLoop */
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
-void forge_audio_batch_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio, ForgeAudioBatchId batch_id) {
+void fa_batch_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
-    forge_platform_lock_mutex(voice->audio->batchLock);
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_FREQUENCY_RATIO, batch_id);
 
     op->Data.SetFrequencyRatio.ratio = ratio;
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
 /* Called when releasing the engine */
 
-void forge_audio_batch_clear_all(ForgeAudioEngine *audio) {
+void fa_batch_clear_all(ForgeAudioEngine *audio) {
     ForgeAudioCommand *current, *next;
 
-    forge_platform_lock_mutex(audio->batchLock);
+    fa_platform_lock_mutex(audio->batchLock);
     LOG_MUTEX_LOCK(audio, audio->batchLock)
 
     current = audio->pending_commands;
@@ -490,7 +489,7 @@ void forge_audio_batch_clear_all(ForgeAudioEngine *audio) {
     }
     audio->pending_commands = NULL;
 
-    forge_platform_unlock_mutex(audio->batchLock);
+    fa_platform_unlock_mutex(audio->batchLock);
     LOG_MUTEX_UNLOCK(audio, audio->batchLock)
 }
 
@@ -525,13 +524,13 @@ static inline void remove_voice_commands(ForgeVoice *voice, ForgeAudioCommand **
     }
 }
 
-void forge_audio_batch_clear_all_for_voice(ForgeVoice *voice) {
-    forge_platform_lock_mutex(voice->audio->batchLock);
+void fa_batch_clear_all_for_voice(ForgeVoice *voice) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     remove_voice_commands(voice, &voice->audio->pending_commands);
     remove_voice_commands(voice, &voice->audio->ready_commands);
 
-    forge_platform_unlock_mutex(voice->audio->batchLock);
+    fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }

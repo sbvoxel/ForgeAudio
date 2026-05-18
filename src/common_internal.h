@@ -77,7 +77,7 @@
 #define FORGE_PRIu64 PRIu64
 #define FORGE_PRIx64 PRIx64
 
-extern void forge_log_message(char const *msg);
+extern void fa_platform_log_message(char const *msg);
 
 /* Native Win32 backend currently supports little-endian targets. */
 #define forge_swap16le(x) (x)
@@ -164,7 +164,7 @@ extern void forge_log_message(char const *msg);
 #endif
 #define forge_snprintf SDL_snprintf
 #define forge_vsnprintf SDL_vsnprintf
-#define forge_log_message(msg) SDL_Log("%s", msg)
+#define fa_platform_log_message(msg) SDL_Log("%s", msg)
 #define forge_getenv SDL_getenv
 #define FORGE_PRIu64 SDL_PRIu64
 #define FORGE_PRIx64 SDL_PRIx64
