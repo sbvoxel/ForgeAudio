@@ -612,6 +612,76 @@ int test_delay_tail_flags_clear_after_consumed_sample(void) {
     return failed;
 }
 
+int test_delay_grow_discards_orphaned_samples(void) {
+    ForgeEffect *effect = NULL;
+    ForgeDelayParameters params = delay_params(100.0f, 4.0f, 0.0f, FORGE_DELAY_BYPASS_LOWPASS_HZ);
+    ForgeEffectProcessBuffer input_buffer;
+    ForgeEffectProcessBuffer output_buffer;
+    float input[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float output[4];
+    int failed = 0;
+
+    failed = check_result("delay_create", forge_create_delay(&effect, 0), ForgeResultSuccess);
+    if (!failed) {
+        effect->set_parameters(effect, &params, sizeof(params));
+        failed = lock_delay_effect(effect, 1, 1000);
+    }
+    if (!failed) {
+        input_buffer.buffer = input;
+        input_buffer.buffer_flags = FORGE_EFFECT_BUFFER_VALID;
+        input_buffer.valid_frame_count = 4;
+        output_buffer.buffer = output;
+        output_buffer.buffer_flags = FORGE_EFFECT_BUFFER_VALID;
+        output_buffer.valid_frame_count = 4;
+
+        effect->process(effect, 1, &input_buffer, 1, &output_buffer, 1);
+        failed = audio_test_check_constant("delay_orphan_seed", output, 4, 1, 0.0f, 0.000001f);
+    }
+    if (!failed) {
+        params.delay_ms = 1.0f;
+        effect->set_parameters(effect, &params, sizeof(params));
+        input[0] = 0.0f;
+        input_buffer.buffer_flags = FORGE_EFFECT_BUFFER_SILENT;
+        input_buffer.valid_frame_count = 1;
+        output_buffer.valid_frame_count = 1;
+
+        effect->process(effect, 1, &input_buffer, 1, &output_buffer, 1);
+        if (audio_test_absf(output[0] - 1.0f) > 0.000001f ||
+            output_buffer.buffer_flags != FORGE_EFFECT_BUFFER_VALID) {
+            fprintf(stderr, "delay orphan shrink: output=%.8f flags=%u\n", output[0], output_buffer.buffer_flags);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        effect->process(effect, 1, &input_buffer, 1, &output_buffer, 1);
+        if (audio_test_absf(output[0]) > 0.000001f || output_buffer.buffer_flags != FORGE_EFFECT_BUFFER_SILENT) {
+            fprintf(stderr, "delay orphan drained: output=%.8f flags=%u\n", output[0], output_buffer.buffer_flags);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        params.delay_ms = 4.0f;
+        effect->set_parameters(effect, &params, sizeof(params));
+        input_buffer.valid_frame_count = 4;
+        output_buffer.valid_frame_count = 4;
+
+        effect->process(effect, 1, &input_buffer, 1, &output_buffer, 1);
+        if (output_buffer.buffer_flags != FORGE_EFFECT_BUFFER_SILENT) {
+            fprintf(stderr, "delay orphan grow flags: got %u\n", output_buffer.buffer_flags);
+            failed = 1;
+        }
+        if (!failed) {
+            failed = audio_test_check_constant("delay_orphan_grow", output, 4, 1, 0.0f, 0.000001f);
+        }
+    }
+
+    if (effect != NULL) {
+        effect->unlock_for_process(effect);
+        forge_effect_destroy(effect);
+    }
+    return failed;
+}
+
 int test_delay_tail_drains_with_play_tails(void) {
     enum {
         channels = 1,

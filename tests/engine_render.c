@@ -167,6 +167,7 @@ int main(void) {
     failures += run_test("delay_reset_clears_delayed_samples", test_delay_reset_clears_delayed_samples);
     failures += run_test("delay_tail_flags_clear_after_consumed_sample",
                          test_delay_tail_flags_clear_after_consumed_sample);
+    failures += run_test("delay_grow_discards_orphaned_samples", test_delay_grow_discards_orphaned_samples);
     failures += run_test("delay_tail_drains_with_play_tails", test_delay_tail_drains_with_play_tails);
     failures += run_test("limiter_creation_kind_and_destroy", test_limiter_creation_kind_and_destroy);
     failures += run_test("limiter_format_validation_rejects_channel_change",

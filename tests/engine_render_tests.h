@@ -119,6 +119,7 @@ int test_delay_in_place_processing(void);
 int test_delay_disabled_clears_delayed_samples(void);
 int test_delay_reset_clears_delayed_samples(void);
 int test_delay_tail_flags_clear_after_consumed_sample(void);
+int test_delay_grow_discards_orphaned_samples(void);
 int test_delay_tail_drains_with_play_tails(void);
 int test_limiter_creation_kind_and_destroy(void);
 int test_limiter_format_validation_rejects_channel_change(void);

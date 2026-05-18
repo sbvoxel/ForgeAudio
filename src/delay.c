@@ -18,6 +18,8 @@ static const ForgeEffectInfo delay_info = {
     .min_output_buffer_count = 1,
     .max_output_buffer_count = 1};
 
+#define DELAY_SIGNAL_EPSILON 0.0000001f
+
 typedef struct ForgeDelay {
     ForgeEffectBase base;
     ForgeDelayParameters applied_parameters;
@@ -28,6 +30,9 @@ typedef struct ForgeDelay {
     uint32_t ring_capacity_frames;
     uint32_t read_frame;
     uint32_t write_frame;
+    uint32_t pending_frames;
+    /* Newly exposed read slots after a delay increase may contain orphaned history from an earlier shrink. */
+    uint32_t muted_read_frames;
     float *delay_buffer;
     float *lowpass_state;
     float wet_mix;
@@ -86,20 +91,13 @@ static void delay_reset_ring(ForgeDelay *effect) {
     }
     effect->read_frame = 0;
     effect->write_frame = effect->delay_frames;
-}
-
-static void delay_update_read_frame(ForgeDelay *effect) {
-    if (effect->ring_capacity_frames == 0) {
-        effect->read_frame = 0;
-        effect->write_frame = 0;
-        return;
-    }
-    effect->read_frame = (effect->write_frame + effect->ring_capacity_frames - effect->delay_frames) %
-                         effect->ring_capacity_frames;
+    effect->pending_frames = 0;
+    effect->muted_read_frames = 0;
 }
 
 static void delay_apply_parameters(ForgeDelay *effect, const ForgeDelayParameters *parameters) {
     uint32_t old_delay_frames = effect->delay_frames;
+    uint32_t new_delay_frames;
     const float pi = 3.14159265358979323846f;
 
     effect->applied_parameters = delay_clamp_parameters(parameters);
@@ -108,18 +106,40 @@ static void delay_apply_parameters(ForgeDelay *effect, const ForgeDelayParameter
 
     if (effect->sample_rate == 0) {
         effect->delay_frames = 0;
+        effect->pending_frames = 0;
+        effect->muted_read_frames = 0;
         effect->lowpass_coeff = 1.0f;
         effect->lowpass_enabled = 0;
         return;
     }
 
-    effect->delay_frames = delay_ms_to_frames(effect->sample_rate, effect->applied_parameters.delay_ms);
-    if (effect->delay_frames > effect->max_delay_frames) {
-        effect->delay_frames = effect->max_delay_frames;
+    new_delay_frames = delay_ms_to_frames(effect->sample_rate, effect->applied_parameters.delay_ms);
+    if (new_delay_frames > effect->max_delay_frames) {
+        new_delay_frames = effect->max_delay_frames;
     }
 
-    if (effect->delay_frames != old_delay_frames) {
-        delay_update_read_frame(effect);
+    if (new_delay_frames != old_delay_frames) {
+        if (new_delay_frames > old_delay_frames) {
+            uint32_t exposed_frames = new_delay_frames - old_delay_frames;
+            effect->muted_read_frames = forge_min(effect->muted_read_frames + exposed_frames, new_delay_frames);
+        } else {
+            uint32_t skipped_frames = old_delay_frames - new_delay_frames;
+            effect->muted_read_frames =
+                (effect->muted_read_frames > skipped_frames) ? (effect->muted_read_frames - skipped_frames) : 0;
+        }
+
+        effect->delay_frames = new_delay_frames;
+        if (effect->ring_capacity_frames == 0) {
+            effect->read_frame = 0;
+            effect->write_frame = 0;
+        } else {
+            effect->read_frame = (effect->write_frame + effect->ring_capacity_frames - effect->delay_frames) %
+                                 effect->ring_capacity_frames;
+        }
+
+        if (effect->pending_frames > 0) {
+            effect->pending_frames = effect->delay_frames;
+        }
     }
 
     if (effect->applied_parameters.lowpass_hz <= 0.0f ||
@@ -132,20 +152,6 @@ static void delay_apply_parameters(ForgeDelay *effect, const ForgeDelayParameter
             1.0f - (float)forge_exp(-2.0 * (double)pi * (double)effect->applied_parameters.lowpass_hz /
                                     (double)effect->sample_rate);
     }
-}
-
-static uint8_t delay_has_pending_signal(const ForgeDelay *effect) {
-    if (effect->wet_mix <= 0.0000001f || effect->delay_buffer == NULL) {
-        return 0;
-    }
-
-    for (uint32_t i = 0; i < effect->ring_capacity_frames * effect->channels; i += 1) {
-        if (forge_fabsf(effect->delay_buffer[i]) > 0.0000001f) {
-            return 1;
-        }
-    }
-
-    return 0;
 }
 
 static ForgeResult fa_delay_initialize(ForgeDelay *effect, const void *data, uint32_t data_byte_size) {
@@ -224,6 +230,8 @@ static void fa_delay_unlock_for_process(ForgeDelay *effect) {
     effect->ring_capacity_frames = 0;
     effect->read_frame = 0;
     effect->write_frame = 0;
+    effect->pending_frames = 0;
+    effect->muted_read_frames = 0;
     effect->lowpass_coeff = 1.0f;
     effect->lowpass_enabled = 0;
     fa_effect_base_unlock_for_process(&effect->base);
@@ -259,14 +267,24 @@ static void fa_delay_process(ForgeDelay *effect, uint32_t input_buffer_count,
     for (uint32_t frame = 0; frame < frame_count; frame += 1) {
         float *read = effect->delay_buffer + (effect->read_frame * effect->channels);
         float *write = effect->delay_buffer + (effect->write_frame * effect->channels);
+        uint8_t mute_read = effect->muted_read_frames > 0;
+        uint8_t wrote_pending = 0;
+
+        if (effect->pending_frames > 0) {
+            effect->pending_frames -= 1;
+        }
+        if (effect->muted_read_frames > 0) {
+            effect->muted_read_frames -= 1;
+        }
 
         for (uint32_t channel = 0; channel < effect->channels; channel += 1) {
             float sample = (input_buffers->buffer_flags == FORGE_EFFECT_BUFFER_SILENT)
                                ? 0.0f
                                : input[frame * effect->channels + channel];
-            float delayed = read[channel];
+            float delayed = mute_read ? 0.0f : read[channel];
             float feedback_sample = delayed;
             float mixed = (sample * effect->dry_mix) + (delayed * effect->wet_mix);
+            float written;
 
             if (effect->lowpass_enabled) {
                 float state = effect->lowpass_state[channel];
@@ -275,20 +293,29 @@ static void fa_delay_process(ForgeDelay *effect, uint32_t input_buffer_count,
                 feedback_sample = state;
             }
 
-            write[channel] = sample + (feedback_sample * effect->applied_parameters.feedback);
+            written = sample + (feedback_sample * effect->applied_parameters.feedback);
+            write[channel] = written;
             read[channel] = 0.0f;
             output[frame * effect->channels + channel] = mixed;
 
+            if (forge_fabsf(written) > DELAY_SIGNAL_EPSILON) {
+                wrote_pending = 1;
+            }
             if (forge_fabsf(mixed) > output_peak) {
                 output_peak = forge_fabsf(mixed);
             }
+        }
+
+        if (wrote_pending && effect->delay_frames > effect->pending_frames) {
+            effect->pending_frames = effect->delay_frames;
         }
 
         effect->read_frame = (effect->read_frame + 1) % effect->ring_capacity_frames;
         effect->write_frame = (effect->write_frame + 1) % effect->ring_capacity_frames;
     }
 
-    output_buffers->buffer_flags = (output_peak > 0.0000001f || delay_has_pending_signal(effect))
+    output_buffers->buffer_flags = (output_peak > DELAY_SIGNAL_EPSILON ||
+                                    (effect->wet_mix > DELAY_SIGNAL_EPSILON && effect->pending_frames > 0))
                                        ? FORGE_EFFECT_BUFFER_VALID
                                        : FORGE_EFFECT_BUFFER_SILENT;
 
@@ -372,6 +399,8 @@ ForgeResult forge_create_delay_with_allocator(ForgeEffect **effect, uint32_t fla
     result->ring_capacity_frames = 0;
     result->read_frame = 0;
     result->write_frame = 0;
+    result->pending_frames = 0;
+    result->muted_read_frames = 0;
     result->delay_buffer = NULL;
     result->lowpass_state = NULL;
     result->wet_mix = FORGE_DELAY_DEFAULT_WET_DRY_MIX / 100.0f;
