@@ -6,3 +6,7 @@
 - Macros and compile-time constants use `UPPER_SNAKE_CASE`.
 - Public and internal types use Pascal/Camel case, such as `ForgeVoice` and `DspDelay`.
 - Keep established compatibility wrapper macro families, such as `forge_memcpy`, in their existing style.
+
+# ForgeAudio Runtime Semantics
+
+- Engine/batch code owns timeline semantics: command ordering, batch boundaries, ms-to-frame conversion, ramp duration, and timeline advancement. Effects own parameter meaning and DSP-safe application: validation, interpolation domain, coefficient/state updates, and whether a field is smoothable, hard-set, rebuild-only, or crossfade-only.
