@@ -210,6 +210,13 @@ FORGE_AUDIO_API uint32_t forge_audio_test_source_decode_frame_count(uint32_t res
                                                                     float max_frequency_ratio,
                                                                     uint32_t source_sample_rate,
                                                                     uint32_t output_sample_rate);
+FORGE_AUDIO_API ForgeResult forge_audio_test_create_virtual_master_voice(ForgeAudioEngine *audio,
+                                                                         ForgeMasterVoice **mastering_voice,
+                                                                         uint32_t input_channels,
+                                                                         uint32_t input_sample_rate,
+                                                                         uint32_t update_size,
+                                                                         const ForgeEffectChain *effect_chain);
+FORGE_AUDIO_API ForgeResult forge_audio_test_render(ForgeAudioEngine *audio, float *output, uint32_t frame_count);
 #endif
 
 FORGE_INTERNAL_API extern const float fa_audio_matrix_defaults[8][8][64];

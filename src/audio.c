@@ -636,6 +636,62 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
     return 0;
 }
 
+#ifdef FORGE_AUDIO_TESTING
+ForgeResult forge_audio_test_create_virtual_master_voice(ForgeAudioEngine *audio, ForgeMasterVoice **mastering_voice,
+                                                         uint32_t input_channels, uint32_t input_sample_rate,
+                                                         uint32_t update_size,
+                                                         const ForgeEffectChain *effect_chain) {
+    ForgeResult result;
+
+    if (audio == NULL || mastering_voice == NULL) {
+        return ForgeResultInvalidArgument;
+    }
+
+    LOG_API_ENTER(audio)
+
+    if (audio->master != NULL || input_channels == 0 || input_sample_rate == 0 || update_size == 0) {
+        LOG_API_EXIT(audio)
+        return ForgeResultInvalidArgument;
+    }
+
+    *mastering_voice = (ForgeMasterVoice *)audio->malloc_func(sizeof(ForgeVoice));
+    forge_zero(*mastering_voice, sizeof(ForgeMasterVoice));
+    (*mastering_voice)->audio = audio;
+    (*mastering_voice)->type = FORGE_AUDIO_VOICE_MASTER;
+    (*mastering_voice)->effectLock = fa_platform_create_mutex();
+    LOG_MUTEX_CREATE(audio, (*mastering_voice)->effectLock)
+    (*mastering_voice)->volumeLock = fa_platform_create_mutex();
+    LOG_MUTEX_CREATE(audio, (*mastering_voice)->volumeLock)
+    (*mastering_voice)->volume = 1.0f;
+    (*mastering_voice)->master.inputChannels = input_channels;
+    (*mastering_voice)->master.inputSampleRate = input_sample_rate;
+
+    audio->updateSize = update_size;
+    audio->master = *mastering_voice;
+
+    result = forge_voice_set_effect_chain(*mastering_voice, effect_chain);
+    if (result != 0) {
+        forge_voice_destroy(*mastering_voice);
+        *mastering_voice = NULL;
+        LOG_API_EXIT(audio)
+        return result;
+    }
+
+    fa_format_write_extensible(&audio->mixFormat, audio->master->outputChannels,
+                               audio->master->master.inputSampleRate, fa_format_id_ieee_float);
+    audio->master->outputChannels = audio->mixFormat.format.channels;
+    audio->master->master.inputSampleRate = audio->mixFormat.format.sample_rate;
+
+    if ((*mastering_voice)->master.inputChannels != (*mastering_voice)->outputChannels) {
+        (*mastering_voice)->master.effectCache =
+            (float *)audio->malloc_func(sizeof(float) * audio->updateSize * (*mastering_voice)->master.inputChannels);
+    }
+
+    LOG_API_EXIT(audio)
+    return 0;
+}
+#endif
+
 void forge_audio_set_engine_procedure(ForgeAudioEngine *audio, ForgeEngineProcedure client_engine_proc, void *user) {
     LOG_API_ENTER(audio)
     audio->client_engine_proc = client_engine_proc;

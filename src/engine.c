@@ -990,6 +990,36 @@ void fa_audio_update_engine(ForgeAudioEngine *audio, float *output) {
     LOG_FUNC_EXIT(audio)
 }
 
+#ifdef FORGE_AUDIO_TESTING
+ForgeResult forge_audio_test_render(ForgeAudioEngine *audio, float *output, uint32_t frame_count) {
+    uint32_t channels;
+    uint32_t rendered = 0;
+
+    if (audio == NULL || output == NULL) {
+        return ForgeResultInvalidArgument;
+    }
+
+    LOG_FUNC_ENTER(audio)
+
+    if (audio->master == NULL || audio->updateSize == 0 || frame_count % audio->updateSize != 0) {
+        LOG_FUNC_EXIT(audio)
+        return ForgeResultInvalidArgument;
+    }
+
+    channels = audio->master->outputChannels;
+    while (rendered < frame_count) {
+        float *quantum = output + ((size_t)rendered * channels);
+
+        forge_zero(quantum, sizeof(float) * audio->updateSize * channels);
+        fa_audio_update_engine(audio, quantum);
+        rendered += audio->updateSize;
+    }
+
+    LOG_FUNC_EXIT(audio)
+    return 0;
+}
+#endif
+
 void fa_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t samples) {
     LOG_FUNC_ENTER(audio)
     fa_platform_lock_mutex(audio->sourceLock);

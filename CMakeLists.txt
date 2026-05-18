@@ -156,6 +156,13 @@ if(BUILD_TESTS)
     target_link_libraries(source_resampler_test PRIVATE ForgeAudio)
     forge_audio_enable_asan(source_resampler_test)
     add_test(NAME source_resampler COMMAND source_resampler_test)
+
+    add_executable(engine_render_test tests/engine_render.c)
+    target_compile_definitions(engine_render_test PRIVATE FORGE_AUDIO_TESTING)
+    target_include_directories(engine_render_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(engine_render_test PRIVATE ForgeAudio)
+    forge_audio_enable_asan(engine_render_test)
+    add_test(NAME engine_render COMMAND engine_render_test)
 endif()
 
 # SDL3 Dependency
