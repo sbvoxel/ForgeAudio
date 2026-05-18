@@ -346,6 +346,11 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
         return ForgeResultInvalidCall;
     }
 
+    if (source_format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
+        LOG_ERROR(audio, "%s", "XMA2 source voices are not supported");
+        return ForgeResultUnsupportedFormat;
+    }
+
     *source_voice = (ForgeSourceVoice *)audio->malloc_func(sizeof(ForgeVoice));
     forge_zero(*source_voice, sizeof(ForgeSourceVoice));
     (*source_voice)->audio = audio;
@@ -394,19 +399,6 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
             forge_memcpy(fmtex->format_id, fa_format_id_wmaudio3, FORGE_AUDIO_FORMAT_ID_SIZE);
         }
         (*source_voice)->src.format = &fmtex->format;
-    } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
-        ForgeXMA2Format *fmtex = (ForgeXMA2Format *)audio->malloc_func(sizeof(ForgeXMA2Format));
-
-        /* Copy what we can, ideally the sizes match! */
-        size_t extra_size = sizeof(ForgeAudioFormat) + source_format->extra_size;
-        forge_memcpy(fmtex, source_format, forge_min(extra_size, sizeof(ForgeXMA2Format)));
-        if (extra_size < sizeof(ForgeXMA2Format)) {
-            forge_zero(((uint8_t *)fmtex) + extra_size, sizeof(ForgeXMA2Format) - extra_size);
-        }
-
-        /* Preserve existing input-validation behavior. */
-        fmtex->wfx.extra_size = sizeof(ForgeXMA2Format) - sizeof(ForgeAudioFormat);
-        (*source_voice)->src.format = &fmtex->wfx;
     } else {
         /* direct copy anything else */
         (*source_voice)->src.format =
@@ -434,9 +426,6 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
             forge_assert(0 && "Unsupported extensible audio format identifier!");
         }
 #undef COMPARE_FORMAT_ID
-    } else if ((*source_voice)->src.format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
-        forge_assert(0 && "XMA2 is not supported!");
-        (*source_voice)->src.decode = fa_decode_wma_error;
     } else {
         forge_assert(0 && "Unsupported format tag!");
     }

@@ -165,6 +165,10 @@ static int test_unknown_formats_are_rejected(void) {
     return failed;
 }
 
+static int test_xma2_format_is_unsupported(void) {
+    return expect_simple_format_result("xma2_simple", FORGE_AUDIO_FORMAT_XMAUDIO2, 32, ForgeResultUnsupportedFormat);
+}
+
 int main(void) {
     int failed = 0;
 
@@ -178,6 +182,7 @@ int main(void) {
     failed |= test_additional_float_bit_depths();
     failed |= test_compressed_formats_are_not_uncompressed_validated();
     failed |= test_unknown_formats_are_rejected();
+    failed |= test_xma2_format_is_unsupported();
 
     return failed;
 }
