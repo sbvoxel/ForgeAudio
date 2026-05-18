@@ -137,10 +137,16 @@ typedef struct ForgeEffectChain {
 
 typedef struct ForgeFilterParameters {
     ForgeFilterType type;
-    float frequency;   /* [0, FORGE_AUDIO_MAX_FILTER_FREQUENCY] */
-    float one_over_q;  /* [0, FORGE_AUDIO_MAX_FILTER_ONEOVERQ] */
+    float cutoff_hz;   /* [0, voice-specific stable maximum], see forge_voice_get_filter_cutoff_range */
+    float q;           /* [FORGE_AUDIO_MIN_FILTER_Q, FORGE_AUDIO_MAX_FILTER_Q] */
     float wet_dry_mix; /* [0, 1] */
 } ForgeFilterParameters;
+
+typedef struct ForgeFilterTarget {
+    float cutoff_hz;   /* [0, voice-specific stable maximum], see forge_voice_get_filter_cutoff_range */
+    float q;           /* [FORGE_AUDIO_MIN_FILTER_Q, FORGE_AUDIO_MAX_FILTER_Q] */
+    float wet_dry_mix; /* [0, 1] */
+} ForgeFilterTarget;
 
 typedef struct ForgeBuffer {
     /* Either 0 or FORGE_AUDIO_END_OF_STREAM */
@@ -228,8 +234,8 @@ typedef enum ForgeResult {
 #define FORGE_AUDIO_MIN_FREQ_RATIO (1.0f / 1024.0f)
 #define FORGE_AUDIO_MAX_FREQ_RATIO 1024.0f
 #define FORGE_AUDIO_DEFAULT_FREQ_RATIO 2.0f
-#define FORGE_AUDIO_MAX_FILTER_ONEOVERQ 1.5f
-#define FORGE_AUDIO_MAX_FILTER_FREQUENCY 1.0f
+#define FORGE_AUDIO_MIN_FILTER_Q 0.6666667f
+#define FORGE_AUDIO_MAX_FILTER_Q 1000.0f
 #define FORGE_AUDIO_MAX_LOOP_COUNT 254
 
 /* Batch ids for calls that can be deferred.
@@ -256,8 +262,8 @@ typedef enum ForgeResult {
 #define FORGE_AUDIO_1024_QUANTUM 0x8000
 
 #define FORGE_AUDIO_DEFAULT_FILTER_TYPE ForgeFilterLowPass
-#define FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY FORGE_AUDIO_MAX_FILTER_FREQUENCY
-#define FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ 1.0f
+#define FORGE_AUDIO_DEFAULT_FILTER_CUTOFF_HZ 20000.0f
+#define FORGE_AUDIO_DEFAULT_FILTER_Q 1.0f
 #define FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX 1.0f
 
 #define FORGE_AUDIO_LOG_ERRORS 0x0001
@@ -626,12 +632,53 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice,
                                                               const ForgeFilterParameters *parameters,
                                                               ForgeAudioBatchId batch_id);
 
+/* Sets only the discrete filter type.
+ * Any active cutoff/Q/wet-dry automation is preserved. The type switch itself is
+ * immediate at the batch boundary and may click for some signals.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_set_filter_type(ForgeVoice *voice, ForgeFilterType type,
+                                                        ForgeAudioBatchId batch_id);
+
+/* Targets the continuous filter variables using ForgeAudio's internal default de-zip duration.
+ * This does not change the filter type.
+ *
+ * The current implementation advances cutoff_hz, q, and wet_dry_mix once per
+ * rendered frame. The exact cutoff interpolation curve is intentionally not a
+ * long-term API promise while ForgeAudio is pre-1.0; it may become explicitly
+ * linear/log/curve-selectable later.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_set_filter_target(ForgeVoice *voice, const ForgeFilterTarget *target,
+                                                          ForgeAudioBatchId batch_id);
+
+/* Ramps the continuous filter variables over an exact number of rendered sample frames.
+ * This does not change the filter type. See forge_voice_set_filter_target for
+ * the current interpolation policy and future curve note.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_filter_frames(ForgeVoice *voice, const ForgeFilterTarget *target,
+                                                           uint32_t duration_frames,
+                                                           ForgeAudioBatchId batch_id);
+
+/* Ramps the continuous filter variables over a duration in milliseconds.
+ * duration_ms is converted to engine output sample frames using
+ * forge_audio_ms_to_frames when this function is called.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_filter_ms(ForgeVoice *voice, const ForgeFilterTarget *target,
+                                                       double duration_ms, ForgeAudioBatchId batch_id);
+
 /* Requests the filter variables for a voice.
  * This is only valid on voices with the USEFILTER flag.
  *
- * parameters: See ForgeFilterParameters for details.
+ * parameters: Filled with the current effective clamped filter values. During
+ *             an active ramp, these are the latest rendered timeline values,
+ *             not the final target values.
  */
 FORGE_AUDIO_API void forge_voice_get_filter_parameters(ForgeVoice *voice, ForgeFilterParameters *parameters);
+
+/* Gets the stable cutoff range for a voice filter, in Hz.
+ * The maximum depends on the sample rate at which the voice filter runs.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_get_filter_cutoff_range(ForgeVoice *voice, float *min_cutoff_hz,
+                                                                float *max_cutoff_hz);
 
 /* Sets the filter variables for a voice's output voice.
  * This is only valid on sends with the USEFILTER flag.
@@ -646,14 +693,47 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice 
                                                                      const ForgeFilterParameters *parameters,
                                                                      ForgeAudioBatchId batch_id);
 
+/* Sets only a send filter's discrete type. Active cutoff/Q/wet-dry automation is preserved. */
+FORGE_AUDIO_API ForgeResult forge_voice_set_output_filter_type(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                               ForgeFilterType type,
+                                                               ForgeAudioBatchId batch_id);
+
+/* Targets a send filter's continuous variables using ForgeAudio's internal default de-zip duration.
+ * This does not change the send filter type. See forge_voice_set_filter_target
+ * for the current interpolation policy and future curve note.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_set_output_filter_target(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                                 const ForgeFilterTarget *target,
+                                                                 ForgeAudioBatchId batch_id);
+
+/* Ramps a send filter's continuous variables over an exact number of rendered sample frames. */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_filter_frames(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                                  const ForgeFilterTarget *target,
+                                                                  uint32_t duration_frames,
+                                                                  ForgeAudioBatchId batch_id);
+
+/* Ramps a send filter's continuous variables over a duration in milliseconds. */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_filter_ms(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                              const ForgeFilterTarget *target,
+                                                              double duration_ms,
+                                                              ForgeAudioBatchId batch_id);
+
 /* Requests the filter variables for a voice's output voice.
  * This is only valid on sends with the USEFILTER flag.
  *
  * destination_voice:    An output voice from the voice's send list.
- * parameters:        See ForgeFilterParameters for details.
+ * parameters:        Filled with the current effective clamped filter values.
  */
 FORGE_AUDIO_API void forge_voice_get_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                               ForgeFilterParameters *parameters);
+
+/* Gets the stable cutoff range for a send filter, in Hz.
+ * The maximum depends on the sample rate at which the send filter runs.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_get_output_filter_cutoff_range(ForgeVoice *voice,
+                                                                       ForgeVoice *destination_voice,
+                                                                       float *min_cutoff_hz,
+                                                                       float *max_cutoff_hz);
 
 /* Sets the global volume of a voice.
  *

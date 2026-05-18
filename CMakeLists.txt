@@ -172,6 +172,7 @@ if(BUILD_TESTS)
         tests/engine_render_common.c
         tests/engine_render_core.c
         tests/engine_render_fade_stop.c
+        tests/engine_render_filter.c
         tests/engine_render_gain.c
         tests/engine_render_output_matrix.c
         tests/engine_render_tests.h

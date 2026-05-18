@@ -142,6 +142,147 @@ static uint32_t source_voice_output_rate(const ForgeSourceVoice *voice) {
     return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
 }
 
+static uint32_t voice_filter_sample_rate(const ForgeVoice *voice) {
+    if (voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+        return source_voice_output_rate(voice);
+    }
+    if (voice->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        if (voice->sends.send_count == 0) {
+            return voice->audio->master->master.inputSampleRate;
+        }
+        return voice->sends.sends[0].send.output_voice->type == FORGE_AUDIO_VOICE_MASTER
+                   ? voice->sends.sends[0].send.output_voice->master.inputSampleRate
+                   : voice->sends.sends[0].send.output_voice->mix.inputSampleRate;
+    }
+    return voice->master.inputSampleRate;
+}
+
+static uint32_t output_filter_sample_rate(const ForgeVoiceSendRuntime *send) {
+    ForgeVoice *out = send->send.output_voice;
+
+    return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
+}
+
+static float filter_max_cutoff_hz(uint32_t sample_rate) {
+    /* The current Chamberlin state-variable filter is stable through coefficient
+     * 1.0, which corresponds to 2 * sin(pi * cutoff / sample_rate) == 1.0,
+     * or cutoff == sample_rate / 6. This is intentionally internal policy; the
+     * public API exposes the discoverable range instead of the coefficient.
+     */
+    return (float)sample_rate / 6.0f;
+}
+
+static void filter_get_cutoff_range(uint32_t sample_rate, float *min_cutoff_hz, float *max_cutoff_hz) {
+    if (min_cutoff_hz != NULL) {
+        *min_cutoff_hz = 0.0f;
+    }
+    if (max_cutoff_hz != NULL) {
+        *max_cutoff_hz = filter_max_cutoff_hz(sample_rate);
+    }
+}
+
+static float filter_coefficient_from_cutoff(float cutoff_hz, uint32_t sample_rate) {
+    const double pi = 3.14159265358979323846264338327950288;
+
+    if (sample_rate == 0) {
+        return 0.0f;
+    }
+    return 2.0f * forge_sinf((float)(pi * (double)cutoff_hz / (double)sample_rate));
+}
+
+static ForgeFilterTarget clamp_filter_target(const ForgeFilterTarget *target, uint32_t sample_rate) {
+    ForgeFilterTarget result;
+
+    result.cutoff_hz = forge_clamp(target->cutoff_hz, 0.0f, filter_max_cutoff_hz(sample_rate));
+    result.q = forge_clamp(target->q, FORGE_AUDIO_MIN_FILTER_Q, FORGE_AUDIO_MAX_FILTER_Q);
+    result.wet_dry_mix = forge_clamp(target->wet_dry_mix, 0.0f, 1.0f);
+    return result;
+}
+
+static void filter_runtime_refresh_dsp(ForgeFilterRuntime *filter) {
+    filter->frequency = filter_coefficient_from_cutoff(filter->cutoff_hz, filter->sample_rate);
+    filter->one_over_q = 1.0f / filter->q;
+}
+
+static void filter_runtime_set_sample_rate(ForgeFilterRuntime *filter, uint32_t sample_rate) {
+    ForgeFilterTarget target;
+
+    filter->sample_rate = sample_rate;
+    target.cutoff_hz = filter->cutoff_hz;
+    target.q = filter->q;
+    target.wet_dry_mix = filter->wet_dry_mix;
+    target = clamp_filter_target(&target, sample_rate);
+    filter->cutoff_hz = target.cutoff_hz;
+    filter->q = target.q;
+    filter->wet_dry_mix = target.wet_dry_mix;
+    filter_runtime_refresh_dsp(filter);
+}
+
+static void filter_runtime_init(ForgeFilterRuntime *filter, uint32_t sample_rate) {
+    ForgeFilterTarget target;
+
+    forge_zero(filter, sizeof(*filter));
+    filter->type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
+    filter->sample_rate = sample_rate;
+    target.cutoff_hz = FORGE_AUDIO_DEFAULT_FILTER_CUTOFF_HZ;
+    target.q = FORGE_AUDIO_DEFAULT_FILTER_Q;
+    target.wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
+    target = clamp_filter_target(&target, sample_rate);
+    filter->cutoff_hz = target.cutoff_hz;
+    filter->q = target.q;
+    filter->wet_dry_mix = target.wet_dry_mix;
+    filter_runtime_refresh_dsp(filter);
+}
+
+static void filter_runtime_set_parameters(ForgeFilterRuntime *filter, const ForgeFilterParameters *parameters) {
+    ForgeFilterTarget target;
+
+    filter->type = parameters->type;
+    target.cutoff_hz = parameters->cutoff_hz;
+    target.q = parameters->q;
+    target.wet_dry_mix = parameters->wet_dry_mix;
+    target = clamp_filter_target(&target, filter->sample_rate);
+    filter->cutoff_hz = target.cutoff_hz;
+    filter->q = target.q;
+    filter->wet_dry_mix = target.wet_dry_mix;
+    filter->automation.active = 0;
+    filter->automation.remainingFrames = 0;
+    filter_runtime_refresh_dsp(filter);
+}
+
+static void filter_runtime_get_parameters(const ForgeFilterRuntime *filter, ForgeFilterParameters *parameters) {
+    parameters->type = filter->type;
+    parameters->cutoff_hz = filter->cutoff_hz;
+    parameters->q = filter->q;
+    parameters->wet_dry_mix = filter->wet_dry_mix;
+}
+
+static void filter_runtime_set_type(ForgeFilterRuntime *filter, ForgeFilterType type) {
+    filter->type = type;
+}
+
+static void filter_runtime_install_ramp(ForgeFilterRuntime *filter, const ForgeFilterTarget *target,
+                                        uint32_t duration_frames) {
+    ForgeFilterTarget clamped = clamp_filter_target(target, filter->sample_rate);
+
+    if (duration_frames == 0) {
+        filter->cutoff_hz = clamped.cutoff_hz;
+        filter->q = clamped.q;
+        filter->wet_dry_mix = clamped.wet_dry_mix;
+        filter->automation.active = 0;
+        filter->automation.remainingFrames = 0;
+        filter_runtime_refresh_dsp(filter);
+        return;
+    }
+
+    filter->automation.target = clamped;
+    filter->automation.step.cutoff_hz = (clamped.cutoff_hz - filter->cutoff_hz) / (float)duration_frames;
+    filter->automation.step.q = (clamped.q - filter->q) / (float)duration_frames;
+    filter->automation.step.wet_dry_mix = (clamped.wet_dry_mix - filter->wet_dry_mix) / (float)duration_frames;
+    filter->automation.remainingFrames = duration_frames;
+    filter->automation.active = 1;
+}
+
 static void free_voice_send_runtime(ForgeVoice *voice) {
     if (voice->sends.sends == NULL) {
         forge_zero(&voice->sends, sizeof(voice->sends));
@@ -563,10 +704,6 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     (*source_voice)->audio = audio;
     (*source_voice)->type = FORGE_AUDIO_VOICE_SOURCE;
     (*source_voice)->flags = flags;
-    (*source_voice)->filter.type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
-    (*source_voice)->filter.frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
-    (*source_voice)->filter.one_over_q = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
-    (*source_voice)->filter.wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
     (*source_voice)->sendLock = fa_platform_create_mutex();
     LOG_MUTEX_CREATE(audio, (*source_voice)->sendLock)
     (*source_voice)->effectLock = fa_platform_create_mutex();
@@ -652,6 +789,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
 
     /* Sends/Effects */
     fa_audio_voice_output_frequency(*source_voice, send_list);
+    filter_runtime_init(&(*source_voice)->filter, voice_filter_sample_rate(*source_voice));
     result = forge_voice_set_effect_chain(*source_voice, effect_chain);
     if (result != 0) {
         cleanup_failed_unlinked_voice(source_voice);
@@ -744,10 +882,6 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     (*submix_voice)->audio = audio;
     (*submix_voice)->type = FORGE_AUDIO_VOICE_SUBMIX;
     (*submix_voice)->flags = flags;
-    (*submix_voice)->filter.type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
-    (*submix_voice)->filter.frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
-    (*submix_voice)->filter.one_over_q = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
-    (*submix_voice)->filter.wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
     (*submix_voice)->sendLock = fa_platform_create_mutex();
     LOG_MUTEX_CREATE(audio, (*submix_voice)->sendLock)
     (*submix_voice)->effectLock = fa_platform_create_mutex();
@@ -787,6 +921,7 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
 
     /* Sends/Effects */
     fa_audio_voice_output_frequency(*submix_voice, send_list);
+    filter_runtime_init(&(*submix_voice)->filter, voice_filter_sample_rate(*submix_voice));
     result = forge_voice_set_effect_chain(*submix_voice, effect_chain);
     if (result != 0) {
         cleanup_failed_unlinked_voice(submix_voice);
@@ -1269,6 +1404,7 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
     if (voice->type == FORGE_AUDIO_VOICE_SOURCE && sourceDecodeSamples != 0) {
         voice->src.decodeSamples = sourceDecodeSamples;
     }
+    filter_runtime_set_sample_rate(&voice->filter, send_list_output_rate(voice->audio, send_list));
 
     fa_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
@@ -1374,10 +1510,7 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
         }
 
         if (send->send.flags & FORGE_AUDIO_SEND_USEFILTER) {
-            send->filter.type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
-            send->filter.frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
-            send->filter.one_over_q = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
-            send->filter.wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
+            filter_runtime_init(&send->filter, output_filter_sample_rate(send));
             send->filterState =
                 (ForgeAudioFilterState *)voice->audio->malloc_func(sizeof(ForgeAudioFilterState) * outChannels);
             if (send->filterState == NULL) {
@@ -1668,11 +1801,146 @@ ForgeResult forge_voice_get_effect_parameters(ForgeVoice *voice, uint32_t effect
     return 0;
 }
 
+static ForgeResult validate_filter_target_arg(const ForgeFilterTarget *target) {
+    if (target == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    return ForgeResultSuccess;
+}
+
+static ForgeResult find_output_filter_locked(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t *send_index) {
+    uint32_t i;
+
+    if (destination_voice == NULL && voice->sends.send_count == 1) {
+        destination_voice = voice->sends.sends[0].send.output_voice;
+    }
+    for (i = 0; i < voice->sends.send_count; i += 1) {
+        if (destination_voice == voice->sends.sends[i].send.output_voice) {
+            break;
+        }
+    }
+    if (i >= voice->sends.send_count) {
+        LOG_ERROR(voice->audio, "Destination not attached to source: %p %p", (void *)voice, (void *)destination_voice)
+        return ForgeResultInvalidCall;
+    }
+    if (!(voice->sends.sends[i].send.flags & FORGE_AUDIO_SEND_USEFILTER)) {
+        return ForgeResultFormatSuggested;
+    }
+    *send_index = i;
+    return ForgeResultSuccess;
+}
+
+ForgeResult fa_voice_install_set_filter_parameters(ForgeVoice *voice, const ForgeFilterParameters *parameters) {
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER || !(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
+        return ForgeResultSuccess;
+    }
+
+    fa_platform_lock_mutex(voice->filterLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
+    filter_runtime_set_parameters(&voice->filter, parameters);
+    fa_platform_unlock_mutex(voice->filterLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
+    return ForgeResultSuccess;
+}
+
+ForgeResult fa_voice_install_set_filter_type(ForgeVoice *voice, ForgeFilterType type) {
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER || !(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
+        return ForgeResultSuccess;
+    }
+
+    fa_platform_lock_mutex(voice->filterLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
+    filter_runtime_set_type(&voice->filter, type);
+    fa_platform_unlock_mutex(voice->filterLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
+    return ForgeResultSuccess;
+}
+
+ForgeResult fa_voice_install_ramp_filter(ForgeVoice *voice, const ForgeFilterTarget *target,
+                                         uint32_t duration_frames) {
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER || !(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
+        return ForgeResultSuccess;
+    }
+
+    fa_platform_lock_mutex(voice->filterLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
+    filter_runtime_install_ramp(&voice->filter, target, duration_frames);
+    fa_platform_unlock_mutex(voice->filterLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
+    return ForgeResultSuccess;
+}
+
+ForgeResult fa_voice_install_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                          const ForgeFilterParameters *parameters) {
+    uint32_t i = 0;
+    ForgeResult result;
+
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        return ForgeResultSuccess;
+    }
+
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+    result = find_output_filter_locked(voice, destination_voice, &i);
+    if (result == ForgeResultSuccess) {
+        filter_runtime_set_parameters(&voice->sends.sends[i].filter, parameters);
+    } else if (result == ForgeResultFormatSuggested) {
+        result = ForgeResultSuccess;
+    }
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    return result;
+}
+
+ForgeResult fa_voice_install_set_output_filter_type(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                    ForgeFilterType type) {
+    uint32_t i = 0;
+    ForgeResult result;
+
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        return ForgeResultSuccess;
+    }
+
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+    result = find_output_filter_locked(voice, destination_voice, &i);
+    if (result == ForgeResultSuccess) {
+        filter_runtime_set_type(&voice->sends.sends[i].filter, type);
+    } else if (result == ForgeResultFormatSuggested) {
+        result = ForgeResultSuccess;
+    }
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    return result;
+}
+
+ForgeResult fa_voice_install_ramp_output_filter(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                const ForgeFilterTarget *target, uint32_t duration_frames) {
+    uint32_t i = 0;
+    ForgeResult result;
+
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        return ForgeResultSuccess;
+    }
+
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+    result = find_output_filter_locked(voice, destination_voice, &i);
+    if (result == ForgeResultSuccess) {
+        filter_runtime_install_ramp(&voice->sends.sends[i].filter, target, duration_frames);
+    } else if (result == ForgeResultFormatSuggested) {
+        result = ForgeResultSuccess;
+    }
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    return result;
+}
+
 ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice, const ForgeFilterParameters *parameters,
                                               ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || parameters == NULL) {
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
@@ -1683,161 +1951,246 @@ ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice, const ForgeFilt
         return 0;
     }
 
-    /* MSDN: "This method is usable only on source and submix voices and
-     * has no effect on mastering voices."
-     */
-    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
-        LOG_API_EXIT(voice->audio)
-        return 0;
+    if (voice->audio->active) {
+        fa_batch_clear_ready_filter_automation(voice);
     }
 
-    if (!(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
-        LOG_API_EXIT(voice->audio)
-        return 0;
-    }
-
-    fa_platform_lock_mutex(voice->filterLock);
-    LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
-    forge_memcpy(&voice->filter, parameters, sizeof(ForgeFilterParameters));
-    fa_platform_unlock_mutex(voice->filterLock);
-    LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
-
+    ForgeResult result = fa_voice_install_set_filter_parameters(voice, parameters);
     LOG_API_EXIT(voice->audio)
-    return 0;
+    return result;
 }
 
-void forge_voice_get_filter_parameters(ForgeVoice *voice, ForgeFilterParameters *parameters) {
-    LOG_API_ENTER(voice->audio)
-
-    /* MSDN: "This method is usable only on source and submix voices and
-     * has no effect on mastering voices."
-     */
-    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
-        LOG_API_EXIT(voice->audio)
-        return;
-    }
-
-    if (!(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
-        LOG_API_EXIT(voice->audio)
-        return;
-    }
-
-    fa_platform_lock_mutex(voice->filterLock);
-    LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
-    forge_memcpy(parameters, &voice->filter, sizeof(ForgeFilterParameters));
-    fa_platform_unlock_mutex(voice->filterLock);
-    LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
-    LOG_API_EXIT(voice->audio)
-}
-
-ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
-                                                     const ForgeFilterParameters *parameters,
-                                                     ForgeAudioBatchId batch_id) {
-    uint32_t i;
+ForgeResult forge_voice_set_filter_type(ForgeVoice *voice, ForgeFilterType type, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
     if (batch_id == FORGE_AUDIO_BATCH_ALL) {
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        fa_batch_queue_set_filter_type(voice, type, batch_id);
+        LOG_API_EXIT(voice->audio)
+        return 0;
+    }
 
+    ForgeResult result = fa_voice_install_set_filter_type(voice, type);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+static ForgeResult queue_or_install_ramp_filter(ForgeVoice *voice, const ForgeFilterTarget *target,
+                                                uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeResult result = validate_filter_target_arg(target);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        return ForgeResultInvalidCall;
+    }
+    if (voice->audio->active) {
+        fa_batch_queue_ramp_filter(voice, target, duration_frames, batch_id);
+        return ForgeResultSuccess;
+    }
+    return fa_voice_install_ramp_filter(voice, target, duration_frames);
+}
+
+ForgeResult forge_voice_set_filter_target(ForgeVoice *voice, const ForgeFilterTarget *target,
+                                          ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_filter(voice, target, FA_AUTOMATION_DEFAULT_TARGET_FRAMES, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_filter_frames(ForgeVoice *voice, const ForgeFilterTarget *target,
+                                           uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_filter(voice, target, duration_frames, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_filter_ms(ForgeVoice *voice, const ForgeFilterTarget *target, double duration_ms,
+                                       ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+    LOG_API_ENTER(voice->audio)
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_filter(voice, target, duration_frames, batch_id);
+    }
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+void forge_voice_get_filter_parameters(ForgeVoice *voice, ForgeFilterParameters *parameters) {
+    LOG_API_ENTER(voice->audio)
+
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER || !(voice->flags & FORGE_AUDIO_VOICE_USEFILTER) ||
+        parameters == NULL) {
+        LOG_API_EXIT(voice->audio)
+        return;
+    }
+
+    fa_platform_lock_mutex(voice->filterLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
+    filter_runtime_get_parameters(&voice->filter, parameters);
+    fa_platform_unlock_mutex(voice->filterLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
+    LOG_API_EXIT(voice->audio)
+}
+
+ForgeResult forge_voice_get_filter_cutoff_range(ForgeVoice *voice, float *min_cutoff_hz, float *max_cutoff_hz) {
+    if (voice == NULL || voice->type == FORGE_AUDIO_VOICE_MASTER || !(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->filterLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->filterLock)
+    filter_get_cutoff_range(voice->filter.sample_rate, min_cutoff_hz, max_cutoff_hz);
+    fa_platform_unlock_mutex(voice->filterLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->filterLock)
+    return ForgeResultSuccess;
+}
+
+ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                     const ForgeFilterParameters *parameters,
+                                                     ForgeAudioBatchId batch_id) {
+    LOG_API_ENTER(voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || parameters == NULL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
     if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
         fa_batch_queue_set_output_filter_parameters(voice, destination_voice, parameters, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
-
-    /* MSDN: "This method is usable only on source and submix voices and
-     * has no effect on mastering voices."
-     */
-    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
-        LOG_API_EXIT(voice->audio)
-        return 0;
+    if (voice->audio->active) {
+        fa_batch_clear_ready_output_filter_automation(voice, destination_voice);
     }
 
-    fa_platform_lock_mutex(voice->sendLock);
-    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+    ForgeResult result = fa_voice_install_set_output_filter_parameters(voice, destination_voice, parameters);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
 
-    /* Find the send index */
-    if (destination_voice == NULL && voice->sends.send_count == 1) {
-        destination_voice = voice->sends.sends[0].send.output_voice;
-    }
-    for (i = 0; i < voice->sends.send_count; i += 1) {
-        if (destination_voice == voice->sends.sends[i].send.output_voice) {
-            break;
-        }
-    }
-    if (i >= voice->sends.send_count) {
-        LOG_ERROR(voice->audio, "Destination not attached to source: %p %p", (void *)voice, (void *)destination_voice)
-        fa_platform_unlock_mutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+ForgeResult forge_voice_set_output_filter_type(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                               ForgeFilterType type, ForgeAudioBatchId batch_id) {
+    LOG_API_ENTER(voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
-
-    if (!(voice->sends.sends[i].send.flags & FORGE_AUDIO_SEND_USEFILTER)) {
-        fa_platform_unlock_mutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        fa_batch_queue_set_output_filter_type(voice, destination_voice, type, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
     }
 
-    /* Set the filter parameters, finally. */
-    forge_memcpy(&voice->sends.sends[i].filter, parameters, sizeof(ForgeFilterParameters));
-
-    fa_platform_unlock_mutex(voice->sendLock);
-    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    ForgeResult result = fa_voice_install_set_output_filter_type(voice, destination_voice, type);
     LOG_API_EXIT(voice->audio)
-    return 0;
+    return result;
+}
+
+static ForgeResult queue_or_install_ramp_output_filter(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                       const ForgeFilterTarget *target, uint32_t duration_frames,
+                                                       ForgeAudioBatchId batch_id) {
+    ForgeResult result = validate_filter_target_arg(target);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        return ForgeResultInvalidCall;
+    }
+    if (voice->audio->active) {
+        fa_batch_queue_ramp_output_filter(voice, destination_voice, target, duration_frames, batch_id);
+        return ForgeResultSuccess;
+    }
+    return fa_voice_install_ramp_output_filter(voice, destination_voice, target, duration_frames);
+}
+
+ForgeResult forge_voice_set_output_filter_target(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                 const ForgeFilterTarget *target, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_output_filter(voice, destination_voice, target,
+                                                 FA_AUTOMATION_DEFAULT_TARGET_FRAMES, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_output_filter_frames(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                  const ForgeFilterTarget *target, uint32_t duration_frames,
+                                                  ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_output_filter(voice, destination_voice, target, duration_frames, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_output_filter_ms(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                              const ForgeFilterTarget *target, double duration_ms,
+                                              ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+    LOG_API_ENTER(voice->audio)
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_output_filter(voice, destination_voice, target, duration_frames, batch_id);
+    }
+    LOG_API_EXIT(voice->audio)
+    return result;
 }
 
 void forge_voice_get_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
                                               ForgeFilterParameters *parameters) {
-    uint32_t i;
+    uint32_t i = 0;
+    ForgeResult result;
 
     LOG_API_ENTER(voice->audio)
 
-    /* MSDN: "This method is usable only on source and submix voices and
-     * has no effect on mastering voices."
-     */
-    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER || parameters == NULL) {
         LOG_API_EXIT(voice->audio)
         return;
     }
 
     fa_platform_lock_mutex(voice->sendLock);
     LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-
-    /* Find the send index */
-    if (destination_voice == NULL && voice->sends.send_count == 1) {
-        destination_voice = voice->sends.sends[0].send.output_voice;
+    result = find_output_filter_locked(voice, destination_voice, &i);
+    if (result == ForgeResultSuccess) {
+        filter_runtime_get_parameters(&voice->sends.sends[i].filter, parameters);
     }
-    for (i = 0; i < voice->sends.send_count; i += 1) {
-        if (destination_voice == voice->sends.sends[i].send.output_voice) {
-            break;
-        }
-    }
-    if (i >= voice->sends.send_count) {
-        LOG_ERROR(voice->audio, "Destination not attached to source: %p %p", (void *)voice, (void *)destination_voice)
-        fa_platform_unlock_mutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-        LOG_API_EXIT(voice->audio)
-        return;
-    }
-
-    if (!(voice->sends.sends[i].send.flags & FORGE_AUDIO_SEND_USEFILTER)) {
-        fa_platform_unlock_mutex(voice->sendLock);
-        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
-        LOG_API_EXIT(voice->audio)
-        return;
-    }
-
-    /* Set the filter parameters, finally. */
-    forge_memcpy(parameters, &voice->sends.sends[i].filter, sizeof(ForgeFilterParameters));
-
     fa_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
     LOG_API_EXIT(voice->audio)
+}
+
+ForgeResult forge_voice_get_output_filter_cutoff_range(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                       float *min_cutoff_hz, float *max_cutoff_hz) {
+    uint32_t i = 0;
+    ForgeResult result;
+
+    if (voice == NULL || voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+    result = find_output_filter_locked(voice, destination_voice, &i);
+    if (result == ForgeResultSuccess) {
+        filter_get_cutoff_range(voice->sends.sends[i].filter.sample_rate, min_cutoff_hz, max_cutoff_hz);
+    } else if (result == ForgeResultFormatSuggested) {
+        result = ForgeResultInvalidCall;
+    }
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    return result;
 }
 
 ForgeResult fa_voice_install_set_volume(ForgeVoice *voice, float volume) {

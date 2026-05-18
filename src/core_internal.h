@@ -45,12 +45,28 @@ typedef void(FORGE_AUDIO_CALL *ForgeAudioMixCallback)(uint32_t to_mix, uint32_t 
 
 typedef float ForgeAudioFilterState[4];
 
+typedef struct ForgeFilterRuntime {
+    ForgeFilterType type;
+    float cutoff_hz;
+    float q;
+    float wet_dry_mix;
+    float frequency;
+    float one_over_q;
+    uint32_t sample_rate;
+    struct {
+        uint8_t active;
+        ForgeFilterTarget target;
+        ForgeFilterTarget step;
+        uint32_t remainingFrames;
+    } automation;
+} ForgeFilterRuntime;
+
 typedef struct ForgeVoiceSendRuntime {
     ForgeSend send;
     float *sendCoefficients;
     float *mixCoefficients;
     ForgeAudioMixCallback mix;
-    ForgeFilterParameters filter;
+    ForgeFilterRuntime filter;
     ForgeAudioFilterState *filterState;
     struct {
         uint8_t active;
@@ -132,7 +148,7 @@ struct ForgeVoice {
 
     ForgeVoiceSendRuntimeList sends;
     ForgeEffectChainRuntime effects;
-    ForgeFilterParameters filter;
+    ForgeFilterRuntime filter;
     ForgeAudioFilterState *filterState;
     ForgeAudioMutex sendLock;
     ForgeAudioMutex effectLock;

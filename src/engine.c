@@ -307,7 +307,53 @@ static void decode_buffers(ForgeSourceVoice *voice, uint64_t *toDecode) {
     LOG_FUNC_EXIT(voice->audio)
 }
 
-static inline void filter_voice(ForgeAudioEngine *audio, const ForgeFilterParameters *filter,
+static float filter_coefficient_from_cutoff_hz(float cutoff_hz, uint32_t sample_rate) {
+    const double pi = 3.14159265358979323846264338327950288;
+
+    if (sample_rate == 0) {
+        return 0.0f;
+    }
+    return 2.0f * forge_sinf((float)(pi * (double)cutoff_hz / (double)sample_rate));
+}
+
+static void refresh_filter_runtime_dsp(ForgeFilterRuntime *filter) {
+    filter->frequency = filter_coefficient_from_cutoff_hz(filter->cutoff_hz, filter->sample_rate);
+    filter->one_over_q = 1.0f / filter->q;
+}
+
+static void advance_filter_one_frame_locked(ForgeFilterRuntime *filter) {
+    if (!filter->automation.active) {
+        return;
+    }
+
+    filter->automation.remainingFrames -= 1;
+    if (filter->automation.remainingFrames == 0) {
+        filter->cutoff_hz = filter->automation.target.cutoff_hz;
+        filter->q = filter->automation.target.q;
+        filter->wet_dry_mix = filter->automation.target.wet_dry_mix;
+        filter->automation.active = 0;
+    } else {
+        filter->cutoff_hz += filter->automation.step.cutoff_hz;
+        filter->q += filter->automation.step.q;
+        filter->wet_dry_mix += filter->automation.step.wet_dry_mix;
+    }
+    refresh_filter_runtime_dsp(filter);
+}
+
+static void advance_filter_locked(ForgeFilterRuntime *filter, uint32_t frames) {
+    while (frames > 0 && filter->automation.active) {
+        advance_filter_one_frame_locked(filter);
+        frames -= 1;
+    }
+}
+
+static void advance_output_filters_locked(ForgeVoice *voice, uint32_t frames) {
+    for (uint32_t sendIndex = 0; sendIndex < voice->sends.send_count; sendIndex += 1) {
+        advance_filter_locked(&voice->sends.sends[sendIndex].filter, frames);
+    }
+}
+
+static inline void filter_voice(ForgeAudioEngine *audio, ForgeFilterRuntime *filter,
                                          ForgeAudioFilterState *filterState, float *samples, uint32_t numSamples,
                                          uint16_t numChannels) {
     uint32_t j, ci;
@@ -322,14 +368,19 @@ static inline void filter_voice(ForgeAudioEngine *audio, const ForgeFilterParame
      * Yb(n) = F Yh(n) + Yb(n - 1)
      * Yn(n) = Yl(n) + Yh(n)
      *
-     * Please note that ForgeFilterParameters.frequency is defined as:
+     * ForgeFilterRuntime.frequency is the internal coefficient:
+     * 2 * sin(pi * cutoff_hz / sampleRate).
      *
-     * (2 * sin(pi * (desired filter cutoff frequency) / sampleRate))
+     * Public filter automation advances cutoff_hz, q, and wet_dry_mix once per
+     * rendered frame. The current implementation linearly steps those public
+     * values, then refreshes this coefficient. We are deliberately not making
+     * the exact cutoff curve a long-term pre-1.0 promise; log/curve-selectable
+     * cutoff motion can replace this without changing the public target API.
      *
      * - @JohanSmet
      */
 
-    for (j = 0; j < numSamples; j += 1)
+    for (j = 0; j < numSamples; j += 1) {
         for (ci = 0; ci < numChannels; ci += 1) {
             filterState[ci][ForgeFilterLowPass] =
                 filterState[ci][ForgeFilterLowPass] + (filter->frequency * filterState[ci][ForgeFilterBandPass]);
@@ -342,6 +393,8 @@ static inline void filter_voice(ForgeAudioEngine *audio, const ForgeFilterParame
             samples[j * numChannels + ci] = filterState[ci][filter->type] * filter->wet_dry_mix +
                                             samples[j * numChannels + ci] * (1.0 - filter->wet_dry_mix);
         }
+        advance_filter_one_frame_locked(filter);
+    }
 
     LOG_FUNC_EXIT(audio)
 }
@@ -1133,6 +1186,13 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
             mix_source(audio->processingSource);
             flush_pending_buffers(audio->processingSource);
         } else {
+            if (audio->processingSource->flags & FORGE_AUDIO_VOICE_USEFILTER) {
+                fa_platform_lock_mutex(audio->processingSource->filterLock);
+                LOG_MUTEX_LOCK(audio, audio->processingSource->filterLock)
+                advance_filter_locked(&audio->processingSource->filter, audio->updateSize);
+                fa_platform_unlock_mutex(audio->processingSource->filterLock);
+                LOG_MUTEX_UNLOCK(audio, audio->processingSource->filterLock)
+            }
             fa_platform_lock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_LOCK(audio, audio->processingSource->volumeLock)
             advance_voice_volume_locked(audio->processingSource, audio->updateSize);
@@ -1141,6 +1201,11 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
             advance_output_matrices_locked(audio->processingSource, audio->updateSize);
             fa_platform_unlock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_UNLOCK(audio, audio->processingSource->volumeLock)
+            fa_platform_lock_mutex(audio->processingSource->sendLock);
+            LOG_MUTEX_LOCK(audio, audio->processingSource->sendLock)
+            advance_output_filters_locked(audio->processingSource, audio->updateSize);
+            fa_platform_unlock_mutex(audio->processingSource->sendLock);
+            LOG_MUTEX_UNLOCK(audio, audio->processingSource->sendLock)
         }
 
         list = list->next;

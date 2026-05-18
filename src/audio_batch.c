@@ -21,7 +21,11 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_DISABLE_EFFECT,
     FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS,
+    FORGE_AUDIO_COMMAND_SET_FILTER_TYPE,
+    FORGE_AUDIO_COMMAND_RAMP_FILTER,
     FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_PARAMETERS,
+    FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_TYPE,
+    FORGE_AUDIO_COMMAND_RAMP_OUTPUT_FILTER,
     FORGE_AUDIO_COMMAND_SET_VOLUME,
     FORGE_AUDIO_COMMAND_RAMP_VOLUME,
     FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES,
@@ -56,9 +60,25 @@ struct ForgeAudioCommand {
             ForgeFilterParameters Parameters;
         } SetFilterParameters;
         struct {
+            ForgeFilterType type;
+        } SetFilterType;
+        struct {
+            ForgeFilterTarget target;
+            uint32_t duration_frames;
+        } RampFilter;
+        struct {
             ForgeVoice *destination_voice;
             ForgeFilterParameters Parameters;
         } SetOutputFilterParameters;
+        struct {
+            ForgeVoice *destination_voice;
+            ForgeFilterType type;
+        } SetOutputFilterType;
+        struct {
+            ForgeVoice *destination_voice;
+            ForgeFilterTarget target;
+            uint32_t duration_frames;
+        } RampOutputFilter;
         struct {
             float volume;
         } SetVolume;
@@ -147,14 +167,32 @@ static inline void execute_command(ForgeAudioCommand *op) {
         break;
 
     case FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS:
-        forge_voice_set_filter_parameters(op->voice, &op->Data.SetFilterParameters.Parameters,
-                                          FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_set_filter_parameters(op->voice, &op->Data.SetFilterParameters.Parameters);
+        break;
+
+    case FORGE_AUDIO_COMMAND_SET_FILTER_TYPE:
+        fa_voice_install_set_filter_type(op->voice, op->Data.SetFilterType.type);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_FILTER:
+        fa_voice_install_ramp_filter(op->voice, &op->Data.RampFilter.target,
+                                     op->Data.RampFilter.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_PARAMETERS:
-        forge_voice_set_output_filter_parameters(op->voice, op->Data.SetOutputFilterParameters.destination_voice,
-                                                 &op->Data.SetOutputFilterParameters.Parameters,
-                                                 FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_set_output_filter_parameters(op->voice, op->Data.SetOutputFilterParameters.destination_voice,
+                                                      &op->Data.SetOutputFilterParameters.Parameters);
+        break;
+
+    case FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_TYPE:
+        fa_voice_install_set_output_filter_type(op->voice, op->Data.SetOutputFilterType.destination_voice,
+                                                op->Data.SetOutputFilterType.type);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_OUTPUT_FILTER:
+        fa_voice_install_ramp_output_filter(op->voice, op->Data.RampOutputFilter.destination_voice,
+                                            &op->Data.RampOutputFilter.target,
+                                            op->Data.RampOutputFilter.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_VOLUME:
@@ -413,6 +451,36 @@ void fa_batch_queue_set_filter_parameters(ForgeVoice *voice, const ForgeFilterPa
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
+void fa_batch_queue_set_filter_type(ForgeVoice *voice, ForgeFilterType type, ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_FILTER_TYPE, batch_id);
+
+    op->Data.SetFilterType.type = type;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_ramp_filter(ForgeVoice *voice, const ForgeFilterTarget *target, uint32_t duration_frames,
+                                ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_FILTER, batch_id);
+
+    op->Data.RampFilter.target = *target;
+    op->Data.RampFilter.duration_frames = duration_frames;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
 void fa_batch_queue_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                  const ForgeFilterParameters *parameters, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
@@ -424,6 +492,40 @@ void fa_batch_queue_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *
 
     op->Data.SetOutputFilterParameters.destination_voice = destination_voice;
     forge_memcpy(&op->Data.SetOutputFilterParameters.Parameters, parameters, sizeof(ForgeFilterParameters));
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_set_output_filter_type(ForgeVoice *voice, ForgeVoice *destination_voice, ForgeFilterType type,
+                                           ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_TYPE, batch_id);
+
+    op->Data.SetOutputFilterType.destination_voice = destination_voice;
+    op->Data.SetOutputFilterType.type = type;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_ramp_output_filter(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                       const ForgeFilterTarget *target, uint32_t duration_frames,
+                                       ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_FILTER, batch_id);
+
+    op->Data.RampOutputFilter.destination_voice = destination_voice;
+    op->Data.RampOutputFilter.target = *target;
+    op->Data.RampOutputFilter.duration_frames = duration_frames;
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
@@ -645,6 +747,10 @@ static inline void remove_voice_commands(ForgeVoice *voice, ForgeAudioCommand **
         const uint8_t baseVoice = (voice == current->voice);
         const uint8_t dstVoice = (current->type == FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_PARAMETERS &&
                                   voice == current->Data.SetOutputFilterParameters.destination_voice) ||
+                                 (current->type == FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_TYPE &&
+                                  voice == current->Data.SetOutputFilterType.destination_voice) ||
+                                 (current->type == FORGE_AUDIO_COMMAND_RAMP_OUTPUT_FILTER &&
+                                  voice == current->Data.RampOutputFilter.destination_voice) ||
                                  (current->type == FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX &&
                                   voice == current->Data.SetOutputMatrix.destination_voice) ||
                                  (current->type == FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX &&
@@ -678,6 +784,10 @@ static inline void remove_ready_automation_commands(ForgeVoice *voice, ForgeAudi
 
         if (remove && type == FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX) {
             remove = current->Data.RampOutputMatrix.destination_voice == destination_voice;
+        }
+        if (remove && type == FORGE_AUDIO_COMMAND_RAMP_OUTPUT_FILTER) {
+            remove = current->Data.RampOutputFilter.destination_voice == destination_voice ||
+                     current->Data.RampOutputFilter.destination_voice == NULL || destination_voice == NULL;
         }
 
         next = current->next;
@@ -721,6 +831,26 @@ void fa_batch_clear_ready_output_matrix_automation(ForgeVoice *voice, ForgeVoice
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     remove_ready_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX, destination_voice);
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_clear_ready_filter_automation(ForgeVoice *voice) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    remove_ready_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_FILTER, NULL);
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_clear_ready_output_filter_automation(ForgeVoice *voice, ForgeVoice *destination_voice) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    remove_ready_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_FILTER, destination_voice);
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
