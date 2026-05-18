@@ -132,6 +132,22 @@ static uint32_t source_decode_frame_count(uint32_t resample_samples, float max_f
     return (uint32_t)decode_samples;
 }
 
+static ForgeAudioDecodeCallback decoder_for_pcm_bits(uint16_t bits_per_sample) {
+    switch (bits_per_sample) {
+        case 8:
+            return fa_decode_pcm8;
+        case 16:
+            return fa_decode_pcm16;
+        case 24:
+            return fa_decode_pcm24;
+        case 32:
+            return fa_decode_pcm32;
+        default:
+            forge_assert(0 && "Unsupported validated PCM bit depth!");
+            return fa_decode_pcm16;
+    }
+}
+
 #ifdef FORGE_AUDIO_TESTING
 uint32_t forge_audio_test_source_decode_frame_count(uint32_t resample_samples, float max_frequency_ratio,
                                                     uint32_t source_sample_rate, uint32_t output_sample_rate) {
@@ -397,16 +413,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
 
 #define COMPARE_FORMAT_ID(type) fa_format_id_equals(fmtex->format_id, fa_format_id_##type)
         if (COMPARE_FORMAT_ID(pcm)) {
-#define DECODER(bit)                                                                                                   \
-    if (fmtex->format.bits_per_sample == bit) {                                                                        \
-        (*source_voice)->src.decode = fa_decode_pcm##bit;                                                              \
-    }
-            DECODER(16)
-            else DECODER(8) else DECODER(24) else DECODER(32) else {
-                LOG_ERROR(audio, "Unrecognized bits_per_sample: %d", fmtex->format.bits_per_sample)
-                forge_assert(0 && "Unrecognized bits_per_sample!");
-            }
-#undef DECODER
+            (*source_voice)->src.decode = decoder_for_pcm_bits(fmtex->format.bits_per_sample);
         } else if (COMPARE_FORMAT_ID(ieee_float)) {
             (*source_voice)->src.decode = fa_decode_pcm32f;
         } else if (COMPARE_FORMAT_ID(wmaudio2) || COMPARE_FORMAT_ID(wmaudio3) || COMPARE_FORMAT_ID(wmaudio_lossless)) {

@@ -73,34 +73,69 @@ static int expect_source_format_result(const char *name, const ForgeAudioFormat 
     return 0;
 }
 
+static int expect_simple_format_result(const char *name, uint16_t format_tag, uint16_t bits_per_sample,
+                                       ForgeResult expected) {
+    ForgeAudioFormat format = make_format(format_tag, bits_per_sample);
+    return expect_source_format_result(name, &format, expected);
+}
+
+static int expect_extensible_format_result(const char *name, uint16_t format_tag, uint16_t bits_per_sample,
+                                           ForgeResult expected) {
+    ForgeAudioFormatExtensible format = make_extensible_format(format_tag, bits_per_sample);
+    return expect_source_format_result(name, &format.format, expected);
+}
+
 static int test_pcm16_format_is_accepted(void) {
-    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_PCM, 16);
-    return expect_source_format_result("pcm16_simple", &format, ForgeResultSuccess);
+    return expect_simple_format_result("pcm16_simple", FORGE_AUDIO_FORMAT_PCM, 16, ForgeResultSuccess);
 }
 
 static int test_float32_format_is_accepted(void) {
-    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
-    return expect_source_format_result("float32_simple", &format, ForgeResultSuccess);
+    return expect_simple_format_result("float32_simple", FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32, ForgeResultSuccess);
 }
 
 static int test_float16_format_is_rejected(void) {
-    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 16);
-    return expect_source_format_result("float16_simple", &format, ForgeResultInvalidCall);
+    return expect_simple_format_result("float16_simple", FORGE_AUDIO_FORMAT_IEEE_FLOAT, 16, ForgeResultInvalidCall);
 }
 
 static int test_extensible_pcm16_format_is_accepted(void) {
-    ForgeAudioFormatExtensible format = make_extensible_format(FORGE_AUDIO_FORMAT_PCM, 16);
-    return expect_source_format_result("pcm16_extensible", &format.format, ForgeResultSuccess);
+    return expect_extensible_format_result("pcm16_extensible", FORGE_AUDIO_FORMAT_PCM, 16, ForgeResultSuccess);
 }
 
 static int test_extensible_float32_format_is_accepted(void) {
-    ForgeAudioFormatExtensible format = make_extensible_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
-    return expect_source_format_result("float32_extensible", &format.format, ForgeResultSuccess);
+    return expect_extensible_format_result("float32_extensible", FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32, ForgeResultSuccess);
 }
 
 static int test_extensible_float16_format_is_rejected(void) {
-    ForgeAudioFormatExtensible format = make_extensible_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 16);
-    return expect_source_format_result("float16_extensible", &format.format, ForgeResultInvalidCall);
+    return expect_extensible_format_result("float16_extensible", FORGE_AUDIO_FORMAT_IEEE_FLOAT, 16,
+                                           ForgeResultInvalidCall);
+}
+
+static int test_additional_pcm_bit_depths(void) {
+    int failed = 0;
+
+    failed |= expect_simple_format_result("pcm8_simple", FORGE_AUDIO_FORMAT_PCM, 8, ForgeResultSuccess);
+    failed |= expect_simple_format_result("pcm24_simple", FORGE_AUDIO_FORMAT_PCM, 24, ForgeResultSuccess);
+    failed |= expect_simple_format_result("pcm32_simple", FORGE_AUDIO_FORMAT_PCM, 32, ForgeResultSuccess);
+    failed |= expect_simple_format_result("pcm12_simple", FORGE_AUDIO_FORMAT_PCM, 12, ForgeResultInvalidCall);
+    failed |= expect_simple_format_result("pcm40_simple", FORGE_AUDIO_FORMAT_PCM, 40, ForgeResultInvalidCall);
+
+    failed |= expect_extensible_format_result("pcm8_extensible", FORGE_AUDIO_FORMAT_PCM, 8, ForgeResultSuccess);
+    failed |= expect_extensible_format_result("pcm24_extensible", FORGE_AUDIO_FORMAT_PCM, 24, ForgeResultSuccess);
+    failed |= expect_extensible_format_result("pcm32_extensible", FORGE_AUDIO_FORMAT_PCM, 32, ForgeResultSuccess);
+    failed |= expect_extensible_format_result("pcm12_extensible", FORGE_AUDIO_FORMAT_PCM, 12, ForgeResultInvalidCall);
+    failed |= expect_extensible_format_result("pcm40_extensible", FORGE_AUDIO_FORMAT_PCM, 40, ForgeResultInvalidCall);
+
+    return failed;
+}
+
+static int test_additional_float_bit_depths(void) {
+    int failed = 0;
+
+    failed |= expect_simple_format_result("float64_simple", FORGE_AUDIO_FORMAT_IEEE_FLOAT, 64, ForgeResultInvalidCall);
+    failed |= expect_extensible_format_result("float64_extensible", FORGE_AUDIO_FORMAT_IEEE_FLOAT, 64,
+                                              ForgeResultInvalidCall);
+
+    return failed;
 }
 
 int main(void) {
@@ -112,6 +147,8 @@ int main(void) {
     failed |= test_extensible_pcm16_format_is_accepted();
     failed |= test_extensible_float32_format_is_accepted();
     failed |= test_extensible_float16_format_is_rejected();
+    failed |= test_additional_pcm_bit_depths();
+    failed |= test_additional_float_bit_depths();
 
     return failed;
 }
