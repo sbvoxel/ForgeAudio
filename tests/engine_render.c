@@ -30,6 +30,8 @@ int main(void) {
     failures += run_test("source_rate_target_default_duration", test_source_rate_target_default_duration);
     failures += run_test("source_rate_ramp_frames_resamples_with_changing_step",
                          test_source_rate_ramp_frames_resamples_with_changing_step);
+    failures += run_test("source_rate_ramp_down_preserves_buffer_position",
+                         test_source_rate_ramp_down_preserves_buffer_position);
     failures += run_test("source_rate_ramp_ms_uses_engine_rate", test_source_rate_ramp_ms_uses_engine_rate);
     failures += run_test("deferred_source_rate_ramp_waits_for_apply",
                          test_deferred_source_rate_ramp_waits_for_apply);

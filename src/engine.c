@@ -744,14 +744,39 @@ static void advance_source_rate_locked(ForgeSourceVoice *voice, uint32_t frames)
     }
 }
 
-static uint64_t source_decode_resample_step_locked(ForgeSourceVoice *voice, uint32_t output_rate) {
+static uint64_t source_resample_advance_for_frames_locked(ForgeSourceVoice *voice, uint32_t output_rate,
+                                                          uint32_t frames) {
     float ratio = voice->src.freqRatio;
+    uint64_t advance = 0;
 
-    if (voice->src.rateAutomation.active) {
-        ratio = forge_max(ratio, voice->src.rateAutomation.target);
+    if (!voice->src.rateAutomation.active) {
+        return (uint64_t)frames * source_resample_step_for_rate(voice, output_rate, ratio);
     }
 
-    return source_resample_step_for_rate(voice, output_rate, ratio);
+    uint32_t remaining = voice->src.rateAutomation.remainingFrames;
+    while (frames > 0 && remaining > 0) {
+        advance += source_resample_step_for_rate(voice, output_rate, ratio);
+        frames -= 1;
+        remaining -= 1;
+
+        if (remaining == 0) {
+            ratio = voice->src.rateAutomation.target;
+        } else {
+            ratio += voice->src.rateAutomation.step;
+        }
+    }
+
+    if (frames > 0) {
+        advance += (uint64_t)frames * source_resample_step_for_rate(voice, output_rate, ratio);
+    }
+
+    return advance;
+}
+
+static uint64_t source_decode_frame_request_locked(ForgeSourceVoice *voice, uint32_t output_rate, uint32_t frames) {
+    uint64_t source_advance = source_resample_advance_for_frames_locked(voice, output_rate, frames);
+
+    return (voice->src.curBufferOffsetDec + source_advance + FIXED_FRACTION_MASK) >> FIXED_PRECISION;
 }
 
 static uint64_t resample_source_variable_rate_locked(ForgeSourceVoice *voice, uint64_t to_resample,
@@ -782,7 +807,7 @@ static uint64_t resample_source_variable_rate_locked(ForgeSourceVoice *voice, ui
 static void mix_source(ForgeSourceVoice *voice) {
     /* Decode/Resample variables */
     uint64_t toDecode;
-    uint64_t decodeStep;
+    uint64_t requestedDecode;
     uint64_t toResample;
     uint64_t resampleOffsetBefore;
     uint8_t variableRateResample = 0;
@@ -816,13 +841,8 @@ static void mix_source(ForgeSourceVoice *voice) {
         goto sendwork;
     }
 
-    /* Base decode size, int to fixed... */
-    decodeStep = source_decode_resample_step_locked(voice, outputRate);
-    toDecode = voice->src.resampleSamples * decodeStep;
-    /* ... rounded up based on current offset... */
-    toDecode += voice->src.curBufferOffsetDec + FIXED_FRACTION_MASK;
-    /* ... fixed to int, truncating extra fraction from rounding. */
-    toDecode >>= FIXED_PRECISION;
+    requestedDecode = source_decode_frame_request_locked(voice, outputRate, voice->src.resampleSamples);
+    toDecode = requestedDecode;
 
     /* First voice callback */
     if (voice->src.callback != NULL && voice->src.callback->on_voice_processing_pass_start != NULL) {
@@ -904,25 +924,30 @@ static void mix_source(ForgeSourceVoice *voice) {
         return;
     }
 
-    /* int to fixed... */
-    toResample = toDecode << FIXED_PRECISION;
-    /* ... round back down based on current offset... */
-    toResample -= voice->src.curBufferOffsetDec;
-    /* ... but also ceil for any fraction value... */
-    toResample += FIXED_FRACTION_MASK;
-    /* ... undo step size, fixed to int. */
-    toResample /= voice->src.resampleStep;
-    /* EXTRA_DECODE_PADDING keeps one decoded frame available for interpolation.
-     * Covered by source_resampler padding and split-vs-contiguous tests.
-     */
-    toResample += EXTRA_DECODE_PADDING;
-    /* Clamp to the per-pass resample cache capacity. Source resampler tests verify
-     * decode sizing leaves interpolation padding available.
-     */
-    toResample = forge_min(toResample, voice->src.resampleSamples);
+    if (voice->src.rateAutomation.active && toDecode == requestedDecode) {
+        toResample = voice->src.resampleSamples;
+    } else {
+        /* int to fixed... */
+        toResample = toDecode << FIXED_PRECISION;
+        /* ... round back down based on current offset... */
+        toResample -= voice->src.curBufferOffsetDec;
+        /* ... but also ceil for any fraction value... */
+        toResample += FIXED_FRACTION_MASK;
+        /* ... undo step size, fixed to int. */
+        toResample /= voice->src.resampleStep;
+        /* EXTRA_DECODE_PADDING keeps one decoded frame available for interpolation.
+         * Covered by source_resampler padding and split-vs-contiguous tests.
+         */
+        toResample += EXTRA_DECODE_PADDING;
+        /* Clamp to the per-pass resample cache capacity. Source resampler tests verify
+         * decode sizing leaves interpolation padding available.
+         */
+        toResample = forge_min(toResample, voice->src.resampleSamples);
+    }
 
     /* Resample... */
-    if (voice->src.resampleStep == FIXED_ONE && !voice->src.rateAutomation.active) {
+    if (voice->src.resampleStep == FIXED_ONE && !voice->src.rateAutomation.active &&
+        (voice->src.resampleOffset & FIXED_FRACTION_MASK) == 0) {
         /* Actually, just use the existing buffer... */
         finalSamples = voice->audio->decodeCache;
     } else {
@@ -1087,7 +1112,7 @@ ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(Forge
     result.unclamped_resample_frames = toResample;
     toResample = forge_min(toResample, voice->src.resampleSamples);
 
-    if (voice->src.resampleStep == FIXED_ONE) {
+    if (voice->src.resampleStep == FIXED_ONE && (voice->src.resampleOffset & FIXED_FRACTION_MASK) == 0) {
         finalSamples = voice->audio->decodeCache;
     } else {
         resize_resample_cache(voice->audio, voice->src.resampleSamples * voice->src.format->channels);

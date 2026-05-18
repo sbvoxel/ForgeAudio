@@ -30,6 +30,7 @@ int test_deferred_stop_boundary(void);
 int test_source_rate_change_continuity_smoke(void);
 int test_source_rate_target_default_duration(void);
 int test_source_rate_ramp_frames_resamples_with_changing_step(void);
+int test_source_rate_ramp_down_preserves_buffer_position(void);
 int test_source_rate_ramp_ms_uses_engine_rate(void);
 int test_deferred_source_rate_ramp_waits_for_apply(void);
 int test_deferred_start_and_source_rate_ramp_same_batch(void);
