@@ -77,6 +77,7 @@ typedef struct ForgeEffectChainRuntime {
 
 struct ForgeAudioEngine {
     uint8_t active;
+    uint8_t platformLifetimeHeld;
     uint32_t initFlags;
     uint32_t updateSize;
     ForgeMasterVoice *master;

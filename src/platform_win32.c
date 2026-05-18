@@ -291,8 +291,6 @@ void fa_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t deviceIn
     fa_simd_init_functions(has_sse2, has_neon);
     ForgeAudio_ResolveSetThreadDescription();
 
-    fa_platform_add_ref();
-
     *platformDevice = NULL;
 
     args = forge_malloc(sizeof(*args));
@@ -387,7 +385,6 @@ void fa_platform_quit(void *platformDevice) {
         FreeLibrary(kernelbase);
         kernelbase = NULL;
     }
-    fa_platform_release();
 }
 
 void fa_platform_add_ref(void) {

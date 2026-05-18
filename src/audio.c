@@ -351,10 +351,13 @@ static ForgeResult engine_construct_with_allocator(ForgeAudioEngine **engine, Fo
                                                    ForgeFreeFunc custom_free, ForgeReallocFunc custom_realloc) {
     ForgeResult result;
 
+    /* Normal engines hold the global platform lifetime until engine_destroy(). */
     fa_platform_add_ref();
     result = engine_construct_offline_with_allocator(engine, custom_malloc, custom_free, custom_realloc);
     if (result != ForgeResultSuccess) {
         fa_platform_release();
+    } else {
+        (*engine)->platformLifetimeHeld = 1;
     }
     return result;
 }
@@ -399,7 +402,7 @@ ForgeResult forge_audio_test_create_offline_engine(ForgeAudioEngine **engine) {
     if (result != ForgeResultSuccess) {
         return result;
     }
-    /* Offline here means no platform device; normal initialization still starts the engine. */
+    /* Offline test engines intentionally do not hold the global platform lifetime or a platform device. */
     result = engine_initialize(*engine, 0);
     if (result != ForgeResultSuccess) {
         engine_destroy(*engine, 0);
@@ -433,8 +436,11 @@ void forge_audio_test_destroy_offline_engine(ForgeAudioEngine *audio) {
 
 static void engine_destroy(ForgeAudioEngine *audio, uint8_t release_platform) {
     ForgeVoice *voice;
+    uint8_t release_platform_lifetime;
 
     LOG_API_ENTER(audio)
+    forge_assert((release_platform != 0) == (audio->platformLifetimeHeld != 0));
+    release_platform_lifetime = release_platform && audio->platformLifetimeHeld;
 
     while (audio->sources) {
         voice = (ForgeSourceVoice *)audio->sources->entry;
@@ -461,7 +467,7 @@ static void engine_destroy(ForgeAudioEngine *audio, uint8_t release_platform) {
     LOG_MUTEX_DESTROY(audio, audio->batchLock)
     fa_platform_destroy_mutex(audio->batchLock);
     audio->free_func(audio);
-    if (release_platform) {
+    if (release_platform_lifetime) {
         fa_platform_release();
     }
 }
@@ -835,6 +841,11 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
 
     /* For now we only support one allocated master voice at a time */
     forge_assert(audio->master == NULL);
+
+    if (!audio->platformLifetimeHeld) {
+        LOG_API_EXIT(audio)
+        return ForgeResultInvalidCall;
+    }
 
     if (input_channels == FORGE_AUDIO_DEFAULT_CHANNELS || input_sample_rate == FORGE_AUDIO_DEFAULT_SAMPLERATE) {
         ForgeDeviceDetails details;

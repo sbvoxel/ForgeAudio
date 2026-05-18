@@ -802,6 +802,32 @@ static int test_virtual_master_create_effect_failure_cleans_allocations(void) {
     return failed;
 }
 
+static int test_offline_engine_rejects_real_master_voice(void) {
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "offline_real_master: forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    result = forge_audio_create_master_voice(audio, &master, 1, 48000, 0, 0, NULL);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != ForgeResultInvalidCall) {
+        fprintf(stderr, "offline_real_master: got %d, expected %d\n", result, ForgeResultInvalidCall);
+        failed = 1;
+    }
+    if (master != NULL) {
+        fprintf(stderr, "offline_real_master: failed creation returned a voice\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
 typedef enum AllocationFailureTarget {
     AllocationFailureTargetSourceDefault,
     AllocationFailureTargetSourceEffectChain,
@@ -1143,6 +1169,7 @@ int main(void) {
     failed |= test_submix_create_effect_failure_cleans_allocations();
     failed |= test_submix_create_invalid_outputs_cleans_allocations();
     failed |= test_virtual_master_create_effect_failure_cleans_allocations();
+    failed |= test_offline_engine_rejects_real_master_voice();
     failed |= test_lifecycle_allocation_failure_cleanup_paths();
     failed |= test_source_sample_rate_resize_failure_preserves_state();
     failed |= test_effect_chain_replacement_allocation_failure_preserves_old_chain();

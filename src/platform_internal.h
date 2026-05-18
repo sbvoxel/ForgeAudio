@@ -26,6 +26,7 @@ typedef enum ForgeAudioThreadPriority {
 
 FORGE_INTERNAL_API void fa_platform_add_ref(void);
 FORGE_INTERNAL_API void fa_platform_release(void);
+/* Requires the caller to already hold the global platform lifetime. */
 FORGE_INTERNAL_API void fa_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t device_index,
                                          ForgeAudioFormatExtensible *mix_format, uint32_t *update_size,
                                          void **platform_device);
