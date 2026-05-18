@@ -153,6 +153,18 @@ static int test_compressed_formats_are_not_uncompressed_validated(void) {
     return failed;
 }
 
+static int test_unknown_formats_are_rejected(void) {
+    enum {
+        unknown_format_tag = 0x1234
+    };
+    int failed = 0;
+
+    failed |= expect_simple_format_result("unknown_simple", unknown_format_tag, 32, ForgeResultInvalidCall);
+    failed |= expect_extensible_format_result("unknown_extensible", unknown_format_tag, 32, ForgeResultInvalidCall);
+
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
 
@@ -165,6 +177,7 @@ int main(void) {
     failed |= test_additional_pcm_bit_depths();
     failed |= test_additional_float_bit_depths();
     failed |= test_compressed_formats_are_not_uncompressed_validated();
+    failed |= test_unknown_formats_are_rejected();
 
     return failed;
 }

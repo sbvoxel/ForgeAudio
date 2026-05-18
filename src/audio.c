@@ -39,17 +39,27 @@ static uint8_t validate_known_uncompressed_format(ForgeAudioEngine *audio, const
             isPCM = 1;
         } else if (fa_format_id_equals(ext->format_id, fa_format_id_ieee_float)) {
             isFloat = 1;
-        } else {
-            /* Compressed/opaque extensible formats are validated by their format-specific setup paths. */
+        } else if (fa_format_id_equals(ext->format_id, fa_format_id_wmaudio2) ||
+                   fa_format_id_equals(ext->format_id, fa_format_id_wmaudio3) ||
+                   fa_format_id_equals(ext->format_id, fa_format_id_wmaudio_lossless)) {
+            /* Known compressed extensible formats are handled by their format-specific setup paths. */
             return 1;
+        } else {
+            LOG_ERROR(audio, "%s", "Unsupported extensible source format identifier");
+            return 0;
         }
     } else if (format->format_tag == FORGE_AUDIO_FORMAT_PCM) {
         isPCM = 1;
     } else if (format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
         isFloat = 1;
-    } else {
-        /* Compressed/opaque simple formats are validated by their format-specific setup paths. */
+    } else if (format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO2 ||
+               format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO3 ||
+               format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
+        /* Known compressed simple formats are handled by their format-specific setup paths. */
         return 1;
+    } else {
+        LOG_ERROR(audio, "Unsupported source format tag: %u", format->format_tag);
+        return 0;
     }
 
     if (base->channels == 0 || base->block_align == 0 || base->bits_per_sample % 8 != 0) {
