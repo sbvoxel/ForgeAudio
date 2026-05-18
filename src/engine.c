@@ -571,7 +571,7 @@ static void mix_source(ForgeSourceVoice *voice) {
     /* Calculate the resample stepping value */
     if (voice->src.resampleFreq != voice->src.freqRatio * voice->src.format->sample_rate) {
         out = (voice->sends.send_count == 0) ? voice->audio->master : /* Barf */
-                  voice->sends.sends->output_voice;
+                  voice->sends.sends->send.output_voice;
         outputRate = (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
         stepd = (voice->src.freqRatio * (double)voice->src.format->sample_rate / (double)outputRate);
         voice->src.resampleStep = DOUBLE_TO_FIXED(stepd);
@@ -770,7 +770,9 @@ sendwork:
     apply_voice_volume_locked(voice, finalSamples, mixed, voice->outputChannels);
     apply_channel_volumes_locked(voice, finalSamples, mixed, voice->outputChannels);
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
-        out = voice->sends.sends[i].output_voice;
+        ForgeVoiceSendRuntime *send = &voice->sends.sends[i];
+
+        out = send->send.output_voice;
         if (out->type == FORGE_AUDIO_VOICE_MASTER) {
             stream = out->master.output;
             oChan = out->master.inputChannels;
@@ -779,10 +781,10 @@ sendwork:
             oChan = out->mix.inputChannels;
         }
 
-        voice->sendMix[i](mixed, voice->outputChannels, oChan, finalSamples, stream, voice->mixCoefficients[i]);
+        send->mix(mixed, voice->outputChannels, oChan, finalSamples, stream, send->mixCoefficients);
 
-        if (voice->sends.sends[i].flags & FORGE_AUDIO_SEND_USEFILTER) {
-            filter_voice(voice->audio, &voice->sendFilter[i], voice->sendFilterState[i], stream, mixed, oChan);
+        if (send->send.flags & FORGE_AUDIO_SEND_USEFILTER) {
+            filter_voice(voice->audio, &send->filter, send->filterState, stream, mixed, oChan);
         }
     }
     fa_platform_unlock_mutex(voice->volumeLock);
@@ -938,7 +940,9 @@ static void mix_submix(ForgeSubmixVoice *voice) {
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
     apply_channel_volumes_locked(voice, finalSamples, resampled, voice->outputChannels);
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
-        out = voice->sends.sends[i].output_voice;
+        ForgeVoiceSendRuntime *send = &voice->sends.sends[i];
+
+        out = send->send.output_voice;
         if (out->type == FORGE_AUDIO_VOICE_MASTER) {
             stream = out->master.output;
             oChan = out->master.inputChannels;
@@ -947,11 +951,10 @@ static void mix_submix(ForgeSubmixVoice *voice) {
             oChan = out->mix.inputChannels;
         }
 
-        voice->sendMix[i](resampled, voice->outputChannels, oChan, finalSamples, stream, voice->mixCoefficients[i]);
+        send->mix(resampled, voice->outputChannels, oChan, finalSamples, stream, send->mixCoefficients);
 
-        if (voice->sends.sends[i].flags & FORGE_AUDIO_SEND_USEFILTER) {
-            filter_voice(voice->audio, &voice->sendFilter[i], voice->sendFilterState[i], stream, resampled,
-                                  oChan);
+        if (send->send.flags & FORGE_AUDIO_SEND_USEFILTER) {
+            filter_voice(voice->audio, &send->filter, send->filterState, stream, resampled, oChan);
         }
     }
     fa_platform_unlock_mutex(voice->volumeLock);

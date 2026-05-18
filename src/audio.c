@@ -93,8 +93,22 @@ static uint32_t source_voice_output_rate(const ForgeSourceVoice *voice) {
         return voice->audio->master->master.inputSampleRate;
     }
 
-    out = voice->sends.sends[0].output_voice;
+    out = voice->sends.sends[0].send.output_voice;
     return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
+}
+
+static void free_voice_send_runtime(ForgeVoice *voice) {
+    for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
+        voice->audio->free_func(voice->sends.sends[i].sendCoefficients);
+        voice->audio->free_func(voice->sends.sends[i].mixCoefficients);
+        if (voice->sends.sends[i].filterState != NULL) {
+            voice->audio->free_func(voice->sends.sends[i].filterState);
+        }
+    }
+    if (voice->sends.sends != NULL) {
+        voice->audio->free_func(voice->sends.sends);
+    }
+    forge_zero(&voice->sends, sizeof(voice->sends));
 }
 
 static uint32_t source_decode_frame_count(uint32_t resample_samples, float max_frequency_ratio,
@@ -600,7 +614,7 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
     (*mastering_voice)->master.inputSampleRate = input_sample_rate;
 
     /* Sends/Effects */
-    forge_zero(&(*mastering_voice)->sends, sizeof(ForgeSendList));
+    forge_zero(&(*mastering_voice)->sends, sizeof((*mastering_voice)->sends));
     result = forge_voice_set_effect_chain(*mastering_voice, effect_chain);
     if (result != 0) {
         LOG_MUTEX_DESTROY(audio, (*mastering_voice)->effectLock)
@@ -852,8 +866,9 @@ void forge_audio_get_processing_quantum(ForgeAudioEngine *audio, uint32_t *quant
 
 static void recalc_mix_matrix(ForgeVoice *voice, uint32_t sendIndex) {
     uint32_t oChan, s, d;
-    ForgeVoice *out = voice->sends.sends[sendIndex].output_voice;
-    float *matrix = voice->mixCoefficients[sendIndex];
+    ForgeVoiceSendRuntime *send = &voice->sends.sends[sendIndex];
+    ForgeVoice *out = send->send.output_voice;
+    float *matrix = send->mixCoefficients;
 
     if (out->type == FORGE_AUDIO_VOICE_MASTER) {
         oChan = out->master.inputChannels;
@@ -863,7 +878,7 @@ static void recalc_mix_matrix(ForgeVoice *voice, uint32_t sendIndex) {
 
     for (d = 0; d < oChan; d += 1) {
         for (s = 0; s < voice->outputChannels; s += 1) {
-            matrix[d * voice->outputChannels + s] = voice->sendCoefficients[sendIndex][d * voice->outputChannels + s];
+            matrix[d * voice->outputChannels + s] = send->sendCoefficients[d * voice->outputChannels + s];
         }
     }
 }
@@ -950,37 +965,7 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
 
     /* Rebuild send-dependent matrices, mixers, and filter state for the new output list. */
-    for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
-        voice->audio->free_func(voice->sendCoefficients[i]);
-    }
-    if (voice->sendCoefficients != NULL) {
-        voice->audio->free_func(voice->sendCoefficients);
-    }
-    for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
-        voice->audio->free_func(voice->mixCoefficients[i]);
-    }
-    if (voice->mixCoefficients != NULL) {
-        voice->audio->free_func(voice->mixCoefficients);
-    }
-    if (voice->sendMix != NULL) {
-        voice->audio->free_func(voice->sendMix);
-    }
-    if (voice->sendFilter != NULL) {
-        voice->audio->free_func(voice->sendFilter);
-        voice->sendFilter = NULL;
-    }
-    if (voice->sendFilterState != NULL) {
-        for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
-            if (voice->sendFilterState[i] != NULL) {
-                voice->audio->free_func(voice->sendFilterState[i]);
-            }
-        }
-        voice->audio->free_func(voice->sendFilterState);
-        voice->sendFilterState = NULL;
-    }
-    if (voice->sends.sends != NULL) {
-        voice->audio->free_func(voice->sends.sends);
-    }
+    free_voice_send_runtime(voice);
 
     if (send_list == NULL) {
         /* Default to the mastering voice as output */
@@ -991,11 +976,6 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
         send_list = &defaultSends;
     } else if (send_list->send_count == 0) {
         /* No sends? Nothing to do... */
-        voice->sendCoefficients = NULL;
-        voice->mixCoefficients = NULL;
-        voice->sendMix = NULL;
-        forge_zero(&voice->sends, sizeof(ForgeSendList));
-
         fa_platform_unlock_mutex(voice->volumeLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
         fa_platform_unlock_mutex(voice->sendLock);
@@ -1004,82 +984,68 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
         return 0;
     }
 
-    /* Copy send list */
+    /* Copy send list and allocate/reset default output matrix, mixer function, filters */
     voice->sends.send_count = send_list->send_count;
-    voice->sends.sends = (ForgeSend *)voice->audio->malloc_func(send_list->send_count * sizeof(ForgeSend));
-    forge_memcpy(voice->sends.sends, send_list->sends, send_list->send_count * sizeof(ForgeSend));
-
-    /* Allocate/reset default output matrix, mixer function, filters */
-    voice->sendCoefficients = (float **)voice->audio->malloc_func(sizeof(float *) * send_list->send_count);
-    voice->mixCoefficients = (float **)voice->audio->malloc_func(sizeof(float *) * send_list->send_count);
-    voice->sendMix =
-        (ForgeAudioMixCallback *)voice->audio->malloc_func(sizeof(ForgeAudioMixCallback) * send_list->send_count);
+    voice->sends.sends =
+        (ForgeVoiceSendRuntime *)voice->audio->malloc_func(send_list->send_count * sizeof(ForgeVoiceSendRuntime));
+    forge_zero(voice->sends.sends, send_list->send_count * sizeof(ForgeVoiceSendRuntime));
 
     for (uint32_t i = 0; i < send_list->send_count; i += 1) {
-        if (send_list->sends[i].output_voice->type == FORGE_AUDIO_VOICE_MASTER) {
-            outChannels = send_list->sends[i].output_voice->master.inputChannels;
+        ForgeVoiceSendRuntime *send = &voice->sends.sends[i];
+
+        send->send = send_list->sends[i];
+        if (send->send.output_voice->type == FORGE_AUDIO_VOICE_MASTER) {
+            outChannels = send->send.output_voice->master.inputChannels;
         } else {
-            outChannels = send_list->sends[i].output_voice->mix.inputChannels;
+            outChannels = send->send.output_voice->mix.inputChannels;
         }
-        voice->sendCoefficients[i] =
+        send->sendCoefficients =
             (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
-        voice->mixCoefficients[i] =
+        send->mixCoefficients =
             (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
 
         forge_assert(voice->outputChannels > 0 && voice->outputChannels < 9);
         forge_assert(outChannels > 0 && outChannels < 9);
-        forge_memcpy(voice->sendCoefficients[i], fa_audio_matrix_defaults[voice->outputChannels - 1][outChannels - 1],
+        forge_memcpy(send->sendCoefficients, fa_audio_matrix_defaults[voice->outputChannels - 1][outChannels - 1],
                      voice->outputChannels * outChannels * sizeof(float));
         recalc_mix_matrix(voice, i);
 
         if (voice->outputChannels == 1) {
             if (outChannels == 1) {
-                voice->sendMix[i] = fa_mix_1in_1out_scalar;
+                send->mix = fa_mix_1in_1out_scalar;
             } else if (outChannels == 2) {
-                voice->sendMix[i] = fa_mix_1in_2out_scalar;
+                send->mix = fa_mix_1in_2out_scalar;
             } else if (outChannels == 6) {
-                voice->sendMix[i] = fa_mix_1in_6out_scalar;
+                send->mix = fa_mix_1in_6out_scalar;
             } else if (outChannels == 8) {
-                voice->sendMix[i] = fa_mix_1in_8out_scalar;
+                send->mix = fa_mix_1in_8out_scalar;
             } else {
-                voice->sendMix[i] = fa_mix_generic;
+                send->mix = fa_mix_generic;
             }
         } else if (voice->outputChannels == 2) {
             if (outChannels == 1) {
-                voice->sendMix[i] = fa_mix_2in_1out_scalar;
+                send->mix = fa_mix_2in_1out_scalar;
             } else if (outChannels == 2) {
-                voice->sendMix[i] = fa_mix_2in_2out_scalar;
+                send->mix = fa_mix_2in_2out_scalar;
             } else if (outChannels == 6) {
-                voice->sendMix[i] = fa_mix_2in_6out_scalar;
+                send->mix = fa_mix_2in_6out_scalar;
             } else if (outChannels == 8) {
-                voice->sendMix[i] = fa_mix_2in_8out_scalar;
+                send->mix = fa_mix_2in_8out_scalar;
             } else {
-                voice->sendMix[i] = fa_mix_generic;
+                send->mix = fa_mix_generic;
             }
         } else {
-            voice->sendMix[i] = fa_mix_generic;
+            send->mix = fa_mix_generic;
         }
 
-        if (send_list->sends[i].flags & FORGE_AUDIO_SEND_USEFILTER) {
-            /* Allocate the whole send filter array if needed... */
-            if (voice->sendFilter == NULL) {
-                voice->sendFilter = (ForgeFilterParameters *)voice->audio->malloc_func(sizeof(ForgeFilterParameters) *
-                                                                                       send_list->send_count);
-            }
-            if (voice->sendFilterState == NULL) {
-                voice->sendFilterState = (ForgeAudioFilterState **)voice->audio->malloc_func(
-                    sizeof(ForgeAudioFilterState *) * send_list->send_count);
-                forge_zero(voice->sendFilterState, sizeof(ForgeAudioFilterState *) * send_list->send_count);
-            }
-
-            /* ... then fill in this send's filter data */
-            voice->sendFilter[i].type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
-            voice->sendFilter[i].frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
-            voice->sendFilter[i].one_over_q = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
-            voice->sendFilter[i].wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
-            voice->sendFilterState[i] =
+        if (send->send.flags & FORGE_AUDIO_SEND_USEFILTER) {
+            send->filter.type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
+            send->filter.frequency = FORGE_AUDIO_DEFAULT_FILTER_FREQUENCY;
+            send->filter.one_over_q = FORGE_AUDIO_DEFAULT_FILTER_ONEOVERQ;
+            send->filter.wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
+            send->filterState =
                 (ForgeAudioFilterState *)voice->audio->malloc_func(sizeof(ForgeAudioFilterState) * outChannels);
-            forge_zero(voice->sendFilterState[i], sizeof(ForgeAudioFilterState) * outChannels);
+            forge_zero(send->filterState, sizeof(ForgeAudioFilterState) * outChannels);
         }
     }
 
@@ -1426,10 +1392,10 @@ ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoi
 
     /* Find the send index */
     if (destination_voice == NULL && voice->sends.send_count == 1) {
-        destination_voice = voice->sends.sends[0].output_voice;
+        destination_voice = voice->sends.sends[0].send.output_voice;
     }
     for (i = 0; i < voice->sends.send_count; i += 1) {
-        if (destination_voice == voice->sends.sends[i].output_voice) {
+        if (destination_voice == voice->sends.sends[i].send.output_voice) {
             break;
         }
     }
@@ -1441,7 +1407,7 @@ ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoi
         return ForgeResultInvalidCall;
     }
 
-    if (!(voice->sends.sends[i].flags & FORGE_AUDIO_SEND_USEFILTER)) {
+    if (!(voice->sends.sends[i].send.flags & FORGE_AUDIO_SEND_USEFILTER)) {
         fa_platform_unlock_mutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
         LOG_API_EXIT(voice->audio)
@@ -1449,7 +1415,7 @@ ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoi
     }
 
     /* Set the filter parameters, finally. */
-    forge_memcpy(&voice->sendFilter[i], parameters, sizeof(ForgeFilterParameters));
+    forge_memcpy(&voice->sends.sends[i].filter, parameters, sizeof(ForgeFilterParameters));
 
     fa_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
@@ -1476,10 +1442,10 @@ void forge_voice_get_output_filter_parameters(ForgeVoice *voice, ForgeVoice *des
 
     /* Find the send index */
     if (destination_voice == NULL && voice->sends.send_count == 1) {
-        destination_voice = voice->sends.sends[0].output_voice;
+        destination_voice = voice->sends.sends[0].send.output_voice;
     }
     for (i = 0; i < voice->sends.send_count; i += 1) {
-        if (destination_voice == voice->sends.sends[i].output_voice) {
+        if (destination_voice == voice->sends.sends[i].send.output_voice) {
             break;
         }
     }
@@ -1491,7 +1457,7 @@ void forge_voice_get_output_filter_parameters(ForgeVoice *voice, ForgeVoice *des
         return;
     }
 
-    if (!(voice->sends.sends[i].flags & FORGE_AUDIO_SEND_USEFILTER)) {
+    if (!(voice->sends.sends[i].send.flags & FORGE_AUDIO_SEND_USEFILTER)) {
         fa_platform_unlock_mutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
         LOG_API_EXIT(voice->audio)
@@ -1499,7 +1465,7 @@ void forge_voice_get_output_filter_parameters(ForgeVoice *voice, ForgeVoice *des
     }
 
     /* Set the filter parameters, finally. */
-    forge_memcpy(parameters, &voice->sendFilter[i], sizeof(ForgeFilterParameters));
+    forge_memcpy(parameters, &voice->sends.sends[i].filter, sizeof(ForgeFilterParameters));
 
     fa_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
@@ -1730,11 +1696,11 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
 
     /* Find the send index */
     if (destination_voice == NULL && voice->sends.send_count == 1) {
-        destination_voice = voice->sends.sends[0].output_voice;
+        destination_voice = voice->sends.sends[0].send.output_voice;
     }
     forge_assert(destination_voice != NULL);
     for (i = 0; i < voice->sends.send_count; i += 1) {
-        if (destination_voice == voice->sends.sends[i].output_voice) {
+        if (destination_voice == voice->sends.sends[i].send.output_voice) {
             break;
         }
     }
@@ -1772,7 +1738,8 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
     fa_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
 
-    forge_memcpy(voice->sendCoefficients[i], level_matrix, sizeof(float) * source_channels * destination_channels);
+    forge_memcpy(voice->sends.sends[i].sendCoefficients, level_matrix,
+                 sizeof(float) * source_channels * destination_channels);
 
     recalc_mix_matrix(voice, i);
 
@@ -1796,7 +1763,7 @@ void forge_voice_get_output_matrix(ForgeVoice *voice, ForgeVoice *destination_vo
 
     /* Find the send index */
     for (i = 0; i < voice->sends.send_count; i += 1) {
-        if (destination_voice == voice->sends.sends[i].output_voice) {
+        if (destination_voice == voice->sends.sends[i].send.output_voice) {
             break;
         }
     }
@@ -1821,7 +1788,8 @@ void forge_voice_get_output_matrix(ForgeVoice *voice, ForgeVoice *destination_vo
     }
 
     /* Get the matrix values, finally */
-    forge_memcpy(level_matrix, voice->sendCoefficients[i], sizeof(float) * source_channels * destination_channels);
+    forge_memcpy(level_matrix, voice->sends.sends[i].sendCoefficients,
+                 sizeof(float) * source_channels * destination_channels);
 
     fa_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
@@ -1841,7 +1809,7 @@ static ForgeResult check_for_sends_to_voice(ForgeVoice *voice) {
     while (list != NULL) {
         source = (ForgeSourceVoice *)list->entry;
         for (i = 0; i < source->sends.send_count; i += 1)
-            if (source->sends.sends[i].output_voice == voice) {
+            if (source->sends.sends[i].send.output_voice == voice) {
                 ret = ForgeResultFailed;
                 break;
             }
@@ -1859,7 +1827,7 @@ static ForgeResult check_for_sends_to_voice(ForgeVoice *voice) {
     while (list != NULL) {
         submix = (ForgeSubmixVoice *)list->entry;
         for (i = 0; i < submix->sends.send_count; i += 1)
-            if (submix->sends.sends[i].output_voice == voice) {
+            if (submix->sends.sends[i].send.output_voice == voice) {
                 ret = ForgeResultFailed;
                 break;
             }
@@ -1873,8 +1841,6 @@ static ForgeResult check_for_sends_to_voice(ForgeVoice *voice) {
 }
 
 static void destroy_voice(ForgeVoice *voice) {
-    uint32_t i;
-
     /* Callers must reject incoming sends before destroying a voice; clear deferred commands here. */
     fa_batch_clear_all_for_voice(voice);
 
@@ -1925,35 +1891,7 @@ static void destroy_voice(ForgeVoice *voice) {
     if (voice->sendLock != NULL) {
         fa_platform_lock_mutex(voice->sendLock);
         LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
-        for (i = 0; i < voice->sends.send_count; i += 1) {
-            voice->audio->free_func(voice->sendCoefficients[i]);
-        }
-        if (voice->sendCoefficients != NULL) {
-            voice->audio->free_func(voice->sendCoefficients);
-        }
-        for (i = 0; i < voice->sends.send_count; i += 1) {
-            voice->audio->free_func(voice->mixCoefficients[i]);
-        }
-        if (voice->mixCoefficients != NULL) {
-            voice->audio->free_func(voice->mixCoefficients);
-        }
-        if (voice->sendMix != NULL) {
-            voice->audio->free_func(voice->sendMix);
-        }
-        if (voice->sendFilter != NULL) {
-            voice->audio->free_func(voice->sendFilter);
-        }
-        if (voice->sendFilterState != NULL) {
-            for (i = 0; i < voice->sends.send_count; i += 1) {
-                if (voice->sendFilterState[i] != NULL) {
-                    voice->audio->free_func(voice->sendFilterState[i]);
-                }
-            }
-            voice->audio->free_func(voice->sendFilterState);
-        }
-        if (voice->sends.sends != NULL) {
-            voice->audio->free_func(voice->sends.sends);
-        }
+        free_voice_send_runtime(voice);
         fa_platform_unlock_mutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
         LOG_MUTEX_DESTROY(voice->audio, voice->sendLock)

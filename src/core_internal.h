@@ -46,6 +46,20 @@ typedef void(FORGE_AUDIO_CALL *ForgeAudioMixCallback)(uint32_t to_mix, uint32_t 
 
 typedef float ForgeAudioFilterState[4];
 
+typedef struct ForgeVoiceSendRuntime {
+    ForgeSend send;
+    float *sendCoefficients;
+    float *mixCoefficients;
+    ForgeAudioMixCallback mix;
+    ForgeFilterParameters filter;
+    ForgeAudioFilterState *filterState;
+} ForgeVoiceSendRuntime;
+
+typedef struct ForgeVoiceSendRuntimeList {
+    uint32_t send_count;
+    ForgeVoiceSendRuntime *sends;
+} ForgeVoiceSendRuntimeList;
+
 struct ForgeAudioEngine {
     uint8_t active;
     uint32_t initFlags;
@@ -100,12 +114,7 @@ struct ForgeVoice {
     uint32_t flags;
     ForgeAudioVoiceType type;
 
-    ForgeSendList sends;
-    float **sendCoefficients;
-    float **mixCoefficients;
-    ForgeAudioMixCallback *sendMix;
-    ForgeFilterParameters *sendFilter;
-    ForgeAudioFilterState **sendFilterState;
+    ForgeVoiceSendRuntimeList sends;
     struct {
         ForgeEffectBufferFlags state;
         uint32_t count;
