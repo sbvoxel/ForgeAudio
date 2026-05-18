@@ -72,7 +72,15 @@ add_library(ForgeAudio
     # Internal Headers
     src/effect_internal.h
     src/effect_base_internal.h
-    src/audio_internal.h
+    src/common_internal.h
+    src/format_internal.h
+    src/platform_internal.h
+    src/util_internal.h
+    src/core_internal.h
+    src/debug_internal.h
+    src/simd_internal.h
+    src/batch_internal.h
+    src/dump_internal.h
     src/stb_modified.h
     # Source Files
     src/spatial_audio.c

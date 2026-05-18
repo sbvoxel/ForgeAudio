@@ -7,7 +7,7 @@
  * See LICENSE for full terms.
  */
 
-#include "audio_internal.h"
+#include "core_internal.h"
 
 #include <stdio.h>
 

@@ -13,13 +13,8 @@
 #ifndef FORGE_EFFECT_BASE_INTERNAL_H
 #define FORGE_EFFECT_BASE_INTERNAL_H
 
+#include "common_internal.h"
 #include "effect_internal.h"
-
-#if defined(__GNUC__) || defined(__clang__)
-#define FORGE_INTERNAL_API __attribute__((visibility("hidden")))
-#else
-#define FORGE_INTERNAL_API
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -140,7 +135,5 @@ FORGE_INTERNAL_API void forge_effect_base_end_process(ForgeEffectBase *effect);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-
-#undef FORGE_INTERNAL_API
 
 #endif /* FORGE_EFFECT_BASE_INTERNAL_H */

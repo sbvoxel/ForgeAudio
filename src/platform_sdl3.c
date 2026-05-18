@@ -12,7 +12,13 @@
 
 #ifndef FORGE_AUDIO_WIN32_PLATFORM
 
-#include "audio_internal.h"
+#include "core_internal.h"
+#include "format_internal.h"
+#include "simd_internal.h"
+
+#ifdef FORGE_AUDIO_DUMP_VOICES
+#include "dump_internal.h"
+#endif /* FORGE_AUDIO_DUMP_VOICES */
 
 #include <SDL3/SDL.h>
 
@@ -149,7 +155,7 @@ void forge_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t devic
     result->stream = SDL_OpenAudioDeviceStream(devID, &spec, forge_audio_mix_callback, result);
 
     /* Write up the received format for the engine */
-    WriteWaveFormatExtensible(mixFormat, spec.channels, spec.freq, forge_audio_format_id_ieee_float);
+    forge_audio_write_format_extensible(mixFormat, spec.channels, spec.freq, forge_audio_format_id_ieee_float);
     *updateSize = wantSamples;
 
     /* SDL_AudioDeviceID is a Uint32, anybody using a 16-bit PC still? */
@@ -254,7 +260,7 @@ ForgeResult forge_platform_get_device_details(uint32_t index, ForgeDeviceDetails
     }
 
     /* Write the format, finally. */
-    WriteWaveFormatExtensible(&details->output_format, channels, rate, forge_audio_format_id_pcm);
+    forge_audio_write_format_extensible(&details->output_format, channels, rate, forge_audio_format_id_pcm);
     return 0;
 }
 

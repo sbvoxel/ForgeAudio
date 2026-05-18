@@ -28,7 +28,9 @@
 #include <devpkey.h>
 
 #define _SPEAKER_POSITIONS_ /* Defined by SDK. */
-#include "audio_internal.h"
+#include "core_internal.h"
+#include "format_internal.h"
+#include "simd_internal.h"
 
 #ifdef _MSC_VER
 DEFINE_GUID(IID_IAudioClient, 0x1CB9AD4C, 0xDBFA, 0x4c32, 0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2);
@@ -538,7 +540,7 @@ ForgeResult forge_platform_get_device_details(uint32_t index, ForgeDeviceDetails
         details->output_format.channel_mask = ext->channel_mask;
         forge_memcpy(details->output_format.format_id, &ext->sub_format, FORGE_AUDIO_FORMAT_ID_SIZE);
     } else {
-        details->output_format.channel_mask = GetMask(format->channels);
+        details->output_format.channel_mask = forge_audio_get_channel_mask(format->channels);
     }
 
     CoTaskMemFree(format);

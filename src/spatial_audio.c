@@ -11,7 +11,7 @@
  */
 
 #include <forge/spatial_audio.h>
-#include "audio_internal.h"
+#include "common_internal.h"
 
 #include <math.h>  /* ONLY USE THIS FOR isnan! */
 #include <float.h> /* ONLY USE THIS FOR FLT_MIN/FLT_MAX! */

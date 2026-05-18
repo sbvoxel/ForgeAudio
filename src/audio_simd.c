@@ -10,7 +10,7 @@
  * See LICENSE for full terms.
  */
 
-#include "audio_internal.h"
+#include "simd_internal.h"
 
 /* SECTION 0: SSE/NEON Detection */
 

@@ -10,7 +10,14 @@
  * See LICENSE for full terms.
  */
 
-#include "audio_internal.h"
+#include "core_internal.h"
+#include "format_internal.h"
+#include "batch_internal.h"
+#include "simd_internal.h"
+
+#ifdef FORGE_AUDIO_DUMP_VOICES
+#include "dump_internal.h"
+#endif /* FORGE_AUDIO_DUMP_VOICES */
 
 #define MAKE_FORMAT_ID(name, fmt)                                                                                      \
     const uint8_t forge_audio_format_id_##name[FORGE_AUDIO_FORMAT_ID_SIZE] = {(uint8_t)((fmt) & 0xFF),                 \
@@ -629,8 +636,8 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
      * mismatches, we have to add a staging buffer for effects to process on
      * before ultimately copying the final result to the device. ARGH.
      */
-    WriteWaveFormatExtensible(&audio->mixFormat, audio->master->outputChannels, audio->master->master.inputSampleRate,
-                              forge_audio_format_id_ieee_float);
+    forge_audio_write_format_extensible(&audio->mixFormat, audio->master->outputChannels,
+                                        audio->master->master.inputSampleRate, forge_audio_format_id_ieee_float);
 
     /* Platform Device */
     forge_platform_init(audio, audio->initFlags, device_index, &audio->mixFormat, &audio->updateSize, &audio->platform);

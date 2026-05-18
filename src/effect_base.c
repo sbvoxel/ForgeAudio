@@ -11,7 +11,6 @@
  */
 
 #include "effect_base_internal.h"
-#include "audio_internal.h"
 
 /* ForgeEffectBase Interface */
 

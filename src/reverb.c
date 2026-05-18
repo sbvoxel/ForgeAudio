@@ -11,7 +11,8 @@
  */
 
 #include <forge/effects.h>
-#include "audio_internal.h"
+#include "effect_base_internal.h"
+#include "format_internal.h"
 
 /* #define DISABLE_SUBNORMALS */
 #ifdef DISABLE_SUBNORMALS
