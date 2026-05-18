@@ -24,6 +24,13 @@ int main(void) {
     failures += run_test("deferred_stop_boundary", test_deferred_stop_boundary);
     failures += run_test("source_rate_change_continuity_smoke", test_source_rate_change_continuity_smoke);
     failures += run_test("render_api_rejects_invalid_inputs", test_render_api_rejects_invalid_inputs);
+    failures += run_test("volume_target_default_duration", test_volume_target_default_duration);
+    failures += run_test("volume_target_immediate_getter_visibility",
+                         test_volume_target_immediate_getter_visibility);
+    failures += run_test("deferred_start_and_volume_target_same_batch",
+                         test_deferred_start_and_volume_target_same_batch);
+    failures += run_test("set_volume_cancels_pending_immediate_target",
+                         test_set_volume_cancels_pending_immediate_target);
     failures += run_test("immediate_ramp_get_volume_visible_after_render",
                          test_immediate_ramp_get_volume_visible_after_render);
     failures += run_test("set_volume_cancels_pending_immediate_ramp",
@@ -47,6 +54,8 @@ int main(void) {
     failures += run_test("batch_set_then_ramp_volume_order", test_batch_set_then_ramp_volume_order);
     failures += run_test("batch_ramp_then_set_volume_order", test_batch_ramp_then_set_volume_order);
     failures += run_test("submix_volume_ramp", test_submix_volume_ramp);
+    failures += run_test("channel_volume_target_default_duration",
+                         test_channel_volume_target_default_duration);
     failures += run_test("channel_volume_ramp_stereo_four_frames", test_channel_volume_ramp_stereo_four_frames);
     failures += run_test("channel_volume_ramp_reaches_target_mid_block",
                          test_channel_volume_ramp_reaches_target_mid_block);
@@ -59,6 +68,8 @@ int main(void) {
                          test_set_channel_volumes_cancels_ready_deferred_ramp);
     failures += run_test("scalar_and_channel_volume_ramps_multiply",
                          test_scalar_and_channel_volume_ramps_multiply);
+    failures += run_test("output_matrix_target_default_duration",
+                         test_output_matrix_target_default_duration);
     failures += run_test("output_matrix_ramp_mono_to_stereo_four_frames",
                          test_output_matrix_ramp_mono_to_stereo_four_frames);
     failures += run_test("inactive_output_matrix_null_destination_single_send",

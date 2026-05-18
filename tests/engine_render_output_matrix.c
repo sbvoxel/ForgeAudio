@@ -12,6 +12,53 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int test_output_matrix_target_default_duration(void) {
+    enum {
+        source_channels = 1,
+        destination_channels = 2,
+        sample_rate = 48000,
+        target_frames = 128,
+        quantum = target_frames,
+        buffer_frames = quantum * 2
+    };
+    static const float start_matrix[destination_channels * source_channels] = {1.0f, 0.0f};
+    static const float target_matrix[destination_channels * source_channels] = {0.0f, 1.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames * source_channels];
+    float output[quantum * destination_channels];
+    float expected[quantum * destination_channels];
+    int failed = 0;
+
+    for (uint32_t i = 0; i < quantum; i += 1) {
+        expected[i * destination_channels] = 1.0f - ((float)i / (float)target_frames);
+        expected[i * destination_channels + 1] = (float)i / (float)target_frames;
+    }
+
+    failed = audio_render_harness_init(&harness, destination_channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, source_channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_output_matrix(voice, harness.master, source_channels, destination_channels,
+                                               start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_set_output_matrix_target(voice, harness.master, source_channels, destination_channels,
+                                                      target_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("output_matrix_target_default_duration", output, expected,
+                                        quantum * destination_channels, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_output_matrix_ramp_mono_to_stereo_four_frames(void) {
     enum {
         source_channels = 1,

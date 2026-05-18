@@ -25,6 +25,8 @@ static void dump_voice_finalize(const ForgeSourceVoice *voice);
 static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBuffer *buffer, const uint32_t size);
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 
+#define FA_AUTOMATION_DEFAULT_TARGET_FRAMES 128
+
 static uint8_t validate_pcm_or_float_format(ForgeAudioEngine *audio, const ForgeAudioFormat *format) {
     const ForgeAudioFormat *base = format;
     uint8_t isPCM = 0;
@@ -1875,25 +1877,41 @@ ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBa
     return 0;
 }
 
-ForgeResult forge_voice_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames,
-                                    ForgeAudioBatchId batch_id) {
-    LOG_API_ENTER(voice->audio)
-
+static ForgeResult queue_or_install_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames,
+                                                ForgeAudioBatchId batch_id) {
     if (batch_id == FORGE_AUDIO_BATCH_ALL) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (voice->audio->active) {
         fa_batch_queue_ramp_volume(voice, volume, duration_frames, batch_id);
-        LOG_API_EXIT(voice->audio)
         return 0;
     }
 
     fa_voice_install_ramp_volume(voice, volume, duration_frames);
 
-    LOG_API_EXIT(voice->audio)
     return 0;
+}
+
+ForgeResult forge_voice_set_volume_target(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_volume(voice, volume, FA_AUTOMATION_DEFAULT_TARGET_FRAMES, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames,
+                                    ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_volume(voice, volume, duration_frames, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
 }
 
 void forge_voice_get_volume(ForgeVoice *voice, float *volume) {
@@ -1942,40 +1960,55 @@ ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels
     return 0;
 }
 
-ForgeResult forge_voice_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
-                                             uint32_t duration_frames, ForgeAudioBatchId batch_id) {
-    LOG_API_ENTER(voice->audio)
-
+static ForgeResult queue_or_install_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                                         uint32_t duration_frames, ForgeAudioBatchId batch_id) {
     if (batch_id == FORGE_AUDIO_BATCH_ALL) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (volumes == NULL) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (channels != voice->outputChannels) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (voice->audio->active) {
         fa_batch_queue_ramp_channel_volumes(voice, channels, volumes, duration_frames, batch_id);
-        LOG_API_EXIT(voice->audio)
         return 0;
     }
 
     fa_voice_install_ramp_channel_volumes(voice, channels, volumes, duration_frames);
 
-    LOG_API_EXIT(voice->audio)
     return 0;
+}
+
+ForgeResult forge_voice_set_channel_volumes_target(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                                   ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_channel_volumes(voice, channels, volumes, FA_AUTOMATION_DEFAULT_TARGET_FRAMES,
+                                                  batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                             uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_channel_volumes(voice, channels, volumes, duration_frames, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
 }
 
 void forge_voice_get_channel_volumes(ForgeVoice *voice, uint32_t channels, float *volumes) {
@@ -2027,37 +2060,58 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
     return result;
 }
 
-ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t source_channels,
-                                           uint32_t destination_channels, const float *level_matrix,
-                                           uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+static ForgeResult queue_or_install_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                       uint32_t source_channels, uint32_t destination_channels,
+                                                       const float *level_matrix, uint32_t duration_frames,
+                                                       ForgeAudioBatchId batch_id) {
     ForgeResult result = ForgeResultSuccess;
-    LOG_API_ENTER(voice->audio)
 
     if (batch_id == FORGE_AUDIO_BATCH_ALL) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (level_matrix == NULL) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (voice->audio->active) {
         result = validate_output_matrix_args(voice, &destination_voice, source_channels, destination_channels);
         if (result != ForgeResultSuccess) {
-            LOG_API_EXIT(voice->audio)
             return result;
         }
 
         fa_batch_queue_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
                                           level_matrix, duration_frames, batch_id);
-        LOG_API_EXIT(voice->audio)
         return 0;
     }
 
     result = fa_voice_install_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
                                                  level_matrix, duration_frames);
+    return result;
+}
+
+ForgeResult forge_voice_set_output_matrix_target(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                 uint32_t source_channels, uint32_t destination_channels,
+                                                 const float *level_matrix, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
+                                                 level_matrix, FA_AUTOMATION_DEFAULT_TARGET_FRAMES, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t source_channels,
+                                           uint32_t destination_channels, const float *level_matrix,
+                                           uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
+                                                 level_matrix, duration_frames, batch_id);
+
     LOG_API_EXIT(voice->audio)
     return result;
 }

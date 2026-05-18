@@ -151,6 +151,11 @@ int test_gain_ramp_invalid_arguments(void) {
                               ForgeResultInvalidCall);
     }
     if (!failed) {
+        failed = check_result("volume_target_batch_all",
+                              forge_voice_set_volume_target(voice, 0.5f, FORGE_AUDIO_BATCH_ALL),
+                              ForgeResultInvalidCall);
+    }
+    if (!failed) {
         failed = check_result("channel_ramp_null",
                               forge_voice_ramp_channel_volumes(voice, source_channels, NULL, quantum,
                                                                FORGE_AUDIO_BATCH_IMMEDIATE),
@@ -175,9 +180,21 @@ int test_gain_ramp_invalid_arguments(void) {
                               ForgeResultInvalidCall);
     }
     if (!failed) {
+        failed = check_result("channel_target_batch_all",
+                              forge_voice_set_channel_volumes_target(voice, source_channels, channel_volume,
+                                                                     FORGE_AUDIO_BATCH_ALL),
+                              ForgeResultInvalidCall);
+    }
+    if (!failed) {
         failed = check_result("set_channel_null",
                               forge_voice_set_channel_volumes(voice, source_channels, NULL,
                                                               FORGE_AUDIO_BATCH_IMMEDIATE),
+                              ForgeResultInvalidCall);
+    }
+    if (!failed) {
+        failed = check_result("channel_target_null",
+                              forge_voice_set_channel_volumes_target(voice, source_channels, NULL,
+                                                                     FORGE_AUDIO_BATCH_IMMEDIATE),
                               ForgeResultInvalidCall);
     }
     if (!failed) {
@@ -215,9 +232,23 @@ int test_gain_ramp_invalid_arguments(void) {
                               ForgeResultInvalidCall);
     }
     if (!failed) {
+        failed = check_result("output_matrix_target_batch_all",
+                              forge_voice_set_output_matrix_target(voice, harness.master, source_channels,
+                                                                   destination_channels, matrix,
+                                                                   FORGE_AUDIO_BATCH_ALL),
+                              ForgeResultInvalidCall);
+    }
+    if (!failed) {
         failed = check_result("set_output_matrix_null",
                               forge_voice_set_output_matrix(voice, harness.master, source_channels,
                                                             destination_channels, NULL, FORGE_AUDIO_BATCH_IMMEDIATE),
+                              ForgeResultInvalidCall);
+    }
+    if (!failed) {
+        failed = check_result("output_matrix_target_null",
+                              forge_voice_set_output_matrix_target(voice, harness.master, source_channels,
+                                                                   destination_channels, NULL,
+                                                                   FORGE_AUDIO_BATCH_IMMEDIATE),
                               ForgeResultInvalidCall);
     }
     if (!failed) {

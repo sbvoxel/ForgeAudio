@@ -12,6 +12,51 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int test_channel_volume_target_default_duration(void) {
+    enum {
+        channels = 2,
+        sample_rate = 48000,
+        target_frames = 128,
+        quantum = target_frames,
+        buffer_frames = quantum * 2
+    };
+    static const float start_volumes[channels] = {0.0f, 1.0f};
+    static const float target_volumes[channels] = {1.0f, 0.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames * channels];
+    float output[quantum * channels];
+    float expected[quantum * channels];
+    int failed = 0;
+
+    for (uint32_t i = 0; i < quantum; i += 1) {
+        expected[i * channels] = (float)i / (float)target_frames;
+        expected[i * channels + 1] = 1.0f - ((float)i / (float)target_frames);
+    }
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        failed = create_started_dc_source(&harness, &voice, source, buffer_frames, channels, sample_rate, 1.0f);
+    }
+    if (!failed) {
+        failed = forge_voice_set_channel_volumes(voice, channels, start_volumes, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_set_channel_volumes_target(voice, channels, target_volumes,
+                                                       FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("channel_volume_target_default_duration", output, expected,
+                                        quantum * channels, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 int test_channel_volume_ramp_stereo_four_frames(void) {
     enum {
         channels = 2,
