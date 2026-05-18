@@ -1186,24 +1186,26 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
             mix_source(audio->processingSource);
             flush_pending_buffers(audio->processingSource);
         } else {
+            uint32_t sourceTimelineFrames = audio->processingSource->src.resampleSamples;
+
             if (audio->processingSource->flags & FORGE_AUDIO_VOICE_USEFILTER) {
                 fa_platform_lock_mutex(audio->processingSource->filterLock);
                 LOG_MUTEX_LOCK(audio, audio->processingSource->filterLock)
-                advance_filter_locked(&audio->processingSource->filter, audio->updateSize);
+                advance_filter_locked(&audio->processingSource->filter, sourceTimelineFrames);
                 fa_platform_unlock_mutex(audio->processingSource->filterLock);
                 LOG_MUTEX_UNLOCK(audio, audio->processingSource->filterLock)
             }
             fa_platform_lock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_LOCK(audio, audio->processingSource->volumeLock)
-            advance_voice_volume_locked(audio->processingSource, audio->updateSize);
-            advance_channel_volumes_locked(audio->processingSource, audio->updateSize,
+            advance_voice_volume_locked(audio->processingSource, sourceTimelineFrames);
+            advance_channel_volumes_locked(audio->processingSource, sourceTimelineFrames,
                                            audio->processingSource->outputChannels);
-            advance_output_matrices_locked(audio->processingSource, audio->updateSize);
+            advance_output_matrices_locked(audio->processingSource, sourceTimelineFrames);
             fa_platform_unlock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_UNLOCK(audio, audio->processingSource->volumeLock)
             fa_platform_lock_mutex(audio->processingSource->sendLock);
             LOG_MUTEX_LOCK(audio, audio->processingSource->sendLock)
-            advance_output_filters_locked(audio->processingSource, audio->updateSize);
+            advance_output_filters_locked(audio->processingSource, sourceTimelineFrames);
             fa_platform_unlock_mutex(audio->processingSource->sendLock);
             LOG_MUTEX_UNLOCK(audio, audio->processingSource->sendLock)
         }

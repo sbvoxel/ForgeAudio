@@ -113,12 +113,21 @@ int main(void) {
     failures += run_test("fade_stop_samples_played_stops_advancing", test_fade_stop_samples_played_stops_advancing);
     failures += run_test("filter_cutoff_range_and_clamped_getter",
                          test_filter_cutoff_range_and_clamped_getter);
+    failures += run_test("filter_zero_duration_ramp_snaps_after_render",
+                         test_filter_zero_duration_ramp_snaps_after_render);
     failures += run_test("filter_ramp_getter_reports_current_value",
                          test_filter_ramp_getter_reports_current_value);
+    failures += run_test("filter_type_preserves_ready_ramp",
+                         test_filter_type_preserves_ready_ramp);
     failures += run_test("stopped_source_filter_ramp_advances_on_engine_timeline",
                          test_stopped_source_filter_ramp_advances_on_engine_timeline);
+    failures += run_test("stopped_source_filter_ramp_uses_output_rate",
+                         test_stopped_source_filter_ramp_uses_output_rate);
     failures += run_test("output_filter_type_preserves_ready_ramp",
                          test_output_filter_type_preserves_ready_ramp);
+    failures += run_test("stopped_source_output_filter_ramp_uses_output_rate",
+                         test_stopped_source_output_filter_ramp_uses_output_rate);
+    failures += run_test("filter_invalid_type_rejected", test_filter_invalid_type_rejected);
 
     return failures == 0 ? 0 : 1;
 }

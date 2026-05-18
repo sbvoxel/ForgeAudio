@@ -84,8 +84,13 @@ int test_batch_fade_stop_then_ramp_cancels_terminal_stop(void);
 int test_stopped_source_fade_stop_completes_on_engine_timeline(void);
 int test_fade_stop_samples_played_stops_advancing(void);
 int test_filter_cutoff_range_and_clamped_getter(void);
+int test_filter_zero_duration_ramp_snaps_after_render(void);
 int test_filter_ramp_getter_reports_current_value(void);
+int test_filter_type_preserves_ready_ramp(void);
 int test_stopped_source_filter_ramp_advances_on_engine_timeline(void);
+int test_stopped_source_filter_ramp_uses_output_rate(void);
 int test_output_filter_type_preserves_ready_ramp(void);
+int test_stopped_source_output_filter_ramp_uses_output_rate(void);
+int test_filter_invalid_type_rejected(void);
 
 #endif /* FORGE_ENGINE_RENDER_TESTS_H */

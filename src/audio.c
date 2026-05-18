@@ -1808,6 +1808,25 @@ static ForgeResult validate_filter_target_arg(const ForgeFilterTarget *target) {
     return ForgeResultSuccess;
 }
 
+static ForgeResult validate_filter_type(ForgeFilterType type) {
+    switch (type) {
+    case ForgeFilterLowPass:
+    case ForgeFilterBandPass:
+    case ForgeFilterHighPass:
+    case ForgeFilterNotch:
+        return ForgeResultSuccess;
+    default:
+        return ForgeResultInvalidArgument;
+    }
+}
+
+static ForgeResult validate_filter_parameters_arg(const ForgeFilterParameters *parameters) {
+    if (parameters == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    return validate_filter_type(parameters->type);
+}
+
 static ForgeResult find_output_filter_locked(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t *send_index) {
     uint32_t i;
 
@@ -1831,6 +1850,11 @@ static ForgeResult find_output_filter_locked(ForgeVoice *voice, ForgeVoice *dest
 }
 
 ForgeResult fa_voice_install_set_filter_parameters(ForgeVoice *voice, const ForgeFilterParameters *parameters) {
+    ForgeResult result = validate_filter_parameters_arg(parameters);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+
     if (voice->type == FORGE_AUDIO_VOICE_MASTER || !(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
         return ForgeResultSuccess;
     }
@@ -1844,6 +1868,11 @@ ForgeResult fa_voice_install_set_filter_parameters(ForgeVoice *voice, const Forg
 }
 
 ForgeResult fa_voice_install_set_filter_type(ForgeVoice *voice, ForgeFilterType type) {
+    ForgeResult result = validate_filter_type(type);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+
     if (voice->type == FORGE_AUDIO_VOICE_MASTER || !(voice->flags & FORGE_AUDIO_VOICE_USEFILTER)) {
         return ForgeResultSuccess;
     }
@@ -1873,7 +1902,11 @@ ForgeResult fa_voice_install_ramp_filter(ForgeVoice *voice, const ForgeFilterTar
 ForgeResult fa_voice_install_set_output_filter_parameters(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                           const ForgeFilterParameters *parameters) {
     uint32_t i = 0;
-    ForgeResult result;
+    ForgeResult result = validate_filter_parameters_arg(parameters);
+
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
 
     if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
         return ForgeResultSuccess;
@@ -1895,7 +1928,11 @@ ForgeResult fa_voice_install_set_output_filter_parameters(ForgeVoice *voice, For
 ForgeResult fa_voice_install_set_output_filter_type(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                     ForgeFilterType type) {
     uint32_t i = 0;
-    ForgeResult result;
+    ForgeResult result = validate_filter_type(type);
+
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
 
     if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
         return ForgeResultSuccess;
@@ -1940,9 +1977,10 @@ ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice, const ForgeFilt
                                               ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (batch_id == FORGE_AUDIO_BATCH_ALL || parameters == NULL) {
+    ForgeResult result = validate_filter_parameters_arg(parameters);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || result != ForgeResultSuccess) {
         LOG_API_EXIT(voice->audio)
-        return ForgeResultInvalidCall;
+        return batch_id == FORGE_AUDIO_BATCH_ALL ? ForgeResultInvalidCall : result;
     }
 
     if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
@@ -1955,7 +1993,7 @@ ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice, const ForgeFilt
         fa_batch_clear_ready_filter_automation(voice);
     }
 
-    ForgeResult result = fa_voice_install_set_filter_parameters(voice, parameters);
+    result = fa_voice_install_set_filter_parameters(voice, parameters);
     LOG_API_EXIT(voice->audio)
     return result;
 }
@@ -1963,9 +2001,10 @@ ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice, const ForgeFilt
 ForgeResult forge_voice_set_filter_type(ForgeVoice *voice, ForgeFilterType type, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+    ForgeResult result = validate_filter_type(type);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || result != ForgeResultSuccess) {
         LOG_API_EXIT(voice->audio)
-        return ForgeResultInvalidCall;
+        return batch_id == FORGE_AUDIO_BATCH_ALL ? ForgeResultInvalidCall : result;
     }
     if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
         fa_batch_queue_set_filter_type(voice, type, batch_id);
@@ -1973,7 +2012,7 @@ ForgeResult forge_voice_set_filter_type(ForgeVoice *voice, ForgeFilterType type,
         return 0;
     }
 
-    ForgeResult result = fa_voice_install_set_filter_type(voice, type);
+    result = fa_voice_install_set_filter_type(voice, type);
     LOG_API_EXIT(voice->audio)
     return result;
 }
@@ -2060,9 +2099,10 @@ ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoi
                                                      ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (batch_id == FORGE_AUDIO_BATCH_ALL || parameters == NULL) {
+    ForgeResult result = validate_filter_parameters_arg(parameters);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || result != ForgeResultSuccess) {
         LOG_API_EXIT(voice->audio)
-        return ForgeResultInvalidCall;
+        return batch_id == FORGE_AUDIO_BATCH_ALL ? ForgeResultInvalidCall : result;
     }
     if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
         fa_batch_queue_set_output_filter_parameters(voice, destination_voice, parameters, batch_id);
@@ -2073,7 +2113,7 @@ ForgeResult forge_voice_set_output_filter_parameters(ForgeVoice *voice, ForgeVoi
         fa_batch_clear_ready_output_filter_automation(voice, destination_voice);
     }
 
-    ForgeResult result = fa_voice_install_set_output_filter_parameters(voice, destination_voice, parameters);
+    result = fa_voice_install_set_output_filter_parameters(voice, destination_voice, parameters);
     LOG_API_EXIT(voice->audio)
     return result;
 }
@@ -2082,9 +2122,10 @@ ForgeResult forge_voice_set_output_filter_type(ForgeVoice *voice, ForgeVoice *de
                                                ForgeFilterType type, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+    ForgeResult result = validate_filter_type(type);
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || result != ForgeResultSuccess) {
         LOG_API_EXIT(voice->audio)
-        return ForgeResultInvalidCall;
+        return batch_id == FORGE_AUDIO_BATCH_ALL ? ForgeResultInvalidCall : result;
     }
     if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
         fa_batch_queue_set_output_filter_type(voice, destination_voice, type, batch_id);
@@ -2092,7 +2133,7 @@ ForgeResult forge_voice_set_output_filter_type(ForgeVoice *voice, ForgeVoice *de
         return 0;
     }
 
-    ForgeResult result = fa_voice_install_set_output_filter_type(voice, destination_voice, type);
+    result = fa_voice_install_set_output_filter_type(voice, destination_voice, type);
     LOG_API_EXIT(voice->audio)
     return result;
 }
