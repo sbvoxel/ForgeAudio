@@ -45,6 +45,13 @@ typedef void(FORGE_AUDIO_CALL *ForgeAudioMixCallback)(uint32_t to_mix, uint32_t 
 
 typedef float ForgeAudioFilterState[4];
 
+typedef struct ForgeFilterFieldAutomation {
+    uint8_t active;
+    float target;
+    float step;
+    uint32_t remainingFrames;
+} ForgeFilterFieldAutomation;
+
 typedef struct ForgeFilterRuntime {
     ForgeFilterType type;
     float cutoff_hz;
@@ -54,10 +61,9 @@ typedef struct ForgeFilterRuntime {
     float one_over_q;
     uint32_t sample_rate;
     struct {
-        uint8_t active;
-        ForgeFilterTarget target;
-        ForgeFilterTarget step;
-        uint32_t remainingFrames;
+        ForgeFilterFieldAutomation cutoff_hz;
+        ForgeFilterFieldAutomation q;
+        ForgeFilterFieldAutomation wet_dry_mix;
     } automation;
 } ForgeFilterRuntime;
 

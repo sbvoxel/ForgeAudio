@@ -87,6 +87,7 @@ int test_filter_cutoff_range_and_clamped_getter(void);
 int test_filter_zero_duration_ramp_snaps_after_render(void);
 int test_filter_ramp_getter_reports_current_value(void);
 int test_filter_type_preserves_ready_ramp(void);
+int test_filter_field_mask_preserves_other_active_ramps(void);
 int test_stopped_source_filter_ramp_advances_on_engine_timeline(void);
 int test_stopped_source_filter_ramp_uses_output_rate(void);
 int test_output_filter_type_preserves_ready_ramp(void);

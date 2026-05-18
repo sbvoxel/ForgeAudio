@@ -193,10 +193,27 @@ static float filter_coefficient_from_cutoff(float cutoff_hz, uint32_t sample_rat
 static ForgeFilterTarget clamp_filter_target(const ForgeFilterTarget *target, uint32_t sample_rate) {
     ForgeFilterTarget result;
 
-    result.cutoff_hz = forge_clamp(target->cutoff_hz, 0.0f, filter_max_cutoff_hz(sample_rate));
-    result.q = forge_clamp(target->q, FORGE_AUDIO_MIN_FILTER_Q, FORGE_AUDIO_MAX_FILTER_Q);
-    result.wet_dry_mix = forge_clamp(target->wet_dry_mix, 0.0f, 1.0f);
+    forge_zero(&result, sizeof(result));
+    result.field_mask = target->field_mask;
+    if (target->field_mask & FORGE_FILTER_TARGET_CUTOFF_HZ) {
+        result.cutoff_hz = forge_clamp(target->cutoff_hz, 0.0f, filter_max_cutoff_hz(sample_rate));
+    }
+    if (target->field_mask & FORGE_FILTER_TARGET_Q) {
+        result.q = forge_clamp(target->q, FORGE_AUDIO_MIN_FILTER_Q, FORGE_AUDIO_MAX_FILTER_Q);
+    }
+    if (target->field_mask & FORGE_FILTER_TARGET_WET_DRY_MIX) {
+        result.wet_dry_mix = forge_clamp(target->wet_dry_mix, 0.0f, 1.0f);
+    }
     return result;
+}
+
+static void clear_filter_runtime_automation(ForgeFilterRuntime *filter) {
+    filter->automation.cutoff_hz.active = 0;
+    filter->automation.cutoff_hz.remainingFrames = 0;
+    filter->automation.q.active = 0;
+    filter->automation.q.remainingFrames = 0;
+    filter->automation.wet_dry_mix.active = 0;
+    filter->automation.wet_dry_mix.remainingFrames = 0;
 }
 
 static void filter_runtime_refresh_dsp(ForgeFilterRuntime *filter) {
@@ -208,6 +225,7 @@ static void filter_runtime_set_sample_rate(ForgeFilterRuntime *filter, uint32_t 
     ForgeFilterTarget target;
 
     filter->sample_rate = sample_rate;
+    target.field_mask = FORGE_FILTER_TARGET_ALL;
     target.cutoff_hz = filter->cutoff_hz;
     target.q = filter->q;
     target.wet_dry_mix = filter->wet_dry_mix;
@@ -224,6 +242,7 @@ static void filter_runtime_init(ForgeFilterRuntime *filter, uint32_t sample_rate
     forge_zero(filter, sizeof(*filter));
     filter->type = FORGE_AUDIO_DEFAULT_FILTER_TYPE;
     filter->sample_rate = sample_rate;
+    target.field_mask = FORGE_FILTER_TARGET_ALL;
     target.cutoff_hz = FORGE_AUDIO_DEFAULT_FILTER_CUTOFF_HZ;
     target.q = FORGE_AUDIO_DEFAULT_FILTER_Q;
     target.wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
@@ -238,6 +257,7 @@ static void filter_runtime_set_parameters(ForgeFilterRuntime *filter, const Forg
     ForgeFilterTarget target;
 
     filter->type = parameters->type;
+    target.field_mask = FORGE_FILTER_TARGET_ALL;
     target.cutoff_hz = parameters->cutoff_hz;
     target.q = parameters->q;
     target.wet_dry_mix = parameters->wet_dry_mix;
@@ -245,8 +265,7 @@ static void filter_runtime_set_parameters(ForgeFilterRuntime *filter, const Forg
     filter->cutoff_hz = target.cutoff_hz;
     filter->q = target.q;
     filter->wet_dry_mix = target.wet_dry_mix;
-    filter->automation.active = 0;
-    filter->automation.remainingFrames = 0;
+    clear_filter_runtime_automation(filter);
     filter_runtime_refresh_dsp(filter);
 }
 
@@ -255,6 +274,20 @@ static void filter_runtime_get_parameters(const ForgeFilterRuntime *filter, Forg
     parameters->cutoff_hz = filter->cutoff_hz;
     parameters->q = filter->q;
     parameters->wet_dry_mix = filter->wet_dry_mix;
+}
+
+static void filter_runtime_set_field_automation(ForgeFilterFieldAutomation *automation, float current, float target,
+                                                uint32_t duration_frames) {
+    if (duration_frames == 0) {
+        automation->active = 0;
+        automation->remainingFrames = 0;
+        return;
+    }
+
+    automation->target = target;
+    automation->step = (target - current) / (float)duration_frames;
+    automation->remainingFrames = duration_frames;
+    automation->active = 1;
 }
 
 static void filter_runtime_set_type(ForgeFilterRuntime *filter, ForgeFilterType type) {
@@ -266,21 +299,36 @@ static void filter_runtime_install_ramp(ForgeFilterRuntime *filter, const ForgeF
     ForgeFilterTarget clamped = clamp_filter_target(target, filter->sample_rate);
 
     if (duration_frames == 0) {
-        filter->cutoff_hz = clamped.cutoff_hz;
-        filter->q = clamped.q;
-        filter->wet_dry_mix = clamped.wet_dry_mix;
-        filter->automation.active = 0;
-        filter->automation.remainingFrames = 0;
+        if (clamped.field_mask & FORGE_FILTER_TARGET_CUTOFF_HZ) {
+            filter->cutoff_hz = clamped.cutoff_hz;
+            filter->automation.cutoff_hz.active = 0;
+            filter->automation.cutoff_hz.remainingFrames = 0;
+        }
+        if (clamped.field_mask & FORGE_FILTER_TARGET_Q) {
+            filter->q = clamped.q;
+            filter->automation.q.active = 0;
+            filter->automation.q.remainingFrames = 0;
+        }
+        if (clamped.field_mask & FORGE_FILTER_TARGET_WET_DRY_MIX) {
+            filter->wet_dry_mix = clamped.wet_dry_mix;
+            filter->automation.wet_dry_mix.active = 0;
+            filter->automation.wet_dry_mix.remainingFrames = 0;
+        }
         filter_runtime_refresh_dsp(filter);
         return;
     }
 
-    filter->automation.target = clamped;
-    filter->automation.step.cutoff_hz = (clamped.cutoff_hz - filter->cutoff_hz) / (float)duration_frames;
-    filter->automation.step.q = (clamped.q - filter->q) / (float)duration_frames;
-    filter->automation.step.wet_dry_mix = (clamped.wet_dry_mix - filter->wet_dry_mix) / (float)duration_frames;
-    filter->automation.remainingFrames = duration_frames;
-    filter->automation.active = 1;
+    if (clamped.field_mask & FORGE_FILTER_TARGET_CUTOFF_HZ) {
+        filter_runtime_set_field_automation(&filter->automation.cutoff_hz, filter->cutoff_hz,
+                                            clamped.cutoff_hz, duration_frames);
+    }
+    if (clamped.field_mask & FORGE_FILTER_TARGET_Q) {
+        filter_runtime_set_field_automation(&filter->automation.q, filter->q, clamped.q, duration_frames);
+    }
+    if (clamped.field_mask & FORGE_FILTER_TARGET_WET_DRY_MIX) {
+        filter_runtime_set_field_automation(&filter->automation.wet_dry_mix, filter->wet_dry_mix,
+                                            clamped.wet_dry_mix, duration_frames);
+    }
 }
 
 static void free_voice_send_runtime(ForgeVoice *voice) {
@@ -1804,6 +1852,9 @@ ForgeResult forge_voice_get_effect_parameters(ForgeVoice *voice, uint32_t effect
 static ForgeResult validate_filter_target_arg(const ForgeFilterTarget *target) {
     if (target == NULL) {
         return ForgeResultInvalidCall;
+    }
+    if ((target->field_mask & ~FORGE_FILTER_TARGET_ALL) != 0 || target->field_mask == 0) {
+        return ForgeResultInvalidArgument;
     }
     return ForgeResultSuccess;
 }

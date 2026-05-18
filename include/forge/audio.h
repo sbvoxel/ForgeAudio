@@ -142,7 +142,14 @@ typedef struct ForgeFilterParameters {
     float wet_dry_mix; /* [0, 1] */
 } ForgeFilterParameters;
 
+#define FORGE_FILTER_TARGET_CUTOFF_HZ 0x00000001u
+#define FORGE_FILTER_TARGET_Q 0x00000002u
+#define FORGE_FILTER_TARGET_WET_DRY_MIX 0x00000004u
+#define FORGE_FILTER_TARGET_ALL                                                                                       \
+    (FORGE_FILTER_TARGET_CUTOFF_HZ | FORGE_FILTER_TARGET_Q | FORGE_FILTER_TARGET_WET_DRY_MIX)
+
 typedef struct ForgeFilterTarget {
+    uint32_t field_mask; /* Mix of FORGE_FILTER_TARGET_* flags. */
     float cutoff_hz;   /* [0, voice-specific stable maximum], see forge_voice_get_filter_cutoff_range */
     float q;           /* [FORGE_AUDIO_MIN_FILTER_Q, FORGE_AUDIO_MAX_FILTER_Q] */
     float wet_dry_mix; /* [0, 1] */
@@ -639,8 +646,10 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_filter_parameters(ForgeVoice *voice,
 FORGE_AUDIO_API ForgeResult forge_voice_set_filter_type(ForgeVoice *voice, ForgeFilterType type,
                                                         ForgeAudioBatchId batch_id);
 
-/* Targets the continuous filter variables using ForgeAudio's internal default de-zip duration.
+/* Targets selected continuous filter variables using ForgeAudio's internal default de-zip duration.
  * This does not change the filter type.
+ * target->field_mask chooses which fields are affected; omitted fields keep
+ * their current value and any active automation already controlling them.
  *
  * The current implementation advances cutoff_hz, q, and wet_dry_mix once per
  * rendered frame. The exact cutoff interpolation curve is intentionally not a
@@ -650,7 +659,7 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_filter_type(ForgeVoice *voice, Forge
 FORGE_AUDIO_API ForgeResult forge_voice_set_filter_target(ForgeVoice *voice, const ForgeFilterTarget *target,
                                                           ForgeAudioBatchId batch_id);
 
-/* Ramps the continuous filter variables over an exact number of rendered sample frames.
+/* Ramps selected continuous filter variables over an exact number of rendered sample frames.
  * This does not change the filter type. See forge_voice_set_filter_target for
  * the current interpolation policy and future curve note.
  */
@@ -658,7 +667,7 @@ FORGE_AUDIO_API ForgeResult forge_voice_ramp_filter_frames(ForgeVoice *voice, co
                                                            uint32_t duration_frames,
                                                            ForgeAudioBatchId batch_id);
 
-/* Ramps the continuous filter variables over a duration in milliseconds.
+/* Ramps selected continuous filter variables over a duration in milliseconds.
  * duration_ms is converted to engine output sample frames using
  * forge_audio_ms_to_frames when this function is called.
  */
@@ -698,7 +707,7 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_output_filter_type(ForgeVoice *voice
                                                                ForgeFilterType type,
                                                                ForgeAudioBatchId batch_id);
 
-/* Targets a send filter's continuous variables using ForgeAudio's internal default de-zip duration.
+/* Targets selected send filter continuous variables using ForgeAudio's internal default de-zip duration.
  * This does not change the send filter type. See forge_voice_set_filter_target
  * for the current interpolation policy and future curve note.
  */
@@ -706,13 +715,13 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_output_filter_target(ForgeVoice *voi
                                                                  const ForgeFilterTarget *target,
                                                                  ForgeAudioBatchId batch_id);
 
-/* Ramps a send filter's continuous variables over an exact number of rendered sample frames. */
+/* Ramps selected send filter continuous variables over an exact number of rendered sample frames. */
 FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_filter_frames(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                                   const ForgeFilterTarget *target,
                                                                   uint32_t duration_frames,
                                                                   ForgeAudioBatchId batch_id);
 
-/* Ramps a send filter's continuous variables over a duration in milliseconds. */
+/* Ramps selected send filter continuous variables over a duration in milliseconds. */
 FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_filter_ms(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                               const ForgeFilterTarget *target,
                                                               double duration_ms,

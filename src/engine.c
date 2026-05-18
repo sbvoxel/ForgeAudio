@@ -321,27 +321,40 @@ static void refresh_filter_runtime_dsp(ForgeFilterRuntime *filter) {
     filter->one_over_q = 1.0f / filter->q;
 }
 
-static void advance_filter_one_frame_locked(ForgeFilterRuntime *filter) {
-    if (!filter->automation.active) {
-        return;
+static uint8_t advance_filter_field_one_frame(ForgeFilterFieldAutomation *automation, float *value) {
+    if (!automation->active) {
+        return 0;
     }
 
-    filter->automation.remainingFrames -= 1;
-    if (filter->automation.remainingFrames == 0) {
-        filter->cutoff_hz = filter->automation.target.cutoff_hz;
-        filter->q = filter->automation.target.q;
-        filter->wet_dry_mix = filter->automation.target.wet_dry_mix;
-        filter->automation.active = 0;
+    automation->remainingFrames -= 1;
+    if (automation->remainingFrames == 0) {
+        *value = automation->target;
+        automation->active = 0;
     } else {
-        filter->cutoff_hz += filter->automation.step.cutoff_hz;
-        filter->q += filter->automation.step.q;
-        filter->wet_dry_mix += filter->automation.step.wet_dry_mix;
+        *value += automation->step;
+    }
+    return 1;
+}
+
+static void advance_filter_one_frame_locked(ForgeFilterRuntime *filter) {
+    uint8_t advanced = 0;
+
+    advanced |= advance_filter_field_one_frame(&filter->automation.cutoff_hz, &filter->cutoff_hz);
+    advanced |= advance_filter_field_one_frame(&filter->automation.q, &filter->q);
+    advanced |= advance_filter_field_one_frame(&filter->automation.wet_dry_mix, &filter->wet_dry_mix);
+
+    if (!advanced) {
+        return;
     }
     refresh_filter_runtime_dsp(filter);
 }
 
+static uint8_t filter_automation_active(const ForgeFilterRuntime *filter) {
+    return filter->automation.cutoff_hz.active || filter->automation.q.active || filter->automation.wet_dry_mix.active;
+}
+
 static void advance_filter_locked(ForgeFilterRuntime *filter, uint32_t frames) {
-    while (frames > 0 && filter->automation.active) {
+    while (frames > 0 && filter_automation_active(filter)) {
         advance_filter_one_frame_locked(filter);
         frames -= 1;
     }

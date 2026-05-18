@@ -119,6 +119,8 @@ int main(void) {
                          test_filter_ramp_getter_reports_current_value);
     failures += run_test("filter_type_preserves_ready_ramp",
                          test_filter_type_preserves_ready_ramp);
+    failures += run_test("filter_field_mask_preserves_other_active_ramps",
+                         test_filter_field_mask_preserves_other_active_ramps);
     failures += run_test("stopped_source_filter_ramp_advances_on_engine_timeline",
                          test_stopped_source_filter_ramp_advances_on_engine_timeline);
     failures += run_test("stopped_source_filter_ramp_uses_output_rate",
