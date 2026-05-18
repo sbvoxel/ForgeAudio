@@ -163,6 +163,9 @@ static uint32_t output_filter_sample_rate(const ForgeVoiceSendRuntime *send) {
     return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
 }
 
+static ForgeResult voice_set_effect_chain_with_sample_rate(ForgeVoice *voice, const ForgeEffectChain *effect_chain,
+                                                           uint32_t effect_sample_rate);
+
 static float filter_max_cutoff_hz(uint32_t sample_rate) {
     /* The current Chamberlin state-variable filter is stable through coefficient
      * 1.0, which corresponds to 2 * sin(pi * cutoff / sample_rate) == 1.0,
@@ -836,9 +839,10 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     (*source_voice)->src.curBufferOffset = 0;
 
     /* Sends/Effects */
+    outputRate = send_list_output_rate(audio, send_list);
     fa_audio_voice_output_frequency(*source_voice, send_list);
-    filter_runtime_init(&(*source_voice)->filter, voice_filter_sample_rate(*source_voice));
-    result = forge_voice_set_effect_chain(*source_voice, effect_chain);
+    filter_runtime_init(&(*source_voice)->filter, outputRate);
+    result = voice_set_effect_chain_with_sample_rate(*source_voice, effect_chain, outputRate);
     if (result != 0) {
         cleanup_failed_unlinked_voice(source_voice);
         LOG_API_EXIT(audio)
@@ -873,7 +877,6 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     }
 
     /* Sample Storage */
-    outputRate = send_list_output_rate(audio, send_list);
     (*source_voice)->src.decodeSamples =
         source_decode_frame_count((*source_voice)->src.resampleSamples, max_frequency_ratio,
                                            (*source_voice)->src.format->sample_rate, outputRate);
@@ -908,6 +911,7 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
                                             uint32_t processing_stage, const ForgeSendList *send_list,
                                             const ForgeEffectChain *effect_chain) {
     ForgeResult result;
+    uint32_t outputRate;
 
     LOG_API_ENTER(audio)
 
@@ -968,9 +972,10 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
                (*submix_voice)->mix.inputCache, sizeof(float) * (*submix_voice)->mix.inputSamples);
 
     /* Sends/Effects */
+    outputRate = send_list_output_rate(audio, send_list);
     fa_audio_voice_output_frequency(*submix_voice, send_list);
-    filter_runtime_init(&(*submix_voice)->filter, voice_filter_sample_rate(*submix_voice));
-    result = forge_voice_set_effect_chain(*submix_voice, effect_chain);
+    filter_runtime_init(&(*submix_voice)->filter, outputRate);
+    result = voice_set_effect_chain_with_sample_rate(*submix_voice, effect_chain, outputRate);
     if (result != 0) {
         cleanup_failed_unlinked_voice(submix_voice);
         LOG_API_EXIT(audio)
@@ -1583,7 +1588,8 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
     return 0;
 }
 
-ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain) {
+static ForgeResult voice_set_effect_chain_with_sample_rate(ForgeVoice *voice, const ForgeEffectChain *effect_chain,
+                                                           uint32_t effect_sample_rate) {
     ForgeEffect *effect;
     ForgeResult result;
     uint32_t lockedEffects;
@@ -1594,8 +1600,6 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
     ForgeEffectLockBuffer srcLockParams, dstLockParams;
     uint8_t hasEffectChain;
 
-    LOG_API_ENTER(voice->audio)
-
     forge_voice_get_details(voice, &voiceDetails);
     hasEffectChain = (effect_chain != NULL && effect_chain->effect_count > 0);
 
@@ -1605,7 +1609,6 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
         if (voice->outputChannels != voiceDetails.input_channels) {
             LOG_ERROR(voice->audio, "%s", "Cannot remove effect chain that changes the number of channels")
             forge_assert(0 && "Cannot remove effect chain that changes the number of channels");
-            LOG_API_EXIT(voice->audio)
             return ForgeResultInvalidCall;
         }
     }
@@ -1617,7 +1620,6 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
         if (voice->outputChannels != effect_chain->effects[lst].output_channels) {
             LOG_ERROR(voice->audio, "%s", "New effect chain must have same number of output channels as the old chain")
             forge_assert(0 && "New effect chain must have same number of output channels as the old chain");
-            LOG_API_EXIT(voice->audio)
             return ForgeResultInvalidCall;
         }
     }
@@ -1650,7 +1652,7 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
         srcFmt.format.bits_per_sample = 32;
         srcFmt.format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
         srcFmt.format.channels = voiceDetails.input_channels;
-        srcFmt.format.sample_rate = voice_filter_sample_rate(voice);
+        srcFmt.format.sample_rate = effect_sample_rate;
         srcFmt.format.block_align = srcFmt.format.channels * (srcFmt.format.bits_per_sample / 8);
         srcFmt.format.average_bytes_per_second = srcFmt.format.sample_rate * srcFmt.format.block_align;
         srcFmt.format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
@@ -1677,7 +1679,6 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
                 forge_assert(0 && "Effect output format not supported");
                 fa_platform_unlock_mutex(voice->effectLock);
                 LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-                LOG_API_EXIT(voice->audio)
                 return result;
             }
             lockedEffects += 1;
@@ -1703,7 +1704,6 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
                 }
                 fa_platform_unlock_mutex(voice->effectLock);
                 LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-                LOG_API_EXIT(voice->audio)
                 return result;
             }
 
@@ -1736,8 +1736,16 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
 
     fa_platform_unlock_mutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-    LOG_API_EXIT(voice->audio)
     return 0;
+}
+
+ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain) {
+    ForgeResult result;
+
+    LOG_API_ENTER(voice->audio)
+    result = voice_set_effect_chain_with_sample_rate(voice, effect_chain, voice_filter_sample_rate(voice));
+    LOG_API_EXIT(voice->audio)
+    return result;
 }
 
 ForgeResult forge_voice_enable_effect(ForgeVoice *voice, uint32_t effect_index, ForgeAudioBatchId batch_id) {

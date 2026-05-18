@@ -22,6 +22,8 @@ int test_virtual_silence_smoke(void);
 int test_public_source_dc_render(void);
 int test_deferred_batch_start_timing(void);
 int test_split_buffer_equals_contiguous(void);
+int test_source_effect_initial_send_lock_uses_render_rate(void);
+int test_submix_effect_initial_send_lock_uses_render_rate(void);
 int test_deferred_volume_boundary(void);
 int test_immediate_volume_before_deferred_apply(void);
 int test_deferred_stop_boundary(void);

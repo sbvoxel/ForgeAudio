@@ -19,6 +19,10 @@ int main(void) {
     failures += run_test("public_source_dc_render", test_public_source_dc_render);
     failures += run_test("deferred_batch_start_timing", test_deferred_batch_start_timing);
     failures += run_test("split_buffer_equals_contiguous", test_split_buffer_equals_contiguous);
+    failures += run_test("source_effect_initial_send_lock_uses_render_rate",
+                         test_source_effect_initial_send_lock_uses_render_rate);
+    failures += run_test("submix_effect_initial_send_lock_uses_render_rate",
+                         test_submix_effect_initial_send_lock_uses_render_rate);
     failures += run_test("deferred_volume_boundary", test_deferred_volume_boundary);
     failures += run_test("immediate_volume_before_deferred_apply", test_immediate_volume_before_deferred_apply);
     failures += run_test("deferred_stop_boundary", test_deferred_stop_boundary);
