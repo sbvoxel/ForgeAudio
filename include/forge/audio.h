@@ -710,6 +710,19 @@ FORGE_AUDIO_API void forge_voice_get_volume(ForgeVoice *voice, float *volume);
 FORGE_AUDIO_API ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
                                                             ForgeAudioBatchId batch_id);
 
+/* Ramps the per-channel volumes of a voice over an exact number of rendered sample frames.
+ *
+ * channels:        Must match the channel count of this voice!
+ * volumes:        Target amplitude ratios for each channel. Same bounds as forge_voice_set_volume.
+ * duration_frames: Number of output sample frames over which to reach the targets.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels,
+                                                             const float *volumes, uint32_t duration_frames,
+                                                             ForgeAudioBatchId batch_id);
+
 /* Requests the per-channel volumes of a voice.
  *
  * channels:    Must match the channel count of this voice!

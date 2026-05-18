@@ -132,6 +132,12 @@ struct ForgeVoice {
         uint32_t remainingFrames;
         uint8_t stopSourceOnComplete;
     } volumeAutomation;
+    struct {
+        uint8_t active;
+        float *target;
+        float *step;
+        uint32_t remainingFrames;
+    } channelVolumeAutomation;
 
     FORGE_AUDIO_NAMELESS union {
         struct {

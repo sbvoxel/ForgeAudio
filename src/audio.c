@@ -415,8 +415,14 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     /* Default Levels */
     (*source_voice)->volume = 1.0f;
     (*source_voice)->channelVolume = (float *)audio->malloc_func(sizeof(float) * (*source_voice)->outputChannels);
+    (*source_voice)->channelVolumeAutomation.target =
+        (float *)audio->malloc_func(sizeof(float) * (*source_voice)->outputChannels);
+    (*source_voice)->channelVolumeAutomation.step =
+        (float *)audio->malloc_func(sizeof(float) * (*source_voice)->outputChannels);
     for (uint32_t i = 0; i < (*source_voice)->outputChannels; i += 1) {
         (*source_voice)->channelVolume[i] = 1.0f;
+        (*source_voice)->channelVolumeAutomation.target[i] = 1.0f;
+        (*source_voice)->channelVolumeAutomation.step[i] = 0.0f;
     }
 
     forge_voice_set_outputs(*source_voice, send_list);
@@ -527,8 +533,14 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     /* Default Levels */
     (*submix_voice)->volume = 1.0f;
     (*submix_voice)->channelVolume = (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->outputChannels);
+    (*submix_voice)->channelVolumeAutomation.target =
+        (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->outputChannels);
+    (*submix_voice)->channelVolumeAutomation.step =
+        (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->outputChannels);
     for (uint32_t i = 0; i < (*submix_voice)->outputChannels; i += 1) {
         (*submix_voice)->channelVolume[i] = 1.0f;
+        (*submix_voice)->channelVolumeAutomation.target[i] = 1.0f;
+        (*submix_voice)->channelVolumeAutomation.step[i] = 0.0f;
     }
 
     forge_voice_set_outputs(*submix_voice, send_list);
@@ -851,8 +863,7 @@ static void recalc_mix_matrix(ForgeVoice *voice, uint32_t sendIndex) {
 
     for (d = 0; d < oChan; d += 1) {
         for (s = 0; s < voice->outputChannels; s += 1) {
-            matrix[d * voice->outputChannels + s] =
-                voice->channelVolume[s] * voice->sendCoefficients[sendIndex][d * voice->outputChannels + s];
+            matrix[d * voice->outputChannels + s] = voice->sendCoefficients[sendIndex][d * voice->outputChannels + s];
         }
     }
 }
@@ -1619,16 +1630,67 @@ ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
 
     forge_memcpy(voice->channelVolume, volumes, sizeof(float) * channels);
-
-    for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
-        recalc_mix_matrix(voice, i);
-    }
+    voice->channelVolumeAutomation.active = 0;
+    voice->channelVolumeAutomation.remainingFrames = 0;
 
     fa_platform_unlock_mutex(voice->volumeLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
 
     fa_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+
+    LOG_API_EXIT(voice->audio)
+    return 0;
+}
+
+ForgeResult forge_voice_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                             uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    LOG_API_ENTER(voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (volumes == NULL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (channels != voice->outputChannels) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        fa_batch_queue_ramp_channel_volumes(voice, channels, volumes, duration_frames, batch_id);
+        LOG_API_EXIT(voice->audio)
+        return 0;
+    }
+
+    fa_platform_lock_mutex(voice->volumeLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+
+    if (duration_frames == 0) {
+        forge_memcpy(voice->channelVolume, volumes, sizeof(float) * channels);
+        voice->channelVolumeAutomation.active = 0;
+        voice->channelVolumeAutomation.remainingFrames = 0;
+    } else {
+        for (uint32_t i = 0; i < channels; i += 1) {
+            voice->channelVolumeAutomation.target[i] = volumes[i];
+            voice->channelVolumeAutomation.step[i] = (volumes[i] - voice->channelVolume[i]) / (float)duration_frames;
+        }
+        voice->channelVolumeAutomation.remainingFrames = duration_frames;
+        voice->channelVolumeAutomation.active = 1;
+    }
+
+    fa_platform_unlock_mutex(voice->volumeLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
 
     LOG_API_EXIT(voice->audio)
     return 0;
@@ -1925,6 +1987,12 @@ static void destroy_voice(ForgeVoice *voice) {
         LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
         if (voice->channelVolume != NULL) {
             voice->audio->free_func(voice->channelVolume);
+        }
+        if (voice->channelVolumeAutomation.target != NULL) {
+            voice->audio->free_func(voice->channelVolumeAutomation.target);
+        }
+        if (voice->channelVolumeAutomation.step != NULL) {
+            voice->audio->free_func(voice->channelVolumeAutomation.step);
         }
         fa_platform_unlock_mutex(voice->volumeLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)

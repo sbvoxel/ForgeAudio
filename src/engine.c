@@ -475,6 +475,65 @@ static void advance_voice_volume_locked(ForgeVoice *voice, uint32_t frames) {
     }
 }
 
+static uint8_t channel_volumes_are_unity(const ForgeVoice *voice, uint32_t channels) {
+    for (uint32_t channel = 0; channel < channels; channel += 1) {
+        if (voice->channelVolume[channel] != 1.0f) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static void apply_channel_volumes_locked(ForgeVoice *voice, float *samples, uint32_t frames, uint32_t channels) {
+    uint32_t frame = 0;
+
+    if (voice->channelVolumeAutomation.active) {
+        while (frame < frames && voice->channelVolumeAutomation.active) {
+            for (uint32_t channel = 0; channel < channels; channel += 1) {
+                samples[frame * channels + channel] *= voice->channelVolume[channel];
+            }
+
+            voice->channelVolumeAutomation.remainingFrames -= 1;
+            if (voice->channelVolumeAutomation.remainingFrames == 0) {
+                for (uint32_t channel = 0; channel < channels; channel += 1) {
+                    voice->channelVolume[channel] = voice->channelVolumeAutomation.target[channel];
+                }
+                voice->channelVolumeAutomation.active = 0;
+            } else {
+                for (uint32_t channel = 0; channel < channels; channel += 1) {
+                    voice->channelVolume[channel] += voice->channelVolumeAutomation.step[channel];
+                }
+            }
+            frame += 1;
+        }
+    }
+
+    if (frame < frames && !channel_volumes_are_unity(voice, channels)) {
+        for (; frame < frames; frame += 1) {
+            for (uint32_t channel = 0; channel < channels; channel += 1) {
+                samples[frame * channels + channel] *= voice->channelVolume[channel];
+            }
+        }
+    }
+}
+
+static void advance_channel_volumes_locked(ForgeVoice *voice, uint32_t frames, uint32_t channels) {
+    while (frames > 0 && voice->channelVolumeAutomation.active) {
+        voice->channelVolumeAutomation.remainingFrames -= 1;
+        if (voice->channelVolumeAutomation.remainingFrames == 0) {
+            for (uint32_t channel = 0; channel < channels; channel += 1) {
+                voice->channelVolume[channel] = voice->channelVolumeAutomation.target[channel];
+            }
+            voice->channelVolumeAutomation.active = 0;
+        } else {
+            for (uint32_t channel = 0; channel < channels; channel += 1) {
+                voice->channelVolume[channel] += voice->channelVolumeAutomation.step[channel];
+            }
+        }
+        frames -= 1;
+    }
+}
+
 #ifdef FORGE_AUDIO_TESTING
 float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples) {
     return process_effect_chain(voice, buffer, samples);
@@ -695,6 +754,7 @@ sendwork:
         fa_platform_lock_mutex(voice->volumeLock);
         LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
         advance_voice_volume_locked(voice, mixed);
+        advance_channel_volumes_locked(voice, mixed, voice->outputChannels);
         fa_platform_unlock_mutex(voice->volumeLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
 
@@ -708,6 +768,7 @@ sendwork:
     fa_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
     apply_voice_volume_locked(voice, finalSamples, mixed, voice->outputChannels);
+    apply_channel_volumes_locked(voice, finalSamples, mixed, voice->outputChannels);
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
         out = voice->sends.sends[i].output_voice;
         if (out->type == FORGE_AUDIO_VOICE_MASTER) {
@@ -864,12 +925,18 @@ static void mix_submix(ForgeSubmixVoice *voice) {
 
     /* Nothing more to do? */
     if (voice->sends.send_count == 0) {
+        fa_platform_lock_mutex(voice->volumeLock);
+        LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+        advance_channel_volumes_locked(voice, resampled, voice->outputChannels);
+        fa_platform_unlock_mutex(voice->volumeLock);
+        LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
         goto end;
     }
 
-    /* Send float cache to sends */
+    /* Apply channel volumes, then send float cache to sends. */
     fa_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+    apply_channel_volumes_locked(voice, finalSamples, resampled, voice->outputChannels);
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
         out = voice->sends.sends[i].output_voice;
         if (out->type == FORGE_AUDIO_VOICE_MASTER) {
@@ -989,6 +1056,8 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
             fa_platform_lock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_LOCK(audio, audio->processingSource->volumeLock)
             advance_voice_volume_locked(audio->processingSource, audio->updateSize);
+            advance_channel_volumes_locked(audio->processingSource, audio->updateSize,
+                                           audio->processingSource->outputChannels);
             fa_platform_unlock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_UNLOCK(audio, audio->processingSource->volumeLock)
         }

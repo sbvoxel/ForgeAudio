@@ -25,6 +25,7 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_SET_VOLUME,
     FORGE_AUDIO_COMMAND_RAMP_VOLUME,
     FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES,
+    FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES,
     FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX,
     FORGE_AUDIO_COMMAND_START,
     FORGE_AUDIO_COMMAND_STOP,
@@ -69,6 +70,11 @@ struct ForgeAudioCommand {
             float *volumes;
         } SetChannelVolumes;
         struct {
+            uint32_t channels;
+            float *volumes;
+            uint32_t duration_frames;
+        } RampChannelVolumes;
+        struct {
             ForgeVoice *destination_voice;
             uint32_t source_channels;
             uint32_t destination_channels;
@@ -104,6 +110,8 @@ static inline void destroy_command(ForgeAudioCommand *op, ForgeFreeFunc free_fun
         free_func(op->Data.SetEffectParameters.parameters);
     } else if (op->type == FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES) {
         free_func(op->Data.SetChannelVolumes.volumes);
+    } else if (op->type == FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES) {
+        free_func(op->Data.RampChannelVolumes.volumes);
     } else if (op->type == FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX) {
         free_func(op->Data.SetOutputMatrix.level_matrix);
     }
@@ -151,6 +159,12 @@ static inline void execute_command(ForgeAudioCommand *op) {
     case FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES:
         forge_voice_set_channel_volumes(op->voice, op->Data.SetChannelVolumes.channels,
                                         op->Data.SetChannelVolumes.volumes, FORGE_AUDIO_BATCH_IMMEDIATE);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES:
+        forge_voice_ramp_channel_volumes(op->voice, op->Data.RampChannelVolumes.channels,
+                                         op->Data.RampChannelVolumes.volumes,
+                                         op->Data.RampChannelVolumes.duration_frames, FORGE_AUDIO_BATCH_IMMEDIATE);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX:
@@ -428,6 +442,24 @@ void fa_batch_queue_set_channel_volumes(ForgeVoice *voice, uint32_t channels, co
     op->Data.SetChannelVolumes.channels = channels;
     op->Data.SetChannelVolumes.volumes = voice->audio->malloc_func(sizeof(float) * channels);
     forge_memcpy(op->Data.SetChannelVolumes.volumes, volumes, sizeof(float) * channels);
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
+                                         uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_command(voice, FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES, batch_id);
+
+    op->Data.RampChannelVolumes.channels = channels;
+    op->Data.RampChannelVolumes.volumes = voice->audio->malloc_func(sizeof(float) * channels);
+    forge_memcpy(op->Data.RampChannelVolumes.volumes, volumes, sizeof(float) * channels);
+    op->Data.RampChannelVolumes.duration_frames = duration_frames;
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
