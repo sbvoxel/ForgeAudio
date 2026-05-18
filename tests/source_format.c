@@ -270,12 +270,24 @@ static int expect_buffer_submit_result(const char *name, const ForgeBuffer *buff
     }
 
     result = forge_source_voice_submit_buffer(voice, buffer, NULL);
-    forge_audio_test_destroy_offline_engine(audio);
-
     if (result != expected) {
         fprintf(stderr, "%s: got %d, expected %d\n", name, result, expected);
+        forge_audio_test_destroy_offline_engine(audio);
         return 1;
     }
+    if (expected == ForgeResultSuccess) {
+        if (voice->src.queued_buffer_count != 1) {
+            fprintf(stderr, "%s: expected one queued buffer, got %zu\n", name, voice->src.queued_buffer_count);
+            forge_audio_test_destroy_offline_engine(audio);
+            return 1;
+        }
+    } else if (voice->src.queued_buffer_count != 0) {
+        fprintf(stderr, "%s: invalid submit queued %zu buffers\n", name, voice->src.queued_buffer_count);
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    forge_audio_test_destroy_offline_engine(audio);
 
     return 0;
 }
@@ -370,6 +382,8 @@ static int test_source_buffer_submit_validation(void) {
     buffer.audio_data = (const uint8_t *)samples;
     buffer.audio_bytes = sizeof(samples);
     failed |= expect_buffer_submit_result("buffer_submit_valid", &buffer, ForgeResultSuccess);
+
+    failed |= expect_buffer_submit_result("buffer_submit_null", NULL, ForgeResultInvalidCall);
 
     forge_zero(&buffer, sizeof(buffer));
     buffer.audio_data = (const uint8_t *)samples;

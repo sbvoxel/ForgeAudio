@@ -2398,87 +2398,112 @@ ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice, float volume, 
     return 0;
 }
 
-ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const ForgeBuffer *buffer,
-                                             const ForgeBufferWMA *buffer_wma) {
+static ForgeResult validate_source_buffer_submission(ForgeSourceVoice *voice, const ForgeBuffer *buffer,
+                                                     const ForgeBufferWMA *buffer_wma,
+                                                     struct queued_buffer *validated) {
     const uint32_t block_size = voice->src.format->block_align;
     uint32_t playBegin, playLength, loopBegin, loopLength, bufferLength;
-    struct queued_buffer *entry;
+    uint32_t playEnd, realPlayEnd;
 
-    LOG_API_ENTER(voice->audio)
-    LOG_INFO(voice->audio, "%p: {flags: 0x%x, audio_bytes: %u, audio_data: %p, Play: %u + %u, Loop: %u + %u x %u}",
-             (void *)voice, buffer->flags, buffer->audio_bytes, (const void *)buffer->audio_data, buffer->play_begin,
-             buffer->play_length, buffer->loop_begin, buffer->loop_length, buffer->loop_count)
-
-    forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
+    if (buffer == NULL) {
+        LOG_ERROR(voice->audio, "%s", "Source buffer must not be NULL");
+        return ForgeResultInvalidCall;
+    }
 
     if (buffer_wma != NULL) {
         LOG_ERROR(voice->audio, "%s", "WMA source buffers are not supported");
-        LOG_API_EXIT(voice->audio)
         return ForgeResultUnsupportedFormat;
     }
 
     if (block_size == 0) {
         LOG_ERROR(voice->audio, "%s", "Source voice has zero block alignment");
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
     if (buffer->audio_bytes % block_size != 0) {
         LOG_ERROR(voice->audio, "PCM source buffer audio_bytes must be a multiple of block_align: %u %% %u",
                   buffer->audio_bytes, block_size)
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
-    /* Start off with whatever they just sent us... */
     playBegin = buffer->play_begin;
     playLength = buffer->play_length;
     loopBegin = buffer->loop_begin;
     loopLength = buffer->loop_length;
+    bufferLength = buffer->audio_bytes / block_size;
+    playEnd = playBegin + playLength;
 
-    /* "loop_begin/loop_length must be zero if loop_count is 0" */
     if (buffer->loop_count == 0 && (loopBegin > 0 || loopLength > 0)) {
-        LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
-    bufferLength = buffer->audio_bytes / voice->src.format->block_align;
-
-    if (playBegin + playLength > bufferLength || playBegin + playLength < playLength) {
-        /* Reading past the end of the buffer, or begin + length overflow uint32_t, which
-         * would also read past the end of the buffer. */
-        LOG_API_EXIT(voice->audio)
+    if (playEnd > bufferLength || playEnd < playLength) {
         return ForgeResultInvalidCall;
     }
 
+    realPlayEnd = (playLength == 0) ? bufferLength : playEnd;
     if (buffer->loop_count > 0) {
-        uint32_t realPlayLength = playLength;
-        uint32_t realLoopLength = loopLength;
+        uint32_t realLoopEnd;
 
-        /* play_length Default */
-        if (realPlayLength == 0) {
-            realPlayLength = bufferLength - playBegin;
-        }
-
-        /* loop_length Default */
-        if (realLoopLength == 0) {
-            realLoopLength = playBegin + realPlayLength - loopBegin;
-        }
-
-        /* "The value of loop_begin must be less than play_begin + play_length" */
-        if (loopBegin >= (playBegin + realPlayLength)) {
-            LOG_API_EXIT(voice->audio)
+        if (loopBegin >= realPlayEnd) {
             return ForgeResultInvalidCall;
         }
 
-        /* "The value of loop_begin + loop_length must be greater than play_begin
-         * and less than play_begin + play_length"
-         */
-        if ((loopBegin + realLoopLength) <= playBegin || (loopBegin + realLoopLength) > (playBegin + realPlayLength)) {
-            LOG_API_EXIT(voice->audio)
+        if (loopLength == 0) {
+            realLoopEnd = realPlayEnd;
+        } else {
+            realLoopEnd = loopBegin + loopLength;
+            if (realLoopEnd < loopLength) {
+                return ForgeResultInvalidCall;
+            }
+        }
+
+        if (realLoopEnd <= playBegin || realLoopEnd > realPlayEnd) {
             return ForgeResultInvalidCall;
         }
     }
+
+    forge_memset(validated, 0, sizeof(*validated));
+    forge_memcpy(&validated->buffer, buffer, sizeof(ForgeBuffer));
+    validated->buffer.play_begin = playBegin;
+    validated->buffer.play_length = playLength;
+    validated->buffer.loop_begin = loopBegin;
+    validated->buffer.loop_length = loopLength;
+    if (playLength != 0) {
+        validated->play_bytes = playLength * block_size;
+    } else {
+        validated->play_bytes = buffer->audio_bytes - (playBegin * block_size);
+    }
+
+    if (loopLength != 0) {
+        validated->loop_bytes = loopLength * block_size;
+    } else {
+        validated->loop_bytes = validated->play_bytes + (playBegin * block_size) - (loopBegin * block_size);
+    }
+
+    return ForgeResultSuccess;
+}
+
+ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const ForgeBuffer *buffer,
+                                             const ForgeBufferWMA *buffer_wma) {
+    struct queued_buffer validated;
+    struct queued_buffer *entry;
+    ForgeResult result;
+
+    LOG_API_ENTER(voice->audio)
+
+    forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
+
+    result = validate_source_buffer_submission(voice, buffer, buffer_wma, &validated);
+    if (result != ForgeResultSuccess) {
+        LOG_API_EXIT(voice->audio)
+        return result;
+    }
+
+    LOG_INFO(voice->audio, "%p: {flags: 0x%x, audio_bytes: %u, audio_data: %p, Play: %u + %u, Loop: %u + %u x %u}",
+             (void *)voice, validated.buffer.flags, validated.buffer.audio_bytes,
+             (const void *)validated.buffer.audio_data, validated.buffer.play_begin, validated.buffer.play_length,
+             validated.buffer.loop_begin, validated.buffer.loop_length, validated.buffer.loop_count)
 
     fa_platform_lock_mutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
@@ -2487,28 +2512,12 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
                      voice->src.queued_buffer_count + 1, sizeof(*voice->src.queued_buffers));
 
     entry = &voice->src.queued_buffers[voice->src.queued_buffer_count++];
-    forge_memset(entry, 0, sizeof(*entry));
-    forge_memcpy(&entry->buffer, buffer, sizeof(ForgeBuffer));
-    entry->buffer.play_begin = playBegin;
-    entry->buffer.play_length = playLength;
-    entry->buffer.loop_begin = loopBegin;
-    entry->buffer.loop_length = loopLength;
-    if (playLength != 0) {
-        entry->play_bytes = playLength * block_size;
-    } else {
-        entry->play_bytes = buffer->audio_bytes - (playBegin * block_size);
-    }
-
-    if (loopLength != 0) {
-        entry->loop_bytes = loopLength * block_size;
-    } else {
-        entry->loop_bytes = entry->play_bytes + (playBegin * block_size) - (loopBegin * block_size);
-    }
+    forge_memcpy(entry, &validated, sizeof(*entry));
 
 #ifdef FORGE_AUDIO_DUMP_VOICES
     /* dumping current buffer, append into "data" section */
-    if (buffer->audio_data != NULL && entry->play_bytes > 0) {
-        dump_voice_write_buffer(voice, buffer, entry->play_bytes);
+    if (entry->buffer.audio_data != NULL && entry->play_bytes > 0) {
+        dump_voice_write_buffer(voice, &entry->buffer, entry->play_bytes);
     }
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 
