@@ -10,7 +10,7 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_audio_internal.h"
+#include "audio_internal.h"
 
 /* SECTION 0: SSE/NEON Detection */
 

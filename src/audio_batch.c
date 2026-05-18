@@ -12,7 +12,7 @@
 
 /* Batch command implementation originally written by Tyler Glaiel */
 
-#include "forge_audio_internal.h"
+#include "audio_internal.h"
 
 /* Core command types */
 

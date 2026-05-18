@@ -7,7 +7,7 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_audio_internal.h"
+#include "audio_internal.h"
 
 #include <stdio.h>
 

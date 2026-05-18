@@ -10,8 +10,8 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_effect_base_internal.h"
-#include "forge_audio_internal.h"
+#include "effect_base_internal.h"
+#include "audio_internal.h"
 
 /* ForgeEffectBase Interface */
 

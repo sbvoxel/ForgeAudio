@@ -10,7 +10,7 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_audio_internal.h"
+#include "audio_internal.h"
 
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
 void forge_audio_debug(ForgeAudioEngine *audio, const char *file, uint32_t line, const char *func, const char *fmt,

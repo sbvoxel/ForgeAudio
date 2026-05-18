@@ -10,7 +10,7 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_audio_internal.h"
+#include "audio_internal.h"
 
 #define MAKE_FORMAT_ID(name, fmt)                                                                                      \
     const uint8_t forge_audio_format_id_##name[FORGE_AUDIO_FORMAT_ID_SIZE] = {(uint8_t)((fmt) & 0xFF),                 \

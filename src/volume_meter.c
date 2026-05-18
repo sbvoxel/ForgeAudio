@@ -11,7 +11,7 @@
  */
 
 #include "forge_effects.h"
-#include "forge_audio_internal.h"
+#include "audio_internal.h"
 
 /* volume Meter ForgeEffect Implementation */
 

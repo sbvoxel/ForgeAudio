@@ -70,21 +70,21 @@ add_library(ForgeAudio
     include/forge_effects.h
     include/forge_audio.h
     # Internal Headers
-    src/forge_effect_internal.h
-    src/forge_effect_base_internal.h
-    src/forge_audio_internal.h
+    src/effect_internal.h
+    src/effect_base_internal.h
+    src/audio_internal.h
     src/stb_modified.h
     # Source Files
-    src/forge_spatial_audio.c
-    src/forge_effect_base.c
-    src/forge_audio.c
-    src/forge_reverb.c
-    src/forge_volume_meter.c
-    src/forge_audio_internal.c
-    src/forge_audio_internal_simd.c
-    src/forge_audio_batch.c
-    src/forge_audio_platform_sdl3.c
-    src/forge_audio_platform_win32.c
+    src/spatial_audio.c
+    src/effect_base.c
+    src/audio.c
+    src/reverb.c
+    src/volume_meter.c
+    src/audio_internal.c
+    src/audio_simd.c
+    src/audio_batch.c
+    src/platform_sdl3.c
+    src/platform_win32.c
 )
 forge_audio_enable_asan(ForgeAudio)
 
@@ -105,10 +105,12 @@ if(LOG_ASSERTIONS)
     target_compile_definitions(ForgeAudio PUBLIC FORGE_AUDIO_LOG_ASSERTIONS)
 endif()
 
-# ForgeAudio folders as includes, for other targets to consume
-target_include_directories(ForgeAudio PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+# ForgeAudio include directories
+target_include_directories(ForgeAudio
+    PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Shared object name (soname)
@@ -132,12 +134,14 @@ if(BUILD_TESTS)
 
     add_executable(effect_chain_scratch_test tests/effect_chain_scratch.c)
     target_compile_definitions(effect_chain_scratch_test PRIVATE FORGE_AUDIO_TESTING)
+    target_include_directories(effect_chain_scratch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(effect_chain_scratch_test PRIVATE ForgeAudio)
     forge_audio_enable_asan(effect_chain_scratch_test)
     add_test(NAME effect_chain_scratch COMMAND effect_chain_scratch_test)
 
     add_executable(source_resampler_test tests/source_resampler.c)
     target_compile_definitions(source_resampler_test PRIVATE FORGE_AUDIO_TESTING)
+    target_include_directories(source_resampler_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(source_resampler_test PRIVATE ForgeAudio)
     forge_audio_enable_asan(source_resampler_test)
     add_test(NAME source_resampler COMMAND source_resampler_test)

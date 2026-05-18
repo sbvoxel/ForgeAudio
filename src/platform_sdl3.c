@@ -12,7 +12,7 @@
 
 #ifndef FORGE_AUDIO_WIN32_PLATFORM
 
-#include "forge_audio_internal.h"
+#include "audio_internal.h"
 
 #include <SDL3/SDL.h>
 
