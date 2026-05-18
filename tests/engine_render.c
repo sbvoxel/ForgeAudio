@@ -1610,6 +1610,58 @@ static int test_output_matrix_ramp_mono_to_stereo_four_frames(void) {
     return failed;
 }
 
+static int test_inactive_output_matrix_null_destination_single_send(void) {
+    enum {
+        source_channels = 1,
+        destination_channels = 2,
+        sample_rate = 48000,
+        quantum = 4,
+        buffer_frames = quantum * 2
+    };
+    static const float start_matrix[destination_channels * source_channels] = {1.0f, 0.0f};
+    static const float target_matrix[destination_channels * source_channels] = {0.0f, 1.0f};
+    static const float expected[quantum * destination_channels] = {
+        1.0f, 0.0f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f};
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float source[buffer_frames * source_channels];
+    float output[quantum * destination_channels];
+    int failed = 0;
+
+    for (uint32_t i = 0; i < buffer_frames * source_channels; i += 1) {
+        source[i] = 1.0f;
+    }
+
+    failed = audio_render_harness_init(&harness, destination_channels, sample_rate, quantum);
+    if (!failed) {
+        failed = audio_render_harness_create_float_source(&harness, &voice, source_channels, sample_rate);
+    }
+    if (!failed) {
+        failed = forge_voice_set_output_matrix(voice, NULL, source_channels, destination_channels, start_matrix,
+                                               FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_ramp_output_matrix(voice, NULL, source_channels, destination_channels, target_matrix, 2,
+                                                FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_submit_float_buffer(voice, source, buffer_frames, source_channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = audio_test_check_equal("inactive_output_matrix_null_destination_single_send", output, expected,
+                                        quantum * destination_channels, 0.000001f);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 static int test_output_matrix_ramp_reaches_target_mid_block(void) {
     enum {
         source_channels = 1,
@@ -2638,6 +2690,8 @@ int main(void) {
                          test_scalar_and_channel_volume_ramps_multiply);
     failures += run_test("output_matrix_ramp_mono_to_stereo_four_frames",
                          test_output_matrix_ramp_mono_to_stereo_four_frames);
+    failures += run_test("inactive_output_matrix_null_destination_single_send",
+                         test_inactive_output_matrix_null_destination_single_send);
     failures += run_test("output_matrix_ramp_reaches_target_mid_block",
                          test_output_matrix_ramp_reaches_target_mid_block);
     failures += run_test("deferred_start_and_output_matrix_ramp_same_batch",

@@ -1530,7 +1530,8 @@ ForgeResult fa_voice_install_set_channel_volumes(ForgeVoice *voice, uint32_t cha
     return ForgeResultSuccess;
 }
 
-ForgeResult fa_voice_install_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames) {
+static ForgeResult install_volume_automation(ForgeVoice *voice, float volume, uint32_t duration_frames,
+                                             uint8_t stop_source_on_complete) {
     float target = forge_clamp(volume, -FORGE_AUDIO_MAX_VOLUME_LEVEL, FORGE_AUDIO_MAX_VOLUME_LEVEL);
 
     fa_platform_lock_mutex(voice->volumeLock);
@@ -1541,11 +1542,14 @@ ForgeResult fa_voice_install_ramp_volume(ForgeVoice *voice, float volume, uint32
         voice->volumeAutomation.active = 0;
         voice->volumeAutomation.remainingFrames = 0;
         voice->volumeAutomation.stopSourceOnComplete = 0;
+        if (stop_source_on_complete) {
+            voice->src.active = 0;
+        }
     } else {
         voice->volumeAutomation.target = target;
         voice->volumeAutomation.remainingFrames = duration_frames;
         voice->volumeAutomation.step = (target - voice->volume) / (float)duration_frames;
-        voice->volumeAutomation.stopSourceOnComplete = 0;
+        voice->volumeAutomation.stopSourceOnComplete = stop_source_on_complete;
         voice->volumeAutomation.active = 1;
     }
 
@@ -1553,6 +1557,10 @@ ForgeResult fa_voice_install_ramp_volume(ForgeVoice *voice, float volume, uint32
     LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
 
     return ForgeResultSuccess;
+}
+
+ForgeResult fa_voice_install_ramp_volume(ForgeVoice *voice, float volume, uint32_t duration_frames) {
+    return install_volume_automation(voice, volume, duration_frames, 0);
 }
 
 ForgeResult fa_voice_install_ramp_channel_volumes(ForgeVoice *voice, uint32_t channels, const float *volumes,
@@ -1644,6 +1652,36 @@ static ForgeResult validate_output_matrix_args(ForgeVoice *voice, ForgeVoice **d
     return result;
 }
 
+static void install_set_output_matrix_locked(ForgeVoice *voice, uint32_t send_index, uint32_t source_channels,
+                                             uint32_t destination_channels, const float *level_matrix) {
+    forge_memcpy(voice->sends.sends[send_index].sendCoefficients, level_matrix,
+                 sizeof(float) * source_channels * destination_channels);
+    voice->sends.sends[send_index].matrixAutomation.active = 0;
+    voice->sends.sends[send_index].matrixAutomation.remainingFrames = 0;
+
+    fa_voice_recalc_mix_matrix(voice, send_index);
+}
+
+static void install_ramp_output_matrix_locked(ForgeVoice *voice, uint32_t send_index, uint32_t source_channels,
+                                              uint32_t destination_channels, const float *level_matrix,
+                                              uint32_t duration_frames) {
+    ForgeVoiceSendRuntime *send = &voice->sends.sends[send_index];
+    uint32_t coefficientCount = source_channels * destination_channels;
+
+    if (duration_frames == 0) {
+        install_set_output_matrix_locked(voice, send_index, source_channels, destination_channels, level_matrix);
+        return;
+    }
+
+    for (uint32_t coefficient = 0; coefficient < coefficientCount; coefficient += 1) {
+        send->matrixAutomation.target[coefficient] = level_matrix[coefficient];
+        send->matrixAutomation.step[coefficient] =
+            (level_matrix[coefficient] - send->sendCoefficients[coefficient]) / (float)duration_frames;
+    }
+    send->matrixAutomation.remainingFrames = duration_frames;
+    send->matrixAutomation.active = 1;
+}
+
 ForgeResult fa_voice_install_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                uint32_t source_channels, uint32_t destination_channels,
                                                const float *level_matrix) {
@@ -1662,12 +1700,7 @@ ForgeResult fa_voice_install_set_output_matrix(ForgeVoice *voice, ForgeVoice *de
     fa_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
 
-    forge_memcpy(voice->sends.sends[send_index].sendCoefficients, level_matrix,
-                 sizeof(float) * source_channels * destination_channels);
-    voice->sends.sends[send_index].matrixAutomation.active = 0;
-    voice->sends.sends[send_index].matrixAutomation.remainingFrames = 0;
-
-    fa_voice_recalc_mix_matrix(voice, send_index);
+    install_set_output_matrix_locked(voice, send_index, source_channels, destination_channels, level_matrix);
 
     fa_platform_unlock_mutex(voice->volumeLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
@@ -1696,24 +1729,8 @@ ForgeResult fa_voice_install_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *d
     fa_platform_lock_mutex(voice->volumeLock);
     LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
 
-    if (duration_frames == 0) {
-        forge_memcpy(voice->sends.sends[send_index].sendCoefficients, level_matrix,
-                     sizeof(float) * source_channels * destination_channels);
-        voice->sends.sends[send_index].matrixAutomation.active = 0;
-        voice->sends.sends[send_index].matrixAutomation.remainingFrames = 0;
-        fa_voice_recalc_mix_matrix(voice, send_index);
-    } else {
-        ForgeVoiceSendRuntime *send = &voice->sends.sends[send_index];
-        uint32_t coefficientCount = source_channels * destination_channels;
-
-        for (uint32_t coefficient = 0; coefficient < coefficientCount; coefficient += 1) {
-            send->matrixAutomation.target[coefficient] = level_matrix[coefficient];
-            send->matrixAutomation.step[coefficient] =
-                (level_matrix[coefficient] - send->sendCoefficients[coefficient]) / (float)duration_frames;
-        }
-        send->matrixAutomation.remainingFrames = duration_frames;
-        send->matrixAutomation.active = 1;
-    }
+    install_ramp_output_matrix_locked(voice, send_index, source_channels, destination_channels, level_matrix,
+                                      duration_frames);
 
     fa_platform_unlock_mutex(voice->volumeLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
@@ -1725,32 +1742,8 @@ end:
 }
 
 ForgeResult fa_source_voice_install_fade_stop(ForgeSourceVoice *voice, float volume, uint32_t duration_frames) {
-    float target;
-
     forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
-    target = forge_clamp(volume, -FORGE_AUDIO_MAX_VOLUME_LEVEL, FORGE_AUDIO_MAX_VOLUME_LEVEL);
-
-    fa_platform_lock_mutex(voice->volumeLock);
-    LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
-
-    if (duration_frames == 0) {
-        voice->volume = target;
-        voice->volumeAutomation.active = 0;
-        voice->volumeAutomation.remainingFrames = 0;
-        voice->volumeAutomation.stopSourceOnComplete = 0;
-        voice->src.active = 0;
-    } else {
-        voice->volumeAutomation.target = target;
-        voice->volumeAutomation.remainingFrames = duration_frames;
-        voice->volumeAutomation.step = (target - voice->volume) / (float)duration_frames;
-        voice->volumeAutomation.stopSourceOnComplete = 1;
-        voice->volumeAutomation.active = 1;
-    }
-
-    fa_platform_unlock_mutex(voice->volumeLock);
-    LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
-
-    return ForgeResultSuccess;
+    return install_volume_automation(voice, volume, duration_frames, 1);
 }
 
 ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBatchId batch_id) {
@@ -1906,20 +1899,20 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
         return ForgeResultInvalidCall;
     }
 
-    result = validate_output_matrix_args(voice, &destination_voice, source_channels, destination_channels);
-    if (result != ForgeResultSuccess) {
-        LOG_API_EXIT(voice->audio)
-        return result;
-    }
-
-    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
-        fa_batch_queue_set_output_matrix(voice, destination_voice, source_channels, destination_channels, level_matrix,
-                                         batch_id);
-        LOG_API_EXIT(voice->audio)
-        return 0;
-    }
-
     if (voice->audio->active) {
+        result = validate_output_matrix_args(voice, &destination_voice, source_channels, destination_channels);
+        if (result != ForgeResultSuccess) {
+            LOG_API_EXIT(voice->audio)
+            return result;
+        }
+
+        if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE) {
+            fa_batch_queue_set_output_matrix(voice, destination_voice, source_channels, destination_channels,
+                                             level_matrix, batch_id);
+            LOG_API_EXIT(voice->audio)
+            return 0;
+        }
+
         fa_batch_clear_ready_immediate_output_matrix_automation(voice, destination_voice);
     }
 
@@ -1945,13 +1938,13 @@ ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destin
         return ForgeResultInvalidCall;
     }
 
-    result = validate_output_matrix_args(voice, &destination_voice, source_channels, destination_channels);
-    if (result != ForgeResultSuccess) {
-        LOG_API_EXIT(voice->audio)
-        return result;
-    }
-
     if (voice->audio->active) {
+        result = validate_output_matrix_args(voice, &destination_voice, source_channels, destination_channels);
+        if (result != ForgeResultSuccess) {
+            LOG_API_EXIT(voice->audio)
+            return result;
+        }
+
         fa_batch_queue_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
                                           level_matrix, duration_frames, batch_id);
         LOG_API_EXIT(voice->audio)
