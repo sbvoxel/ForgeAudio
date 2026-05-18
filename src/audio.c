@@ -349,8 +349,14 @@ ForgeResult forge_audio_create_with_allocator(ForgeAudioEngine **engine, uint32_
 
 static ForgeResult engine_construct_with_allocator(ForgeAudioEngine **engine, ForgeMallocFunc custom_malloc,
                                                    ForgeFreeFunc custom_free, ForgeReallocFunc custom_realloc) {
+    ForgeResult result;
+
     fa_platform_add_ref();
-    return engine_construct_offline_with_allocator(engine, custom_malloc, custom_free, custom_realloc);
+    result = engine_construct_offline_with_allocator(engine, custom_malloc, custom_free, custom_realloc);
+    if (result != ForgeResultSuccess) {
+        fa_platform_release();
+    }
+    return result;
 }
 
 static ForgeResult engine_construct_offline_with_allocator(ForgeAudioEngine **engine, ForgeMallocFunc custom_malloc,
@@ -1449,16 +1455,31 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
             forge_memcpy(&srcFmt, &dstFmt, sizeof(srcFmt));
         }
 
-        fa_audio_free_effect_chain(voice);
-        result = fa_audio_alloc_effect_chain(voice, effect_chain);
-        if (result != ForgeResultSuccess) {
-            for (uint32_t j = 0; j < lockedEffects; j += 1) {
-                effect_chain->effects[j].effect->unlock_for_process(effect_chain->effects[j].effect);
+        {
+            ForgeEffectChainRuntime oldEffects = voice->effects;
+            uint32_t oldOutputChannels = voice->outputChannels;
+
+            forge_zero(&voice->effects, sizeof(voice->effects));
+            result = fa_audio_alloc_effect_chain(voice, effect_chain);
+            if (result != ForgeResultSuccess) {
+                voice->effects = oldEffects;
+                voice->outputChannels = oldOutputChannels;
+                for (uint32_t j = 0; j < lockedEffects; j += 1) {
+                    effect_chain->effects[j].effect->unlock_for_process(effect_chain->effects[j].effect);
+                }
+                fa_platform_unlock_mutex(voice->effectLock);
+                LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+                LOG_API_EXIT(voice->audio)
+                return result;
             }
-            fa_platform_unlock_mutex(voice->effectLock);
-            LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-            LOG_API_EXIT(voice->audio)
-            return result;
+
+            {
+                ForgeEffectChainRuntime newEffects = voice->effects;
+
+                voice->effects = oldEffects;
+                fa_audio_free_effect_chain(voice);
+                voice->effects = newEffects;
+            }
         }
 
         /* check if in-place processing is supported */
@@ -2851,8 +2872,6 @@ ForgeResult forge_source_voice_set_sample_rate(ForgeSourceVoice *voice, uint32_t
     fa_platform_unlock_mutex(voice->src.bufferLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->src.bufferLock)
 
-    voice->src.format->sample_rate = new_source_sample_rate;
-
     fa_platform_lock_mutex(voice->sendLock);
     LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
 
@@ -2860,14 +2879,20 @@ ForgeResult forge_source_voice_set_sample_rate(ForgeSourceVoice *voice, uint32_t
 
     newResampleSamples = (uint32_t)(forge_ceil((double)voice->audio->updateSize * (double)outSampleRate /
                                                (double)voice->audio->master->master.inputSampleRate));
-    voice->src.resampleSamples = newResampleSamples;
 
     fa_platform_unlock_mutex(voice->sendLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
 
     newDecodeSamples = source_decode_frame_count(newResampleSamples, voice->src.maxFreqRatio,
                                                           new_source_sample_rate, outSampleRate);
-    fa_audio_resize_decode_cache(voice->audio, (newDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels);
+    if (!fa_audio_resize_decode_cache(voice->audio,
+                                      (newDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels)) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultOutOfMemory;
+    }
+
+    voice->src.format->sample_rate = new_source_sample_rate;
+    voice->src.resampleSamples = newResampleSamples;
     voice->src.decodeSamples = newDecodeSamples;
 
     LOG_API_EXIT(voice->audio)

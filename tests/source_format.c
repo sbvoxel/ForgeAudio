@@ -1004,6 +1004,125 @@ static int test_lifecycle_allocation_failure_cleanup_paths(void) {
     return failed;
 }
 
+static int test_source_sample_rate_resize_failure_preserves_state(void) {
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSourceVoice *voice = NULL;
+    FailingAllocator allocator;
+    ForgeResult result;
+    uint32_t old_sample_rate;
+    uint32_t old_resample_samples;
+    uint32_t old_decode_samples;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "sample_rate_resize_failure: forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess ||
+        forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL, NULL) !=
+            ForgeResultSuccess) {
+        fprintf(stderr, "sample_rate_resize_failure: setup failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    old_sample_rate = voice->src.format->sample_rate;
+    old_resample_samples = voice->src.resampleSamples;
+    old_decode_samples = voice->src.decodeSamples;
+
+    use_failing_allocator(audio, &allocator, 1);
+    result = forge_source_voice_set_sample_rate(voice, 96000);
+    failed |= expect_no_failing_allocations("sample_rate_resize_failure", &allocator);
+    restore_failing_allocator(&allocator);
+
+    if (result != ForgeResultOutOfMemory) {
+        fprintf(stderr, "sample_rate_resize_failure: got %d, expected %d\n", result, ForgeResultOutOfMemory);
+        failed = 1;
+    }
+    if (voice->src.format->sample_rate != old_sample_rate || voice->src.resampleSamples != old_resample_samples ||
+        voice->src.decodeSamples != old_decode_samples) {
+        fprintf(stderr, "sample_rate_resize_failure: source state changed after OOM\n");
+        failed = 1;
+    }
+
+    forge_audio_test_destroy_offline_engine(audio);
+    return failed;
+}
+
+static int test_effect_chain_replacement_allocation_failure_preserves_old_chain(void) {
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSourceVoice *voice = NULL;
+    TestEffect old_effect;
+    TestEffect new_effect;
+    ForgeEffectDesc old_desc;
+    ForgeEffectDesc new_desc;
+    ForgeEffectChain old_chain;
+    ForgeEffectChain new_chain;
+    FailingAllocator allocator;
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "effect_chain_replacement_oom: forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "effect_chain_replacement_oom: master setup failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    init_test_effect(&old_effect, ForgeResultSuccess);
+    old_desc.effect = &old_effect.effect;
+    old_desc.initial_state = 1;
+    old_desc.output_channels = 1;
+    old_chain.effect_count = 1;
+    old_chain.effects = &old_desc;
+
+    if (forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL,
+                                        &old_chain) != ForgeResultSuccess) {
+        fprintf(stderr, "effect_chain_replacement_oom: source setup failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    init_test_effect(&new_effect, ForgeResultSuccess);
+    new_desc.effect = &new_effect.effect;
+    new_desc.initial_state = 1;
+    new_desc.output_channels = 1;
+    new_chain.effect_count = 1;
+    new_chain.effects = &new_desc;
+
+    use_failing_allocator(audio, &allocator, 1);
+    result = forge_voice_set_effect_chain(voice, &new_chain);
+    failed |= expect_no_failing_allocations("effect_chain_replacement_oom", &allocator);
+    restore_failing_allocator(&allocator);
+
+    if (result != ForgeResultOutOfMemory) {
+        fprintf(stderr, "effect_chain_replacement_oom: got %d, expected %d\n", result, ForgeResultOutOfMemory);
+        failed = 1;
+    }
+    if (old_effect.lock_count != 1 || old_effect.unlock_count != 0 || old_effect.destroy_count != 0 ||
+        new_effect.lock_count != 1 || new_effect.unlock_count != 1 || new_effect.destroy_count != 0) {
+        fprintf(stderr, "effect_chain_replacement_oom: unexpected effect state before destroy\n");
+        failed = 1;
+    }
+
+    forge_voice_destroy(voice);
+    if (old_effect.lock_count != 1 || old_effect.unlock_count != 1 || old_effect.destroy_count != 1 ||
+        new_effect.destroy_count != 0) {
+        fprintf(stderr, "effect_chain_replacement_oom: old chain was not preserved until destroy\n");
+        failed = 1;
+    }
+
+    forge_audio_test_destroy_offline_engine(audio);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
 
@@ -1025,6 +1144,8 @@ int main(void) {
     failed |= test_submix_create_invalid_outputs_cleans_allocations();
     failed |= test_virtual_master_create_effect_failure_cleans_allocations();
     failed |= test_lifecycle_allocation_failure_cleanup_paths();
+    failed |= test_source_sample_rate_resize_failure_preserves_state();
+    failed |= test_effect_chain_replacement_allocation_failure_preserves_old_chain();
 
     return failed;
 }

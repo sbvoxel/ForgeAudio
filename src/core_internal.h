@@ -65,6 +65,16 @@ typedef struct ForgeVoiceSendRuntimeList {
     ForgeVoiceSendRuntime *sends;
 } ForgeVoiceSendRuntimeList;
 
+typedef struct ForgeEffectChainRuntime {
+    ForgeEffectBufferFlags state;
+    uint32_t count;
+    ForgeEffectDesc *desc;
+    void **parameters;
+    uint32_t *parameterSizes;
+    uint8_t *parameterUpdates;
+    uint8_t *inPlaceProcessing;
+} ForgeEffectChainRuntime;
+
 struct ForgeAudioEngine {
     uint8_t active;
     uint32_t initFlags;
@@ -120,15 +130,7 @@ struct ForgeVoice {
     ForgeAudioVoiceType type;
 
     ForgeVoiceSendRuntimeList sends;
-    struct {
-        ForgeEffectBufferFlags state;
-        uint32_t count;
-        ForgeEffectDesc *desc;
-        void **parameters;
-        uint32_t *parameterSizes;
-        uint8_t *parameterUpdates;
-        uint8_t *inPlaceProcessing;
-    } effects;
+    ForgeEffectChainRuntime effects;
     ForgeFilterParameters filter;
     ForgeAudioFilterState *filterState;
     ForgeAudioMutex sendLock;
