@@ -211,11 +211,11 @@ struct ForgeVoice {
     };
 };
 
-FORGE_INTERNAL_API void fa_audio_insert_submix_sorted(ForgeLinkedList **start, ForgeSubmixVoice *to_add,
+FORGE_INTERNAL_API bool fa_audio_insert_submix_sorted(ForgeLinkedList **start, ForgeSubmixVoice *to_add,
                                                       ForgeAudioMutex lock, ForgeMallocFunc malloc_func);
 FORGE_INTERNAL_API void fa_audio_update_engine(ForgeAudioEngine *audio, float *output);
-FORGE_INTERNAL_API void fa_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t size);
-FORGE_INTERNAL_API void fa_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain);
+FORGE_INTERNAL_API bool fa_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t size);
+FORGE_INTERNAL_API ForgeResult fa_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain);
 FORGE_INTERNAL_API void fa_audio_free_effect_chain(ForgeVoice *voice);
 FORGE_INTERNAL_API ForgeResult fa_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendList *send_list);
 
@@ -239,6 +239,10 @@ FORGE_AUDIO_API uint32_t forge_audio_test_source_decode_frame_count(uint32_t res
                                                                     uint32_t output_sample_rate);
 /* Creates a fully initialized active engine without acquiring a platform audio device. */
 FORGE_AUDIO_API ForgeResult forge_audio_test_create_offline_engine(ForgeAudioEngine **engine);
+FORGE_AUDIO_API ForgeResult forge_audio_test_create_offline_engine_with_allocator(ForgeAudioEngine **engine,
+                                                                                  ForgeMallocFunc custom_malloc,
+                                                                                  ForgeFreeFunc custom_free,
+                                                                                  ForgeReallocFunc custom_realloc);
 FORGE_AUDIO_API void forge_audio_test_destroy_offline_engine(ForgeAudioEngine *audio);
 FORGE_AUDIO_API ForgeResult forge_audio_test_create_virtual_master_voice(ForgeAudioEngine *audio,
                                                                          ForgeMasterVoice **mastering_voice,

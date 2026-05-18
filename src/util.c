@@ -43,9 +43,12 @@ bool fa_array_reserve(ForgeAudioEngine *audio, void **elements, size_t *capacity
     return true;
 }
 
-void fa_linked_list_add_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock, ForgeMallocFunc malloc_func) {
+bool fa_linked_list_add_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock, ForgeMallocFunc malloc_func) {
     ForgeLinkedList *newEntry, *latest;
     newEntry = (ForgeLinkedList *)malloc_func(sizeof(ForgeLinkedList));
+    if (newEntry == NULL) {
+        return false;
+    }
     newEntry->entry = toAdd;
     newEntry->next = NULL;
     fa_platform_lock_mutex(lock);
@@ -59,17 +62,22 @@ void fa_linked_list_add_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMu
         latest->next = newEntry;
     }
     fa_platform_unlock_mutex(lock);
+    return true;
 }
 
-void fa_linked_list_prepend_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock,
+bool fa_linked_list_prepend_entry(ForgeLinkedList **start, void *toAdd, ForgeAudioMutex lock,
                                   ForgeMallocFunc malloc_func) {
     ForgeLinkedList *newEntry;
     newEntry = (ForgeLinkedList *)malloc_func(sizeof(ForgeLinkedList));
+    if (newEntry == NULL) {
+        return false;
+    }
     newEntry->entry = toAdd;
     fa_platform_lock_mutex(lock);
     newEntry->next = *start;
     *start = newEntry;
     fa_platform_unlock_mutex(lock);
+    return true;
 }
 
 void fa_linked_list_remove_entry(ForgeLinkedList **start, void *toRemove, ForgeAudioMutex lock,

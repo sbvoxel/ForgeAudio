@@ -143,6 +143,11 @@ static uint32_t source_voice_output_rate(const ForgeSourceVoice *voice) {
 }
 
 static void free_voice_send_runtime(ForgeVoice *voice) {
+    if (voice->sends.sends == NULL) {
+        forge_zero(&voice->sends, sizeof(voice->sends));
+        return;
+    }
+
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
         voice->audio->free_func(voice->sends.sends[i].sendCoefficients);
         voice->audio->free_func(voice->sends.sends[i].mixCoefficients);
@@ -163,7 +168,7 @@ static void free_voice_send_runtime(ForgeVoice *voice) {
 }
 
 static void release_failed_create_effect_chain(ForgeVoice *voice) {
-    if (voice->effects.count == 0) {
+    if (voice->effects.count == 0 || voice->effects.desc == NULL) {
         return;
     }
 
@@ -245,6 +250,28 @@ static void cleanup_failed_unlinked_voice(ForgeVoice **failed_voice) {
     *failed_voice = NULL;
 }
 
+static ForgeResult allocate_default_channel_volumes(ForgeVoice *voice) {
+    voice->volume = 1.0f;
+    voice->channelVolume = (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels);
+    voice->channelVolumeAutomation.target =
+        (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels);
+    voice->channelVolumeAutomation.step =
+        (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels);
+
+    if (voice->channelVolume == NULL || voice->channelVolumeAutomation.target == NULL ||
+        voice->channelVolumeAutomation.step == NULL) {
+        return ForgeResultOutOfMemory;
+    }
+
+    for (uint32_t i = 0; i < voice->outputChannels; i += 1) {
+        voice->channelVolume[i] = 1.0f;
+        voice->channelVolumeAutomation.target[i] = 1.0f;
+        voice->channelVolumeAutomation.step[i] = 0.0f;
+    }
+
+    return ForgeResultSuccess;
+}
+
 static uint32_t source_decode_frame_count(uint32_t resample_samples, float max_frequency_ratio,
                                                    uint32_t source_sample_rate, uint32_t output_sample_rate) {
     uint64_t max_step;
@@ -307,9 +334,17 @@ static void engine_destroy(ForgeAudioEngine *audio, uint8_t release_platform);
 
 ForgeResult forge_audio_create_with_allocator(ForgeAudioEngine **engine, uint32_t flags, ForgeMallocFunc custom_malloc,
                                               ForgeFreeFunc custom_free, ForgeReallocFunc custom_realloc) {
-    engine_construct_with_allocator(engine, custom_malloc, custom_free, custom_realloc);
-    engine_initialize(*engine, flags);
-    return 0;
+    ForgeResult result = engine_construct_with_allocator(engine, custom_malloc, custom_free, custom_realloc);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    result = engine_initialize(*engine, flags);
+    if (result != ForgeResultSuccess) {
+        engine_destroy(*engine, 1);
+        *engine = NULL;
+        return result;
+    }
+    return ForgeResultSuccess;
 }
 
 static ForgeResult engine_construct_with_allocator(ForgeAudioEngine **engine, ForgeMallocFunc custom_malloc,
@@ -325,6 +360,9 @@ static ForgeResult engine_construct_offline_with_allocator(ForgeAudioEngine **en
     ForgeDebugConfiguration debugInit = {0};
 #endif /* FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION */
     *engine = (ForgeAudioEngine *)custom_malloc(sizeof(ForgeAudioEngine));
+    if (*engine == NULL) {
+        return ForgeResultOutOfMemory;
+    }
     forge_zero(*engine, sizeof(ForgeAudioEngine));
 #ifdef FORGE_AUDIO_ENABLE_DEBUGCONFIGURATION
     forge_audio_set_debug_configuration(*engine, &debugInit, NULL);
@@ -340,7 +378,7 @@ static ForgeResult engine_construct_offline_with_allocator(ForgeAudioEngine **en
     (*engine)->malloc_func = custom_malloc;
     (*engine)->free_func = custom_free;
     (*engine)->realloc_func = custom_realloc;
-    return 0;
+    return ForgeResultSuccess;
 }
 
 static void destroy_voice(ForgeVoice *voice);
@@ -351,10 +389,35 @@ void forge_audio_destroy(ForgeAudioEngine *audio) {
 
 #ifdef FORGE_AUDIO_TESTING
 ForgeResult forge_audio_test_create_offline_engine(ForgeAudioEngine **engine) {
-    engine_construct_offline_with_allocator(engine, forge_malloc, forge_free, forge_realloc);
+    ForgeResult result = engine_construct_offline_with_allocator(engine, forge_malloc, forge_free, forge_realloc);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
     /* Offline here means no platform device; normal initialization still starts the engine. */
-    engine_initialize(*engine, 0);
-    return 0;
+    result = engine_initialize(*engine, 0);
+    if (result != ForgeResultSuccess) {
+        engine_destroy(*engine, 0);
+        *engine = NULL;
+        return result;
+    }
+    return ForgeResultSuccess;
+}
+
+ForgeResult forge_audio_test_create_offline_engine_with_allocator(ForgeAudioEngine **engine,
+                                                                  ForgeMallocFunc custom_malloc,
+                                                                  ForgeFreeFunc custom_free,
+                                                                  ForgeReallocFunc custom_realloc) {
+    ForgeResult result = engine_construct_offline_with_allocator(engine, custom_malloc, custom_free, custom_realloc);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    result = engine_initialize(*engine, 0);
+    if (result != ForgeResultSuccess) {
+        engine_destroy(*engine, 0);
+        *engine = NULL;
+        return result;
+    }
+    return ForgeResultSuccess;
 }
 
 void forge_audio_test_destroy_offline_engine(ForgeAudioEngine *audio) {
@@ -422,19 +485,26 @@ static ForgeResult engine_initialize(ForgeAudioEngine *audio, uint32_t flags) {
     /* Seed shared decode/resample caches; they grow on demand before use. */
     audio->decodeCache = (float *)audio->malloc_func(sizeof(float));
     audio->resampleCache = (float *)audio->malloc_func(sizeof(float));
+    if (audio->decodeCache == NULL || audio->resampleCache == NULL) {
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     audio->decodeSamples = 1;
     audio->resampleSamples = 1;
 
     forge_audio_start_engine(audio);
     LOG_API_EXIT(audio)
-    return 0;
+    return ForgeResultSuccess;
 }
 
 ForgeResult forge_audio_register_callback(ForgeAudioEngine *audio, ForgeEngineCallback *callback) {
     LOG_API_ENTER(audio)
-    fa_linked_list_add_entry(&audio->callbacks, callback, audio->callbackLock, audio->malloc_func);
+    if (!fa_linked_list_add_entry(&audio->callbacks, callback, audio->callbackLock, audio->malloc_func)) {
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     LOG_API_EXIT(audio)
-    return 0;
+    return ForgeResultSuccess;
 }
 
 void forge_audio_unregister_callback(ForgeAudioEngine *audio, ForgeEngineCallback *callback) {
@@ -473,6 +543,10 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     }
 
     *source_voice = (ForgeSourceVoice *)audio->malloc_func(sizeof(ForgeVoice));
+    if (*source_voice == NULL) {
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     forge_zero(*source_voice, sizeof(ForgeSourceVoice));
     (*source_voice)->audio = audio;
     (*source_voice)->type = FORGE_AUDIO_VOICE_SOURCE;
@@ -498,6 +572,11 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
         source_format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
         ForgeAudioFormatExtensible *fmtex =
             (ForgeAudioFormatExtensible *)audio->malloc_func(sizeof(ForgeAudioFormatExtensible));
+        if (fmtex == NULL) {
+            cleanup_failed_unlinked_voice(source_voice);
+            LOG_API_EXIT(audio)
+            return ForgeResultOutOfMemory;
+        }
         /* convert PCM to EXTENSIBLE */
         fmtex->format.format_tag = FORGE_AUDIO_FORMAT_EXTENSIBLE;
         fmtex->format.channels = source_format->channels;
@@ -518,6 +597,11 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
         /* direct copy anything else */
         (*source_voice)->src.format =
             (ForgeAudioFormat *)audio->malloc_func(sizeof(ForgeAudioFormat) + source_format->extra_size);
+        if ((*source_voice)->src.format == NULL) {
+            cleanup_failed_unlinked_voice(source_voice);
+            LOG_API_EXIT(audio)
+            return ForgeResultOutOfMemory;
+        }
         forge_memcpy((*source_voice)->src.format, source_format, sizeof(ForgeAudioFormat) + source_format->extra_size);
     }
 
@@ -564,16 +648,11 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     }
 
     /* Default Levels */
-    (*source_voice)->volume = 1.0f;
-    (*source_voice)->channelVolume = (float *)audio->malloc_func(sizeof(float) * (*source_voice)->outputChannels);
-    (*source_voice)->channelVolumeAutomation.target =
-        (float *)audio->malloc_func(sizeof(float) * (*source_voice)->outputChannels);
-    (*source_voice)->channelVolumeAutomation.step =
-        (float *)audio->malloc_func(sizeof(float) * (*source_voice)->outputChannels);
-    for (uint32_t i = 0; i < (*source_voice)->outputChannels; i += 1) {
-        (*source_voice)->channelVolume[i] = 1.0f;
-        (*source_voice)->channelVolumeAutomation.target[i] = 1.0f;
-        (*source_voice)->channelVolumeAutomation.step[i] = 0.0f;
+    result = allocate_default_channel_volumes(*source_voice);
+    if (result != ForgeResultSuccess) {
+        cleanup_failed_unlinked_voice(source_voice);
+        LOG_API_EXIT(audio)
+        return result;
     }
 
     result = forge_voice_set_outputs(*source_voice, send_list);
@@ -587,6 +666,11 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     if (flags & FORGE_AUDIO_VOICE_USEFILTER) {
         (*source_voice)->filterState = (ForgeAudioFilterState *)audio->malloc_func(
             sizeof(ForgeAudioFilterState) * (*source_voice)->src.format->channels);
+        if ((*source_voice)->filterState == NULL) {
+            cleanup_failed_unlinked_voice(source_voice);
+            LOG_API_EXIT(audio)
+            return ForgeResultOutOfMemory;
+        }
         forge_zero((*source_voice)->filterState, sizeof(ForgeAudioFilterState) * (*source_voice)->src.format->channels);
     }
 
@@ -595,15 +679,23 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     (*source_voice)->src.decodeSamples =
         source_decode_frame_count((*source_voice)->src.resampleSamples, max_frequency_ratio,
                                            (*source_voice)->src.format->sample_rate, outputRate);
-    fa_audio_resize_decode_cache(audio, ((*source_voice)->src.decodeSamples + EXTRA_DECODE_PADDING) *
-                                            (*source_voice)->src.format->channels);
+    if (!fa_audio_resize_decode_cache(audio, ((*source_voice)->src.decodeSamples + EXTRA_DECODE_PADDING) *
+                                                 (*source_voice)->src.format->channels)) {
+        cleanup_failed_unlinked_voice(source_voice);
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
 
     LOG_INFO(audio, "-> %p", (void *)(*source_voice))
 
     LOG_INFO(audio, "-> %p", (void *)(*source_voice))
 
     /* Add to list, finally. */
-    fa_linked_list_prepend_entry(&audio->sources, *source_voice, audio->sourceLock, audio->malloc_func);
+    if (!fa_linked_list_prepend_entry(&audio->sources, *source_voice, audio->sourceLock, audio->malloc_func)) {
+        cleanup_failed_unlinked_voice(source_voice);
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
 
 #ifdef FORGE_AUDIO_DUMP_VOICES
     dump_voice_init(*source_voice);
@@ -632,6 +724,10 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     }
 
     *submix_voice = (ForgeSubmixVoice *)audio->malloc_func(sizeof(ForgeVoice));
+    if (*submix_voice == NULL) {
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     forge_zero(*submix_voice, sizeof(ForgeSubmixVoice));
     (*submix_voice)->audio = audio;
     (*submix_voice)->type = FORGE_AUDIO_VOICE_SUBMIX;
@@ -669,6 +765,11 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
                                          EXTRA_DECODE_PADDING) *
                                         input_channels;
     (*submix_voice)->mix.inputCache = (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->mix.inputSamples);
+    if ((*submix_voice)->mix.inputCache == NULL) {
+        cleanup_failed_unlinked_voice(submix_voice);
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     forge_zero(/* Zero this now, for the first update */
                (*submix_voice)->mix.inputCache, sizeof(float) * (*submix_voice)->mix.inputSamples);
 
@@ -682,16 +783,11 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     }
 
     /* Default Levels */
-    (*submix_voice)->volume = 1.0f;
-    (*submix_voice)->channelVolume = (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->outputChannels);
-    (*submix_voice)->channelVolumeAutomation.target =
-        (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->outputChannels);
-    (*submix_voice)->channelVolumeAutomation.step =
-        (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->outputChannels);
-    for (uint32_t i = 0; i < (*submix_voice)->outputChannels; i += 1) {
-        (*submix_voice)->channelVolume[i] = 1.0f;
-        (*submix_voice)->channelVolumeAutomation.target[i] = 1.0f;
-        (*submix_voice)->channelVolumeAutomation.step[i] = 0.0f;
+    result = allocate_default_channel_volumes(*submix_voice);
+    if (result != ForgeResultSuccess) {
+        cleanup_failed_unlinked_voice(submix_voice);
+        LOG_API_EXIT(audio)
+        return result;
     }
 
     result = forge_voice_set_outputs(*submix_voice, send_list);
@@ -705,11 +801,20 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     if (flags & FORGE_AUDIO_VOICE_USEFILTER) {
         (*submix_voice)->filterState =
             (ForgeAudioFilterState *)audio->malloc_func(sizeof(ForgeAudioFilterState) * input_channels);
+        if ((*submix_voice)->filterState == NULL) {
+            cleanup_failed_unlinked_voice(submix_voice);
+            LOG_API_EXIT(audio)
+            return ForgeResultOutOfMemory;
+        }
         forge_zero((*submix_voice)->filterState, sizeof(ForgeAudioFilterState) * input_channels);
     }
 
     /* Add to list, finally. */
-    fa_audio_insert_submix_sorted(&audio->submixes, *submix_voice, audio->submixLock, audio->malloc_func);
+    if (!fa_audio_insert_submix_sorted(&audio->submixes, *submix_voice, audio->submixLock, audio->malloc_func)) {
+        cleanup_failed_unlinked_voice(submix_voice);
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
 
     LOG_API_EXIT(audio)
     return 0;
@@ -739,6 +844,10 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
     }
 
     *mastering_voice = (ForgeMasterVoice *)audio->malloc_func(sizeof(ForgeVoice));
+    if (*mastering_voice == NULL) {
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     forge_zero(*mastering_voice, sizeof(ForgeMasterVoice));
     (*mastering_voice)->audio = audio;
     (*mastering_voice)->type = FORGE_AUDIO_VOICE_MASTER;
@@ -793,6 +902,12 @@ ForgeResult forge_audio_create_master_voice(ForgeAudioEngine *audio, ForgeMaster
     if ((*mastering_voice)->master.inputChannels != (*mastering_voice)->outputChannels) {
         (*mastering_voice)->master.effectCache =
             (float *)audio->malloc_func(sizeof(float) * audio->updateSize * (*mastering_voice)->master.inputChannels);
+        if ((*mastering_voice)->master.effectCache == NULL) {
+            forge_voice_destroy(*mastering_voice);
+            *mastering_voice = NULL;
+            LOG_API_EXIT(audio)
+            return ForgeResultOutOfMemory;
+        }
     }
 
     LOG_API_EXIT(audio)
@@ -818,6 +933,10 @@ ForgeResult forge_audio_test_create_virtual_master_voice(ForgeAudioEngine *audio
     }
 
     *mastering_voice = (ForgeMasterVoice *)audio->malloc_func(sizeof(ForgeVoice));
+    if (*mastering_voice == NULL) {
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     forge_zero(*mastering_voice, sizeof(ForgeMasterVoice));
     (*mastering_voice)->audio = audio;
     (*mastering_voice)->type = FORGE_AUDIO_VOICE_MASTER;
@@ -848,6 +967,11 @@ ForgeResult forge_audio_test_create_virtual_master_voice(ForgeAudioEngine *audio
     if ((*mastering_voice)->master.inputChannels != (*mastering_voice)->outputChannels) {
         (*mastering_voice)->master.effectCache =
             (float *)audio->malloc_func(sizeof(float) * audio->updateSize * (*mastering_voice)->master.inputChannels);
+        if ((*mastering_voice)->master.effectCache == NULL) {
+            cleanup_failed_unlinked_voice(mastering_voice);
+            LOG_API_EXIT(audio)
+            return ForgeResultOutOfMemory;
+        }
     }
 
     LOG_API_EXIT(audio)
@@ -1066,8 +1190,11 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
 
         sourceDecodeSamples = source_decode_frame_count(sourceResampleSamples, voice->src.maxFreqRatio,
                                                                  voice->src.format->sample_rate, outputRate);
-        fa_audio_resize_decode_cache(voice->audio,
-                                     (sourceDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels);
+        if (!fa_audio_resize_decode_cache(voice->audio,
+                                          (sourceDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels)) {
+            LOG_API_EXIT(voice->audio)
+            return ForgeResultOutOfMemory;
+        }
     }
 
     fa_platform_lock_mutex(voice->sendLock);
@@ -1108,9 +1235,17 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
     }
 
     /* Copy send list and allocate/reset default output matrix, mixer function, filters */
-    voice->sends.send_count = send_list->send_count;
     voice->sends.sends =
         (ForgeVoiceSendRuntime *)voice->audio->malloc_func(send_list->send_count * sizeof(ForgeVoiceSendRuntime));
+    if (voice->sends.sends == NULL) {
+        fa_platform_unlock_mutex(voice->volumeLock);
+        LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
+        fa_platform_unlock_mutex(voice->sendLock);
+        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultOutOfMemory;
+    }
+    voice->sends.send_count = send_list->send_count;
     forge_zero(voice->sends.sends, send_list->send_count * sizeof(ForgeVoiceSendRuntime));
 
     for (uint32_t i = 0; i < send_list->send_count; i += 1) {
@@ -1130,6 +1265,17 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
             (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
         send->matrixAutomation.step =
             (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
+
+        if (send->sendCoefficients == NULL || send->mixCoefficients == NULL ||
+            send->matrixAutomation.target == NULL || send->matrixAutomation.step == NULL) {
+            free_voice_send_runtime(voice);
+            fa_platform_unlock_mutex(voice->volumeLock);
+            LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
+            fa_platform_unlock_mutex(voice->sendLock);
+            LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+            LOG_API_EXIT(voice->audio)
+            return ForgeResultOutOfMemory;
+        }
 
         forge_assert(voice->outputChannels > 0 && voice->outputChannels < 9);
         forge_assert(outChannels > 0 && outChannels < 9);
@@ -1175,6 +1321,15 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
             send->filter.wet_dry_mix = FORGE_AUDIO_DEFAULT_FILTER_WET_DRY_MIX;
             send->filterState =
                 (ForgeAudioFilterState *)voice->audio->malloc_func(sizeof(ForgeAudioFilterState) * outChannels);
+            if (send->filterState == NULL) {
+                free_voice_send_runtime(voice);
+                fa_platform_unlock_mutex(voice->volumeLock);
+                LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
+                fa_platform_unlock_mutex(voice->sendLock);
+                LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+                LOG_API_EXIT(voice->audio)
+                return ForgeResultOutOfMemory;
+            }
             forge_zero(send->filterState, sizeof(ForgeAudioFilterState) * outChannels);
         }
     }
@@ -1295,7 +1450,16 @@ ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectCha
         }
 
         fa_audio_free_effect_chain(voice);
-        fa_audio_alloc_effect_chain(voice, effect_chain);
+        result = fa_audio_alloc_effect_chain(voice, effect_chain);
+        if (result != ForgeResultSuccess) {
+            for (uint32_t j = 0; j < lockedEffects; j += 1) {
+                effect_chain->effects[j].effect->unlock_for_process(effect_chain->effects[j].effect);
+            }
+            fa_platform_unlock_mutex(voice->effectLock);
+            LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+            LOG_API_EXIT(voice->audio)
+            return result;
+        }
 
         /* check if in-place processing is supported */
         channelCount = voiceDetails.input_channels;

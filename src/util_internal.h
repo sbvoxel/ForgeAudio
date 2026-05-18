@@ -22,9 +22,9 @@ struct ForgeLinkedList {
     ForgeLinkedList *next;
 };
 
-FORGE_INTERNAL_API void fa_linked_list_add_entry(ForgeLinkedList **start, void *to_add, ForgeAudioMutex lock,
+FORGE_INTERNAL_API bool fa_linked_list_add_entry(ForgeLinkedList **start, void *to_add, ForgeAudioMutex lock,
                                                  ForgeMallocFunc malloc_func);
-FORGE_INTERNAL_API void fa_linked_list_prepend_entry(ForgeLinkedList **start, void *to_add, ForgeAudioMutex lock,
+FORGE_INTERNAL_API bool fa_linked_list_prepend_entry(ForgeLinkedList **start, void *to_add, ForgeAudioMutex lock,
                                                      ForgeMallocFunc malloc_func);
 FORGE_INTERNAL_API void fa_linked_list_remove_entry(ForgeLinkedList **start, void *to_remove, ForgeAudioMutex lock,
                                                     ForgeFreeFunc free_func);

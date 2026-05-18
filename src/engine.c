@@ -14,10 +14,13 @@
 #include "batch_internal.h"
 #include "simd_internal.h"
 
-void fa_audio_insert_submix_sorted(ForgeLinkedList **start, ForgeSubmixVoice *toAdd, ForgeAudioMutex lock,
+bool fa_audio_insert_submix_sorted(ForgeLinkedList **start, ForgeSubmixVoice *toAdd, ForgeAudioMutex lock,
                                    ForgeMallocFunc malloc_func) {
     ForgeLinkedList *newEntry, *latest;
     newEntry = (ForgeLinkedList *)malloc_func(sizeof(ForgeLinkedList));
+    if (newEntry == NULL) {
+        return false;
+    }
     newEntry->entry = toAdd;
     newEntry->next = NULL;
     fa_platform_lock_mutex(lock);
@@ -56,6 +59,7 @@ void fa_audio_insert_submix_sorted(ForgeLinkedList **start, ForgeSubmixVoice *to
         }
     }
     fa_platform_unlock_mutex(lock);
+    return true;
 }
 
 static uint32_t get_bytes_requested(ForgeSourceVoice *voice, uint32_t decoding) {
@@ -1239,32 +1243,57 @@ ForgeResult forge_audio_test_render(ForgeAudioEngine *audio, float *output, uint
 }
 #endif
 
-void fa_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t samples) {
+bool fa_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t samples) {
     LOG_FUNC_ENTER(audio)
     fa_platform_lock_mutex(audio->sourceLock);
     LOG_MUTEX_LOCK(audio, audio->sourceLock)
     if (samples > audio->decodeSamples) {
+        float *decode_cache;
+
+        decode_cache = (float *)audio->realloc_func(audio->decodeCache, sizeof(float) * samples);
+        if (decode_cache == NULL) {
+            fa_platform_unlock_mutex(audio->sourceLock);
+            LOG_MUTEX_UNLOCK(audio, audio->sourceLock)
+            LOG_FUNC_EXIT(audio)
+            return false;
+        }
+        audio->decodeCache = decode_cache;
         audio->decodeSamples = samples;
-        audio->decodeCache = (float *)audio->realloc_func(audio->decodeCache, sizeof(float) * audio->decodeSamples);
     }
     fa_platform_unlock_mutex(audio->sourceLock);
     LOG_MUTEX_UNLOCK(audio, audio->sourceLock)
     LOG_FUNC_EXIT(audio)
+    return true;
 }
 
-void fa_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain) {
+ForgeResult fa_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain) {
     LOG_FUNC_ENTER(voice->audio)
     voice->effects.state = FORGE_EFFECT_BUFFER_VALID;
     voice->effects.count = effect_chain->effect_count;
     if (voice->effects.count == 0) {
         LOG_FUNC_EXIT(voice->audio)
-        return;
+        return ForgeResultSuccess;
     }
 
     voice->effects.desc = (ForgeEffectDesc *)voice->audio->malloc_func(voice->effects.count * sizeof(ForgeEffectDesc));
+    if (voice->effects.desc == NULL) {
+        forge_zero(&voice->effects, sizeof(voice->effects));
+        LOG_FUNC_EXIT(voice->audio)
+        return ForgeResultOutOfMemory;
+    }
     forge_memcpy(voice->effects.desc, effect_chain->effects, voice->effects.count * sizeof(ForgeEffectDesc));
 #define ALLOC_EFFECT_PROPERTY(prop, type)                                                                              \
     voice->effects.prop = (type *)voice->audio->malloc_func(voice->effects.count * sizeof(type));                      \
+    if (voice->effects.prop == NULL) {                                                                                 \
+        voice->audio->free_func(voice->effects.desc);                                                                  \
+        voice->audio->free_func(voice->effects.parameters);                                                            \
+        voice->audio->free_func(voice->effects.parameterSizes);                                                        \
+        voice->audio->free_func(voice->effects.parameterUpdates);                                                      \
+        voice->audio->free_func(voice->effects.inPlaceProcessing);                                                     \
+        forge_zero(&voice->effects, sizeof(voice->effects));                                                           \
+        LOG_FUNC_EXIT(voice->audio)                                                                                    \
+        return ForgeResultOutOfMemory;                                                                                 \
+    }                                                                                                                  \
     forge_zero(voice->effects.prop, voice->effects.count * sizeof(type));
     ALLOC_EFFECT_PROPERTY(parameters, void *)
     ALLOC_EFFECT_PROPERTY(parameterSizes, uint32_t)
@@ -1272,6 +1301,7 @@ void fa_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effe
     ALLOC_EFFECT_PROPERTY(inPlaceProcessing, uint8_t)
 #undef ALLOC_EFFECT_PROPERTY
     LOG_FUNC_EXIT(voice->audio)
+    return ForgeResultSuccess;
 }
 
 void fa_audio_free_effect_chain(ForgeVoice *voice) {

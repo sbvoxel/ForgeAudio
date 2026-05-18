@@ -70,6 +70,94 @@ static int expect_no_tracked_allocations(const char *name) {
     return 0;
 }
 
+typedef struct FailingAllocator {
+    uint32_t fail_on;
+    uint32_t allocation_index;
+    uint32_t allocation_attempts;
+    int32_t active_allocations;
+    ForgeAudioEngine *audio;
+    ForgeMallocFunc saved_malloc;
+    ForgeFreeFunc saved_free;
+    ForgeReallocFunc saved_realloc;
+} FailingAllocator;
+
+static FailingAllocator *active_failing_allocator;
+
+static int failing_allocator_should_fail(void) {
+    FailingAllocator *state = active_failing_allocator;
+
+    state->allocation_index += 1;
+    state->allocation_attempts += 1;
+    return state->fail_on != 0 && state->allocation_index == state->fail_on;
+}
+
+static void *FORGE_AUDIO_CALL failing_malloc(size_t size) {
+    void *ptr;
+
+    if (failing_allocator_should_fail()) {
+        return NULL;
+    }
+
+    ptr = forge_malloc(size);
+    if (ptr != NULL) {
+        active_failing_allocator->active_allocations += 1;
+    }
+    return ptr;
+}
+
+static void FORGE_AUDIO_CALL failing_free(void *ptr) {
+    if (ptr != NULL) {
+        active_failing_allocator->active_allocations -= 1;
+    }
+    forge_free(ptr);
+}
+
+static void *FORGE_AUDIO_CALL failing_realloc(void *ptr, size_t size) {
+    void *result;
+
+    if (failing_allocator_should_fail()) {
+        return NULL;
+    }
+
+    result = forge_realloc(ptr, size);
+    if (ptr == NULL && result != NULL) {
+        active_failing_allocator->active_allocations += 1;
+    } else if (ptr != NULL && size == 0 && result == NULL) {
+        active_failing_allocator->active_allocations -= 1;
+    }
+    return result;
+}
+
+static void use_failing_allocator(ForgeAudioEngine *audio, FailingAllocator *state, uint32_t fail_on) {
+    forge_zero(state, sizeof(*state));
+    state->fail_on = fail_on;
+    state->audio = audio;
+    state->saved_malloc = audio->malloc_func;
+    state->saved_free = audio->free_func;
+    state->saved_realloc = audio->realloc_func;
+    active_failing_allocator = state;
+    audio->malloc_func = failing_malloc;
+    audio->free_func = failing_free;
+    audio->realloc_func = failing_realloc;
+}
+
+static void restore_failing_allocator(FailingAllocator *state) {
+    state->audio->malloc_func = state->saved_malloc;
+    state->audio->free_func = state->saved_free;
+    state->audio->realloc_func = state->saved_realloc;
+    active_failing_allocator = NULL;
+}
+
+static int expect_no_failing_allocations(const char *name, const FailingAllocator *state) {
+    if (state->active_allocations != 0) {
+        fprintf(stderr, "%s: %d tracked allocations remain after %u attempts\n", name, state->active_allocations,
+                state->allocation_attempts);
+        return 1;
+    }
+
+    return 0;
+}
+
 static void FORGE_AUDIO_CALL test_effect_destroy(void *effect_ptr) {
     TestEffect *effect = (TestEffect *)effect_ptr;
 
@@ -714,6 +802,208 @@ static int test_virtual_master_create_effect_failure_cleans_allocations(void) {
     return failed;
 }
 
+typedef enum AllocationFailureTarget {
+    AllocationFailureTargetSourceDefault,
+    AllocationFailureTargetSourceEffectChain,
+    AllocationFailureTargetSourceSendList,
+    AllocationFailureTargetSubmixDefault,
+    AllocationFailureTargetSubmixEffectChain,
+    AllocationFailureTargetVirtualMasterEffectChain
+} AllocationFailureTarget;
+
+static void make_success_effect_chain(TestEffect effects[2], ForgeEffectDesc effect_descs[2],
+                                      ForgeEffectChain *effect_chain) {
+    init_test_effect(&effects[0], ForgeResultSuccess);
+    init_test_effect(&effects[1], ForgeResultSuccess);
+    effect_descs[0].effect = &effects[0].effect;
+    effect_descs[0].initial_state = 1;
+    effect_descs[0].output_channels = 1;
+    effect_descs[1].effect = &effects[1].effect;
+    effect_descs[1].initial_state = 1;
+    effect_descs[1].output_channels = 1;
+    effect_chain->effect_count = 2;
+    effect_chain->effects = effect_descs;
+}
+
+static int expect_failed_effect_chain_released(const char *name, uint32_t fail_on, const TestEffect effects[2]) {
+    for (uint32_t i = 0; i < 2; i += 1) {
+        if (effects[i].lock_count != effects[i].unlock_count || effects[i].destroy_count != 0) {
+            fprintf(stderr,
+                    "%s fail %u: effect %u lock/unlock/destroy mismatch (%u/%u/%u)\n",
+                    name, fail_on, i, effects[i].lock_count, effects[i].unlock_count, effects[i].destroy_count);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int run_lifecycle_allocation_failure_target(const char *name, AllocationFailureTarget target) {
+    enum {
+        hard_fail_cap = 64
+    };
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    int uses_effect_chain = target == AllocationFailureTargetSourceEffectChain ||
+                            target == AllocationFailureTargetSubmixEffectChain ||
+                            target == AllocationFailureTargetVirtualMasterEffectChain;
+
+    for (uint32_t fail_on = 1; fail_on <= hard_fail_cap; fail_on += 1) {
+        ForgeAudioEngine *audio = NULL;
+        ForgeMasterVoice *master = NULL;
+        ForgeSubmixVoice *submix_a = NULL;
+        ForgeSubmixVoice *submix_b = NULL;
+        ForgeVoice *created_voice = NULL;
+        TestEffect effects[2];
+        ForgeEffectDesc effect_descs[2];
+        ForgeEffectChain effect_chain;
+        const ForgeEffectChain *effect_chain_ptr = NULL;
+        ForgeSend sends[2];
+        ForgeSendList send_list;
+        const ForgeSendList *send_list_ptr = NULL;
+        FailingAllocator allocator;
+        ForgeResult result;
+        int failed = 0;
+
+        forge_zero(effects, sizeof(effects));
+        forge_zero(effect_descs, sizeof(effect_descs));
+        forge_zero(&effect_chain, sizeof(effect_chain));
+        forge_zero(sends, sizeof(sends));
+        forge_zero(&send_list, sizeof(send_list));
+
+        if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+            fprintf(stderr, "%s fail %u: forge_audio_test_create_offline_engine failed\n", name, fail_on);
+            return 1;
+        }
+
+        if (target != AllocationFailureTargetVirtualMasterEffectChain) {
+            if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) !=
+                ForgeResultSuccess) {
+                fprintf(stderr, "%s fail %u: forge_audio_test_create_virtual_master_voice failed\n", name, fail_on);
+                forge_audio_test_destroy_offline_engine(audio);
+                return 1;
+            }
+        }
+
+        if (target == AllocationFailureTargetSourceSendList) {
+            if (forge_audio_create_submix_voice(audio, &submix_a, 1, 48000, 0, 0, NULL, NULL) != ForgeResultSuccess ||
+                forge_audio_create_submix_voice(audio, &submix_b, 1, 48000, 0, 0, NULL, NULL) != ForgeResultSuccess) {
+                fprintf(stderr, "%s fail %u: send-list setup submix creation failed\n", name, fail_on);
+                forge_audio_test_destroy_offline_engine(audio);
+                return 1;
+            }
+
+            sends[0].flags = 0;
+            sends[0].output_voice = submix_a;
+            sends[1].flags = FORGE_AUDIO_SEND_USEFILTER;
+            sends[1].output_voice = submix_b;
+            send_list.send_count = 2;
+            send_list.sends = sends;
+            send_list_ptr = &send_list;
+        }
+
+        if (uses_effect_chain) {
+            make_success_effect_chain(effects, effect_descs, &effect_chain);
+            effect_chain_ptr = &effect_chain;
+        }
+
+        use_failing_allocator(audio, &allocator, fail_on);
+        switch (target) {
+            case AllocationFailureTargetSourceDefault: {
+                ForgeSourceVoice *voice = NULL;
+                result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO,
+                                                         NULL, NULL, NULL);
+                created_voice = (ForgeVoice *)voice;
+                break;
+            }
+            case AllocationFailureTargetSourceEffectChain: {
+                ForgeSourceVoice *voice = NULL;
+                result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO,
+                                                         NULL, NULL, effect_chain_ptr);
+                created_voice = (ForgeVoice *)voice;
+                break;
+            }
+            case AllocationFailureTargetSourceSendList: {
+                ForgeSourceVoice *voice = NULL;
+                result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO,
+                                                         NULL, send_list_ptr, NULL);
+                created_voice = (ForgeVoice *)voice;
+                break;
+            }
+            case AllocationFailureTargetSubmixDefault: {
+                ForgeSubmixVoice *voice = NULL;
+                result = forge_audio_create_submix_voice(audio, &voice, 1, 48000, 0, 0, NULL, NULL);
+                created_voice = (ForgeVoice *)voice;
+                break;
+            }
+            case AllocationFailureTargetSubmixEffectChain: {
+                ForgeSubmixVoice *voice = NULL;
+                result = forge_audio_create_submix_voice(audio, &voice, 1, 48000, 0, 0, NULL, effect_chain_ptr);
+                created_voice = (ForgeVoice *)voice;
+                break;
+            }
+            case AllocationFailureTargetVirtualMasterEffectChain: {
+                ForgeMasterVoice *voice = NULL;
+                result = forge_audio_test_create_virtual_master_voice(audio, &voice, 1, 48000, 64, effect_chain_ptr);
+                created_voice = (ForgeVoice *)voice;
+                break;
+            }
+            default:
+                result = ForgeResultInvalidCall;
+                break;
+        }
+
+        if (result == ForgeResultSuccess) {
+            if (created_voice == NULL) {
+                fprintf(stderr, "%s fail %u: successful creation returned NULL\n", name, fail_on);
+                failed = 1;
+            } else {
+                forge_voice_destroy(created_voice);
+            }
+            failed |= expect_no_failing_allocations(name, &allocator);
+            restore_failing_allocator(&allocator);
+            forge_audio_test_destroy_offline_engine(audio);
+            return failed;
+        }
+
+        if (created_voice != NULL) {
+            fprintf(stderr, "%s fail %u: failed creation returned a voice\n", name, fail_on);
+            failed = 1;
+        }
+        failed |= expect_no_failing_allocations(name, &allocator);
+        if (uses_effect_chain) {
+            failed |= expect_failed_effect_chain_released(name, fail_on, effects);
+        }
+        restore_failing_allocator(&allocator);
+        forge_audio_test_destroy_offline_engine(audio);
+
+        if (failed) {
+            return failed;
+        }
+    }
+
+    fprintf(stderr, "%s: creation never succeeded within %u allocation failures\n", name, hard_fail_cap);
+    return 1;
+}
+
+static int test_lifecycle_allocation_failure_cleanup_paths(void) {
+    int failed = 0;
+
+    failed |= run_lifecycle_allocation_failure_target("alloc_fail_source_default",
+                                                      AllocationFailureTargetSourceDefault);
+    failed |= run_lifecycle_allocation_failure_target("alloc_fail_source_effect_chain",
+                                                      AllocationFailureTargetSourceEffectChain);
+    failed |= run_lifecycle_allocation_failure_target("alloc_fail_source_send_list",
+                                                      AllocationFailureTargetSourceSendList);
+    failed |= run_lifecycle_allocation_failure_target("alloc_fail_submix_default",
+                                                      AllocationFailureTargetSubmixDefault);
+    failed |= run_lifecycle_allocation_failure_target("alloc_fail_submix_effect_chain",
+                                                      AllocationFailureTargetSubmixEffectChain);
+    failed |= run_lifecycle_allocation_failure_target("alloc_fail_virtual_master_effect_chain",
+                                                      AllocationFailureTargetVirtualMasterEffectChain);
+
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
 
@@ -734,6 +1024,7 @@ int main(void) {
     failed |= test_submix_create_effect_failure_cleans_allocations();
     failed |= test_submix_create_invalid_outputs_cleans_allocations();
     failed |= test_virtual_master_create_effect_failure_cleans_allocations();
+    failed |= test_lifecycle_allocation_failure_cleanup_paths();
 
     return failed;
 }
