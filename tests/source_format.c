@@ -11,6 +11,118 @@
 
 #include <stdio.h>
 
+typedef struct TestEffect {
+    ForgeEffect effect;
+    ForgeResult lock_result;
+    uint32_t lock_count;
+    uint32_t unlock_count;
+    uint32_t destroy_count;
+} TestEffect;
+
+static int32_t tracked_allocations;
+
+static void *FORGE_AUDIO_CALL tracking_malloc(size_t size) {
+    void *ptr = forge_malloc(size);
+
+    if (ptr != NULL) {
+        tracked_allocations += 1;
+    }
+
+    return ptr;
+}
+
+static void FORGE_AUDIO_CALL tracking_free(void *ptr) {
+    if (ptr != NULL) {
+        tracked_allocations -= 1;
+    }
+    forge_free(ptr);
+}
+
+static void *FORGE_AUDIO_CALL tracking_realloc(void *ptr, size_t size) {
+    void *result = forge_realloc(ptr, size);
+
+    if (ptr == NULL && result != NULL) {
+        tracked_allocations += 1;
+    }
+
+    return result;
+}
+
+static void use_tracking_allocator(ForgeAudioEngine *audio) {
+    tracked_allocations = 0;
+    audio->malloc_func = tracking_malloc;
+    audio->free_func = tracking_free;
+    audio->realloc_func = tracking_realloc;
+}
+
+static void use_default_allocator(ForgeAudioEngine *audio) {
+    audio->malloc_func = forge_malloc;
+    audio->free_func = forge_free;
+    audio->realloc_func = forge_realloc;
+}
+
+static int expect_no_tracked_allocations(const char *name) {
+    if (tracked_allocations != 0) {
+        fprintf(stderr, "%s: %d tracked allocations remain\n", name, tracked_allocations);
+        return 1;
+    }
+
+    return 0;
+}
+
+static void FORGE_AUDIO_CALL test_effect_destroy(void *effect_ptr) {
+    TestEffect *effect = (TestEffect *)effect_ptr;
+
+    effect->destroy_count += 1;
+}
+
+static void FORGE_AUDIO_CALL test_effect_get_info(void *effect_ptr, ForgeEffectInfo *effect_info) {
+    (void)effect_ptr;
+
+    effect_info->flags = FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED;
+    effect_info->min_input_buffer_count = 1;
+    effect_info->max_input_buffer_count = 1;
+    effect_info->min_output_buffer_count = 1;
+    effect_info->max_output_buffer_count = 1;
+}
+
+static ForgeResult FORGE_AUDIO_CALL test_effect_lock_for_process(
+    void *effect_ptr, uint32_t input_locked_parameter_count, const ForgeEffectLockBuffer *input_locked_parameters,
+    uint32_t output_locked_parameter_count, const ForgeEffectLockBuffer *output_locked_parameters) {
+    TestEffect *effect = (TestEffect *)effect_ptr;
+
+    (void)input_locked_parameter_count;
+    (void)input_locked_parameters;
+    (void)output_locked_parameter_count;
+    (void)output_locked_parameters;
+
+    effect->lock_count += 1;
+    return effect->lock_result;
+}
+
+static void FORGE_AUDIO_CALL test_effect_unlock_for_process(void *effect_ptr) {
+    TestEffect *effect = (TestEffect *)effect_ptr;
+
+    effect->unlock_count += 1;
+}
+
+static uint32_t FORGE_AUDIO_CALL test_effect_calc_frames(void *effect_ptr, uint32_t frame_count) {
+    (void)effect_ptr;
+
+    return frame_count;
+}
+
+static void init_test_effect(TestEffect *effect, ForgeResult lock_result) {
+    forge_zero(effect, sizeof(*effect));
+    effect->lock_result = lock_result;
+    effect->effect.destroy = test_effect_destroy;
+    effect->effect.get_info = test_effect_get_info;
+    effect->effect.lock_for_process = test_effect_lock_for_process;
+    effect->effect.unlock_for_process = test_effect_unlock_for_process;
+    effect->effect.calc_input_frames = test_effect_calc_frames;
+    effect->effect.calc_output_frames = test_effect_calc_frames;
+}
+
 static ForgeAudioFormat make_format(uint16_t format_tag, uint16_t bits_per_sample) {
     ForgeAudioFormat format;
 
@@ -328,6 +440,151 @@ static int test_unknown_formats_are_rejected(void) {
     return failed;
 }
 
+static int test_source_create_effect_failure_cleans_allocations(void) {
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSourceVoice *voice = NULL;
+    TestEffect effects[2];
+    ForgeEffectDesc effect_descs[2];
+    ForgeEffectChain effect_chain;
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_virtual_master_voice failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    init_test_effect(&effects[0], ForgeResultSuccess);
+    init_test_effect(&effects[1], ForgeResultInvalidCall);
+    effect_descs[0].effect = &effects[0].effect;
+    effect_descs[0].initial_state = 1;
+    effect_descs[0].output_channels = 1;
+    effect_descs[1].effect = &effects[1].effect;
+    effect_descs[1].initial_state = 1;
+    effect_descs[1].output_channels = 1;
+    effect_chain.effect_count = 2;
+    effect_chain.effects = effect_descs;
+
+    use_tracking_allocator(audio);
+    result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL,
+                                             &effect_chain);
+    failed |= expect_no_tracked_allocations("source_create_effect_failure_cleanup");
+    use_default_allocator(audio);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != ForgeResultInvalidCall) {
+        fprintf(stderr, "source_create_effect_failure_cleanup: got %d, expected %d\n", result, ForgeResultInvalidCall);
+        failed = 1;
+    }
+    if (voice != NULL) {
+        fprintf(stderr, "source_create_effect_failure_cleanup: failed creation returned a voice\n");
+        failed = 1;
+    }
+    if (effects[0].lock_count != 1 || effects[0].unlock_count != 1 || effects[0].destroy_count != 0 ||
+        effects[1].lock_count != 1 || effects[1].unlock_count != 0 || effects[1].destroy_count != 0) {
+        fprintf(stderr, "source_create_effect_failure_cleanup: unexpected effect ownership/lock state\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
+static int test_source_create_invalid_outputs_cleans_allocations(void) {
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSubmixVoice *submix_a = NULL;
+    ForgeSubmixVoice *submix_b = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_virtual_master_voice failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+    if (forge_audio_create_submix_voice(audio, &submix_a, 1, 48000, 0, 0, NULL, NULL) != ForgeResultSuccess ||
+        forge_audio_create_submix_voice(audio, &submix_b, 1, 44100, 0, 0, NULL, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "source_create_invalid_outputs_cleanup: submix creation failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    sends[0].flags = 0;
+    sends[0].output_voice = submix_a;
+    sends[1].flags = 0;
+    sends[1].output_voice = submix_b;
+    send_list.send_count = 2;
+    send_list.sends = sends;
+
+    use_tracking_allocator(audio);
+    result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list,
+                                             NULL);
+    failed |= expect_no_tracked_allocations("source_create_invalid_outputs_cleanup");
+    use_default_allocator(audio);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != ForgeResultInvalidCall) {
+        fprintf(stderr, "source_create_invalid_outputs_cleanup: got %d, expected %d\n", result, ForgeResultInvalidCall);
+        failed = 1;
+    }
+    if (voice != NULL) {
+        fprintf(stderr, "source_create_invalid_outputs_cleanup: failed creation returned a voice\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
+static int test_source_create_empty_outputs_without_master_fails_before_allocation(void) {
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    ForgeAudioEngine *audio = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeSendList send_list = {0, NULL};
+    ForgeResult result;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    use_tracking_allocator(audio);
+    result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list,
+                                             NULL);
+    failed |= expect_no_tracked_allocations("source_create_empty_outputs_without_master");
+    use_default_allocator(audio);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != ForgeResultInvalidCall) {
+        fprintf(stderr, "source_create_empty_outputs_without_master: got %d, expected %d\n", result,
+                ForgeResultInvalidCall);
+        failed = 1;
+    }
+    if (voice != NULL) {
+        fprintf(stderr, "source_create_empty_outputs_without_master: failed creation returned a voice\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
 
@@ -343,6 +600,9 @@ int main(void) {
     failed |= test_wma_buffer_submit_is_unsupported();
     failed |= test_source_buffer_submit_validation();
     failed |= test_unknown_formats_are_rejected();
+    failed |= test_source_create_effect_failure_cleans_allocations();
+    failed |= test_source_create_invalid_outputs_cleans_allocations();
+    failed |= test_source_create_empty_outputs_without_master_fails_before_allocation();
 
     return failed;
 }
