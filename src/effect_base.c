@@ -41,6 +41,7 @@ void fa_effect_base_init_with_allocator(ForgeEffectBase *effect, const ForgeEffe
     effect->base.get_parameters = (ForgeEffectGetParametersFunc)fa_effect_base_get_parameters;
     effect->base.kind = ForgeEffectKindUnknown;
     effect->base.set_reverb_target = NULL;
+    effect->base.set_biquad_target = NULL;
     effect->base.advance_automation = NULL;
 
     /* Public Virtual Functions */

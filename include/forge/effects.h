@@ -43,6 +43,33 @@ typedef struct ForgeDelayParameters {
     float lowpass_hz;  /* Feedback damping cutoff. 0 disables damping; values at/above Nyquist bypass. */
 } ForgeDelayParameters;
 
+typedef enum ForgeBiquadType {
+    ForgeBiquadLowPass,
+    ForgeBiquadHighPass,
+    ForgeBiquadBandPass,
+    ForgeBiquadNotch,
+    ForgeBiquadLowShelf,
+    ForgeBiquadHighShelf,
+    ForgeBiquadPeaking,
+    ForgeBiquadAllPass
+} ForgeBiquadType;
+
+typedef struct ForgeBiquadParameters {
+    ForgeBiquadType type;
+    float frequency_hz; /* [FORGE_BIQUAD_MIN_FREQUENCY_HZ, runtime Nyquist-limited maximum] */
+    float q;            /* [FORGE_BIQUAD_MIN_Q, FORGE_BIQUAD_MAX_Q] */
+    float gain_db;      /* [FORGE_BIQUAD_MIN_GAIN_DB, FORGE_BIQUAD_MAX_GAIN_DB], used by shelf/peaking modes */
+    float wet_dry_mix;  /* [0, 1] */
+} ForgeBiquadParameters;
+
+typedef struct ForgeBiquadTarget {
+    uint32_t field_mask; /* Mix of FORGE_BIQUAD_TARGET_* flags. */
+    float frequency_hz;
+    float q;
+    float gain_db;
+    float wet_dry_mix;
+} ForgeBiquadTarget;
+
 typedef struct ForgeReverbParameters {
     float wet_dry_mix;
     uint32_t reflections_delay;
@@ -155,6 +182,32 @@ typedef struct ForgeReverbI3DL2Parameters {
 #define FORGE_DELAY_MIN_LOWPASS_HZ 0.0f
 #define FORGE_DELAY_MAX_LOWPASS_HZ 20000.0f
 #define FORGE_DELAY_DEFAULT_LOWPASS_HZ FORGE_DELAY_BYPASS_LOWPASS_HZ
+
+#define FORGE_BIQUAD_MIN_FREQUENCY_HZ 20.0f
+#define FORGE_BIQUAD_MAX_FREQUENCY_HZ 20000.0f
+#define FORGE_BIQUAD_DEFAULT_FREQUENCY_HZ 20000.0f
+
+#define FORGE_BIQUAD_MIN_Q FORGE_AUDIO_MIN_FILTER_Q
+#define FORGE_BIQUAD_MAX_Q FORGE_AUDIO_MAX_FILTER_Q
+#define FORGE_BIQUAD_DEFAULT_Q 1.0f
+
+#define FORGE_BIQUAD_MIN_GAIN_DB -24.0f
+#define FORGE_BIQUAD_MAX_GAIN_DB 24.0f
+#define FORGE_BIQUAD_DEFAULT_GAIN_DB 0.0f
+
+#define FORGE_BIQUAD_MIN_WET_DRY_MIX 0.0f
+#define FORGE_BIQUAD_MAX_WET_DRY_MIX 1.0f
+#define FORGE_BIQUAD_DEFAULT_WET_DRY_MIX 1.0f
+
+#define FORGE_BIQUAD_DEFAULT_TYPE ForgeBiquadLowPass
+
+#define FORGE_BIQUAD_TARGET_FREQUENCY_HZ 0x00000001u
+#define FORGE_BIQUAD_TARGET_Q 0x00000002u
+#define FORGE_BIQUAD_TARGET_GAIN_DB 0x00000004u
+#define FORGE_BIQUAD_TARGET_WET_DRY_MIX 0x00000008u
+#define FORGE_BIQUAD_TARGET_ALL                                                                                        \
+    (FORGE_BIQUAD_TARGET_FREQUENCY_HZ | FORGE_BIQUAD_TARGET_Q | FORGE_BIQUAD_TARGET_GAIN_DB |                         \
+     FORGE_BIQUAD_TARGET_WET_DRY_MIX)
 
 #define FORGE_REVERB_MIN_SAMPLE_RATE 20000
 #define FORGE_REVERB_MAX_SAMPLE_RATE 48000
@@ -301,6 +354,7 @@ typedef struct ForgeReverbI3DL2Parameters {
 FORGE_AUDIO_API ForgeResult forge_create_volume_meter(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_limiter(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_delay(ForgeEffect **effect, uint32_t flags);
+FORGE_AUDIO_API ForgeResult forge_create_biquad(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb_7point1(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API void forge_volume_meter_get_levels(ForgeEffect *effect, ForgeVolumeMeterLevels *levels);
@@ -317,6 +371,10 @@ FORGE_AUDIO_API ForgeResult forge_create_delay_with_allocator(ForgeEffect **effe
                                                               ForgeMallocFunc custom_malloc,
                                                               ForgeFreeFunc custom_free,
                                                               ForgeReallocFunc custom_realloc);
+FORGE_AUDIO_API ForgeResult forge_create_biquad_with_allocator(ForgeEffect **effect, uint32_t flags,
+                                                               ForgeMallocFunc custom_malloc,
+                                                               ForgeFreeFunc custom_free,
+                                                               ForgeReallocFunc custom_realloc);
 FORGE_AUDIO_API ForgeResult forge_create_reverb_with_allocator(ForgeEffect **effect, uint32_t flags,
                                                                ForgeMallocFunc custom_malloc, ForgeFreeFunc custom_free,
                                                                ForgeReallocFunc custom_realloc);
@@ -371,6 +429,35 @@ FORGE_AUDIO_API ForgeResult forge_voice_get_reverb_parameters(ForgeVoice *voice,
  */
 FORGE_AUDIO_API ForgeResult forge_voice_get_reverb_7point1_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                                       ForgeReverbParameters7Point1 *parameters);
+
+/* Targets selected continuous biquad parameters using ForgeAudio's internal
+ * default de-zip duration. Filter type is discrete and is changed only by a
+ * full blob parameter set in v1.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_set_biquad_parameters_target(ForgeVoice *voice, uint32_t effect_index,
+                                                                     const ForgeBiquadTarget *target,
+                                                                     ForgeAudioBatchId batch_id);
+
+/* Ramps selected continuous biquad parameters over exact rendered frames.
+ * Blob parameter sets are hard preset loads and cancel active typed biquad
+ * automation when they apply.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_biquad_parameters_frames(ForgeVoice *voice, uint32_t effect_index,
+                                                                      const ForgeBiquadTarget *target,
+                                                                      uint32_t duration_frames,
+                                                                      ForgeAudioBatchId batch_id);
+
+/* Ramps selected continuous biquad parameters over milliseconds converted
+ * through forge_audio_ms_to_frames when this function is called.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_biquad_parameters_ms(ForgeVoice *voice, uint32_t effect_index,
+                                                                  const ForgeBiquadTarget *target,
+                                                                  double duration_ms,
+                                                                  ForgeAudioBatchId batch_id);
+
+/* Gets the current effective clamped biquad parameters. */
+FORGE_AUDIO_API ForgeResult forge_voice_get_biquad_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                              ForgeBiquadParameters *parameters);
 
 #ifdef __cplusplus
 }

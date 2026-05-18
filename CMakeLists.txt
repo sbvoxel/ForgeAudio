@@ -85,6 +85,7 @@ add_library(ForgeAudio
     src/spatial_audio.c
     src/effect_base.c
     src/audio.c
+    src/biquad.c
     src/delay.c
     src/limiter.c
     src/reverb.c
@@ -170,6 +171,7 @@ if(BUILD_TESTS)
         tests/audio_render_harness.c
         tests/audio_render_harness.h
         tests/engine_render.c
+        tests/engine_render_biquad.c
         tests/engine_render_channel.c
         tests/engine_render_common.c
         tests/engine_render_core.c

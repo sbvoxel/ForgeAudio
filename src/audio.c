@@ -2049,6 +2049,152 @@ ForgeResult forge_voice_get_reverb_7point1_parameters(ForgeVoice *voice, uint32_
     return result;
 }
 
+static ForgeResult validate_biquad_target_arg(const ForgeBiquadTarget *target) {
+    if (target == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    if (target->field_mask == 0 || (target->field_mask & ~FORGE_BIQUAD_TARGET_ALL) != 0) {
+        return ForgeResultInvalidArgument;
+    }
+    return ForgeResultSuccess;
+}
+
+static ForgeResult validate_biquad_effect_slot(ForgeVoice *voice, uint32_t effect_index, ForgeEffect **effect) {
+    ForgeEffect *slot_effect;
+    ForgeResult result = ForgeResultSuccess;
+
+    fa_platform_lock_mutex(voice->effectLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        result = ForgeResultInvalidCall;
+    } else {
+        slot_effect = voice->effects.desc[effect_index].effect;
+        if (slot_effect == NULL || slot_effect->set_biquad_target == NULL ||
+            slot_effect->kind != ForgeEffectKindBiquad) {
+            result = ForgeResultInvalidCall;
+        } else if (effect != NULL) {
+            *effect = slot_effect;
+        }
+    }
+    fa_platform_unlock_mutex(voice->effectLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+
+    return result;
+}
+
+ForgeResult fa_voice_install_ramp_biquad_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                    const ForgeBiquadTarget *target, uint32_t duration_frames) {
+    ForgeEffect *effect;
+    ForgeResult result = validate_biquad_target_arg(target);
+
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+
+    fa_platform_lock_mutex(voice->effectLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        result = ForgeResultInvalidCall;
+    } else {
+        effect = voice->effects.desc[effect_index].effect;
+        if (effect == NULL || effect->set_biquad_target == NULL || effect->kind != ForgeEffectKindBiquad) {
+            result = ForgeResultInvalidCall;
+        } else {
+            result = effect->set_biquad_target(effect, target, duration_frames);
+        }
+    }
+    fa_platform_unlock_mutex(voice->effectLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+
+    return result;
+}
+
+static ForgeResult queue_or_install_ramp_biquad_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                           const ForgeBiquadTarget *target,
+                                                           uint32_t duration_frames,
+                                                           ForgeAudioBatchId batch_id) {
+    ForgeResult result = validate_biquad_target_arg(target);
+
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        return ForgeResultInvalidCall;
+    }
+    result = validate_biquad_effect_slot(voice, effect_index, NULL);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    if (voice->audio->active) {
+        fa_batch_queue_ramp_biquad_parameters(voice, effect_index, target, duration_frames, batch_id);
+        return ForgeResultSuccess;
+    }
+    return fa_voice_install_ramp_biquad_parameters(voice, effect_index, target, duration_frames);
+}
+
+ForgeResult forge_voice_set_biquad_parameters_target(ForgeVoice *voice, uint32_t effect_index,
+                                                     const ForgeBiquadTarget *target,
+                                                     ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_biquad_parameters(voice, effect_index, target,
+                                                     FA_AUTOMATION_DEFAULT_TARGET_FRAMES, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_biquad_parameters_frames(ForgeVoice *voice, uint32_t effect_index,
+                                                      const ForgeBiquadTarget *target,
+                                                      uint32_t duration_frames,
+                                                      ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_biquad_parameters(voice, effect_index, target, duration_frames, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_biquad_parameters_ms(ForgeVoice *voice, uint32_t effect_index,
+                                                  const ForgeBiquadTarget *target, double duration_ms,
+                                                  ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+
+    LOG_API_ENTER(voice->audio)
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_biquad_parameters(voice, effect_index, target, duration_frames, batch_id);
+    }
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_get_biquad_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                              ForgeBiquadParameters *parameters) {
+    ForgeEffect *effect;
+    ForgeResult result = ForgeResultSuccess;
+
+    if (parameters == NULL) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->effectLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        result = ForgeResultInvalidCall;
+    } else {
+        effect = voice->effects.desc[effect_index].effect;
+        if (effect == NULL || effect->kind != ForgeEffectKindBiquad) {
+            result = ForgeResultInvalidCall;
+        } else {
+            effect->get_parameters(effect, parameters, sizeof(*parameters));
+        }
+    }
+    fa_platform_unlock_mutex(voice->effectLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+    return result;
+}
+
 static ForgeResult validate_filter_target_arg(const ForgeFilterTarget *target) {
     if (target == NULL) {
         return ForgeResultInvalidCall;

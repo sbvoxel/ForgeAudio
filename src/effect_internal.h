@@ -89,6 +89,8 @@ typedef void(FORGE_EFFECT_CALL *ForgeEffectGetParametersFunc)(void *effect, void
                                                               uint32_t parameter_byte_size);
 typedef ForgeResult(FORGE_EFFECT_CALL *ForgeEffectSetReverbTargetFunc)(void *effect, const ForgeReverbTarget *target,
                                                                        uint32_t duration_frames);
+typedef ForgeResult(FORGE_EFFECT_CALL *ForgeEffectSetBiquadTargetFunc)(void *effect, const ForgeBiquadTarget *target,
+                                                                       uint32_t duration_frames);
 typedef void(FORGE_EFFECT_CALL *ForgeEffectAdvanceAutomationFunc)(void *effect, uint32_t frame_count);
 
 typedef enum ForgeEffectKind {
@@ -97,7 +99,8 @@ typedef enum ForgeEffectKind {
     ForgeEffectKindReverb7Point1,
     ForgeEffectKindVolumeMeter,
     ForgeEffectKindLimiter,
-    ForgeEffectKindDelay
+    ForgeEffectKindDelay,
+    ForgeEffectKindBiquad
 } ForgeEffectKind;
 
 struct ForgeEffect {
@@ -116,6 +119,7 @@ struct ForgeEffect {
     ForgeEffectGetParametersFunc get_parameters;
     ForgeEffectKind kind;
     ForgeEffectSetReverbTargetFunc set_reverb_target;
+    ForgeEffectSetBiquadTargetFunc set_biquad_target;
     ForgeEffectAdvanceAutomationFunc advance_automation;
 };
 

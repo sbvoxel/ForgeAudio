@@ -150,6 +150,21 @@ int main(void) {
                          test_reverb_zero_duration_ramp_snaps_after_render);
     failures += run_test("reverb_invalid_arguments", test_reverb_invalid_arguments);
     failures += run_test("reverb_7point1_target_and_getter", test_reverb_7point1_target_and_getter);
+    failures += run_test("biquad_creation_kind_and_destroy", test_biquad_creation_kind_and_destroy);
+    failures += run_test("biquad_format_validation_rejects_channel_change",
+                         test_biquad_format_validation_rejects_channel_change);
+    failures += run_test("biquad_parameter_clamping", test_biquad_parameter_clamping);
+    failures += run_test("biquad_blob_parameter_set_get_on_voice", test_biquad_blob_parameter_set_get_on_voice);
+    failures += run_test("biquad_wrong_effect_kind_for_typed_api", test_biquad_wrong_effect_kind_for_typed_api);
+    failures += run_test("biquad_wet_dry_and_in_place", test_biquad_wet_dry_and_in_place);
+    failures += run_test("biquad_lowpass_highpass_functional", test_biquad_lowpass_highpass_functional);
+    failures += run_test("biquad_disabled_and_reset_clear_state", test_biquad_disabled_and_reset_clear_state);
+    failures += run_test("biquad_coefficients_remain_finite_for_extremes",
+                         test_biquad_coefficients_remain_finite_for_extremes);
+    failures += run_test("biquad_typed_automation_getter_and_masks", test_biquad_typed_automation_getter_and_masks);
+    failures += run_test("biquad_deferred_zero_duration_and_blob_cancel",
+                         test_biquad_deferred_zero_duration_and_blob_cancel);
+    failures += run_test("biquad_uses_render_sample_rate_for_clamp", test_biquad_uses_render_sample_rate_for_clamp);
     failures += run_test("delay_creation_kind_and_destroy", test_delay_creation_kind_and_destroy);
     failures += run_test("delay_format_validation_rejects_channel_change",
                          test_delay_format_validation_rejects_channel_change);

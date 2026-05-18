@@ -21,6 +21,7 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_DISABLE_EFFECT,
     FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS,
     FORGE_AUDIO_COMMAND_RAMP_REVERB_PARAMETERS,
+    FORGE_AUDIO_COMMAND_RAMP_BIQUAD_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_FILTER_TYPE,
     FORGE_AUDIO_COMMAND_RAMP_FILTER,
@@ -62,6 +63,11 @@ struct ForgeAudioCommand {
             ForgeReverbTarget target;
             uint32_t duration_frames;
         } RampReverbParameters;
+        struct {
+            uint32_t effect_index;
+            ForgeBiquadTarget target;
+            uint32_t duration_frames;
+        } RampBiquadParameters;
         struct {
             ForgeFilterParameters Parameters;
         } SetFilterParameters;
@@ -176,6 +182,12 @@ static inline void execute_command(ForgeAudioCommand *op) {
         fa_voice_install_ramp_reverb_parameters(op->voice, op->Data.RampReverbParameters.effect_index,
                                                 &op->Data.RampReverbParameters.target,
                                                 op->Data.RampReverbParameters.duration_frames);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_BIQUAD_PARAMETERS:
+        fa_voice_install_ramp_biquad_parameters(op->voice, op->Data.RampBiquadParameters.effect_index,
+                                                &op->Data.RampBiquadParameters.target,
+                                                op->Data.RampBiquadParameters.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS:
@@ -460,6 +472,23 @@ void fa_batch_queue_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_in
     op->Data.RampReverbParameters.effect_index = effect_index;
     op->Data.RampReverbParameters.target = *target;
     op->Data.RampReverbParameters.duration_frames = duration_frames;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_ramp_biquad_parameters(ForgeVoice *voice, uint32_t effect_index, const ForgeBiquadTarget *target,
+                                           uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_BIQUAD_PARAMETERS, batch_id);
+
+    op->Data.RampBiquadParameters.effect_index = effect_index;
+    op->Data.RampBiquadParameters.target = *target;
+    op->Data.RampBiquadParameters.duration_frames = duration_frames;
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
@@ -818,7 +847,6 @@ static inline void remove_ready_automation_commands(ForgeVoice *voice, ForgeAudi
             remove = current->Data.RampOutputFilter.destination_voice == destination_voice ||
                      current->Data.RampOutputFilter.destination_voice == NULL || destination_voice == NULL;
         }
-
         next = current->next;
         if (remove) {
             if (prev == NULL) {
