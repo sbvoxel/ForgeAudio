@@ -132,6 +132,42 @@ static int expect_wma_buffer_submit_result(const char *name, ForgeResult expecte
     return 0;
 }
 
+static int expect_buffer_submit_result(const char *name, const ForgeBuffer *buffer, ForgeResult expected) {
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeResult result;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_virtual_master_voice failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL, NULL);
+    if (result != ForgeResultSuccess) {
+        fprintf(stderr, "%s: source voice creation failed: %d\n", name, result);
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    result = forge_source_voice_submit_buffer(voice, buffer, NULL);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != expected) {
+        fprintf(stderr, "%s: got %d, expected %d\n", name, result, expected);
+        return 1;
+    }
+
+    return 0;
+}
+
 static int test_pcm16_format_is_accepted(void) {
     return expect_simple_format_result("pcm16_simple", FORGE_AUDIO_FORMAT_PCM, 16, ForgeResultSuccess);
 }
@@ -213,6 +249,73 @@ static int test_wma_buffer_submit_is_unsupported(void) {
     return expect_wma_buffer_submit_result("wma_buffer_submit", ForgeResultUnsupportedFormat);
 }
 
+static int test_source_buffer_submit_validation(void) {
+    static const float samples[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+    ForgeBuffer buffer;
+    int failed = 0;
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+    failed |= expect_buffer_submit_result("buffer_submit_valid", &buffer, ForgeResultSuccess);
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples) - 1;
+    failed |= expect_buffer_submit_result("buffer_submit_unaligned_bytes", &buffer, ForgeResultInvalidCall);
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+    buffer.play_begin = 3;
+    buffer.play_length = 2;
+    failed |= expect_buffer_submit_result("buffer_submit_play_past_end", &buffer, ForgeResultInvalidCall);
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+    buffer.play_begin = UINT32_MAX;
+    buffer.play_length = 2;
+    failed |= expect_buffer_submit_result("buffer_submit_play_overflow", &buffer, ForgeResultInvalidCall);
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+    buffer.loop_begin = 1;
+    failed |= expect_buffer_submit_result("buffer_submit_loop_without_loop_count", &buffer, ForgeResultInvalidCall);
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+    buffer.play_begin = 1;
+    buffer.play_length = 2;
+    buffer.loop_begin = 3;
+    buffer.loop_count = 1;
+    failed |= expect_buffer_submit_result("buffer_submit_loop_begin_at_end", &buffer, ForgeResultInvalidCall);
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+    buffer.play_begin = 1;
+    buffer.play_length = 2;
+    buffer.loop_begin = 0;
+    buffer.loop_length = 1;
+    buffer.loop_count = 1;
+    failed |= expect_buffer_submit_result("buffer_submit_loop_before_play", &buffer, ForgeResultInvalidCall);
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+    buffer.play_begin = 1;
+    buffer.play_length = 2;
+    buffer.loop_begin = 1;
+    buffer.loop_length = 3;
+    buffer.loop_count = 1;
+    failed |= expect_buffer_submit_result("buffer_submit_loop_past_play", &buffer, ForgeResultInvalidCall);
+
+    return failed;
+}
+
 static int test_unknown_formats_are_rejected(void) {
     enum {
         unknown_format_tag = 0x1234
@@ -238,6 +341,7 @@ int main(void) {
     failed |= test_additional_float_bit_depths();
     failed |= test_compressed_formats_are_unsupported();
     failed |= test_wma_buffer_submit_is_unsupported();
+    failed |= test_source_buffer_submit_validation();
     failed |= test_unknown_formats_are_rejected();
 
     return failed;

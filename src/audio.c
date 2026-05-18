@@ -22,11 +22,10 @@
 #ifdef FORGE_AUDIO_DUMP_VOICES
 static void dump_voice_init(const ForgeSourceVoice *voice);
 static void dump_voice_finalize(const ForgeSourceVoice *voice);
-static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBuffer *buffer,
-                                             const ForgeBufferWMA *buffer_wma, const uint32_t size);
+static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBuffer *buffer, const uint32_t size);
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 
-static uint8_t validate_known_uncompressed_format(ForgeAudioEngine *audio, const ForgeAudioFormat *format) {
+static uint8_t validate_pcm_or_float_format(ForgeAudioEngine *audio, const ForgeAudioFormat *format) {
     const ForgeAudioFormat *base = format;
     uint8_t isPCM = 0;
     uint8_t isFloat = 0;
@@ -353,7 +352,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
         return ForgeResultUnsupportedFormat;
     }
 
-    if (!validate_known_uncompressed_format(audio, source_format)) {
+    if (!validate_pcm_or_float_format(audio, source_format)) {
         return ForgeResultInvalidCall;
     }
 
@@ -2367,7 +2366,7 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
 #ifdef FORGE_AUDIO_DUMP_VOICES
     /* dumping current buffer, append into "data" section */
     if (buffer->audio_data != NULL && entry->play_bytes > 0) {
-        dump_voice_write_buffer(voice, buffer, buffer_wma, entry->play_bytes);
+        dump_voice_write_buffer(voice, buffer, entry->play_bytes);
     }
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 
@@ -2653,10 +2652,6 @@ static void dump_voice_init(const ForgeSourceVoice *voice) {
         return;
     }
     fa_platform_lock_mutex((ForgeAudioMutex)io->lock);
-    /* another GREAT ressource
-     * https://wiki.multimedia.cx/index.php/Microsoft_xWMA
-     */
-
     /* wave file format taken from
      * http://soundfile.sapp.org/doc/WaveFormat
      * https://sites.google.com/site/musicgapi/technical-documents/wav-file-format
@@ -2687,18 +2682,7 @@ static void dump_voice_init(const ForgeSourceVoice *voice) {
      */
 
     uint16_t extra_size = format->extra_size;
-    const char *formatFourcc = "WAVE";
     uint16_t format_tag = format->format_tag;
-    /* special handling for WMAUDIO2 */
-    if (format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE && extra_size >= 22) {
-        const ForgeAudioFormatExtensible *format_ex = (const ForgeAudioFormatExtensible *)format;
-        uint16_t format_ex_tag = fa_format_id_tag(format_ex->format_id);
-        if (format_ex_tag == FORGE_AUDIO_FORMAT_WMAUDIO2) {
-            extra_size = 0;
-            formatFourcc = "XWMA";
-            format_tag = FORGE_AUDIO_FORMAT_WMAUDIO2;
-        }
-    }
 
     { /* RIFF chunk descriptor - 12 byte */
         /* ChunkID - 4 */
@@ -2707,7 +2691,7 @@ static void dump_voice_init(const ForgeSourceVoice *voice) {
         uint32_t filesize = 0; /* the real file size is written in finalize step */
         io->write(io->data, &filesize, 4, 1);
         /* format - 4 */
-        io->write(io->data, formatFourcc, 4, 1);
+        io->write(io->data, "WAVE", 4, 1);
     }
     { /* fmt sub-chunk 24 */
         /* Subchunk1ID - 4 */
@@ -2751,12 +2735,6 @@ static void dump_voice_init(const ForgeSourceVoice *voice) {
             }
         }
     }
-    { /* dpds sub-chunk - optional - 8 bytes + bufferWMA uint32_t samples */
-        /* create file to hold the bufferWMA samples */
-        ForgeAudioIOStreamOut *io_dpds = DumpVoices_fopen(voice, format, "wb", "dpds");
-        fa_dump_close_out(io_dpds);
-        /* io_dpds file will be filled by SubmitBuffer */
-    }
     { /* data sub-chunk - 8 bytes + data */
         /* create file to hold the data samples */
         ForgeAudioIOStreamOut *io_data = DumpVoices_fopen(voice, format, "wb", "data");
@@ -2770,8 +2748,6 @@ static void dump_voice_init(const ForgeSourceVoice *voice) {
 static void dump_voice_finalize(const ForgeSourceVoice *voice) {
     const ForgeAudioFormat *format = voice->src.format;
 
-    /* add dpds subchunk - optional */
-    DumpVoices_finalize_section(voice, format, "dpds");
     /* add data subchunk */
     DumpVoices_finalize_section(voice, format, "data");
 
@@ -2792,36 +2768,17 @@ static void dump_voice_finalize(const ForgeSourceVoice *voice) {
     fa_dump_close_out(io);
 }
 
-static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBuffer *buffer,
-                                             const ForgeBufferWMA *buffer_wma, const uint32_t size) {
+static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBuffer *buffer, const uint32_t size) {
     ForgeAudioIOStreamOut *io_data = DumpVoices_fopen(voice, voice->src.format, "ab", "data");
     if (io_data == NULL) {
         return;
     }
 
     fa_platform_lock_mutex((ForgeAudioMutex)io_data->lock);
-    if (buffer_wma != NULL) {
-        /* dump encoded buffer contents */
-        if (buffer_wma->packet_count > 0) {
-            ForgeAudioIOStreamOut *io_dpds = DumpVoices_fopen(voice, voice->src.format, "ab", "dpds");
-            if (io_dpds) {
-                fa_platform_lock_mutex((ForgeAudioMutex)io_dpds->lock);
-                /* write to dpds file */
-                io_dpds->write(io_dpds->data, buffer_wma->decoded_packet_cumulative_bytes, sizeof(uint32_t),
-                               buffer_wma->packet_count);
-                fa_platform_unlock_mutex((ForgeAudioMutex)io_dpds->lock);
-                fa_dump_close_out(io_dpds);
-            }
-            /* write buffer contents to data file */
-            io_data->write(io_data->data, buffer->audio_data, sizeof(uint8_t), buffer->audio_bytes);
-        }
-    } else {
-        /* dump unencoded buffer contents */
-        uint16_t bytesPerFrame = (voice->src.format->channels * voice->src.format->bits_per_sample / 8);
-        forge_assert(bytesPerFrame > 0);
-        const void *audio_data_begin = buffer->audio_data + buffer->play_begin * bytesPerFrame;
-        io_data->write(io_data->data, audio_data_begin, 1, size);
-    }
+    uint16_t bytesPerFrame = (voice->src.format->channels * voice->src.format->bits_per_sample / 8);
+    forge_assert(bytesPerFrame > 0);
+    const void *audio_data_begin = buffer->audio_data + buffer->play_begin * bytesPerFrame;
+    io_data->write(io_data->data, audio_data_begin, 1, size);
     fa_platform_unlock_mutex((ForgeAudioMutex)io_data->lock);
     fa_dump_close_out(io_data);
 }
