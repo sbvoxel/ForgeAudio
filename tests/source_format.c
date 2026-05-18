@@ -138,6 +138,21 @@ static int test_additional_float_bit_depths(void) {
     return failed;
 }
 
+static int test_compressed_formats_are_not_uncompressed_validated(void) {
+    int failed = 0;
+
+    failed |= expect_simple_format_result("wma2_simple_12bit", FORGE_AUDIO_FORMAT_WMAUDIO2, 12, ForgeResultSuccess);
+    failed |= expect_simple_format_result("wma3_simple_12bit", FORGE_AUDIO_FORMAT_WMAUDIO3, 12, ForgeResultSuccess);
+    failed |=
+        expect_extensible_format_result("wma2_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO2, 12, ForgeResultSuccess);
+    failed |=
+        expect_extensible_format_result("wma3_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO3, 12, ForgeResultSuccess);
+    failed |= expect_extensible_format_result("wma_lossless_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS, 12,
+                                              ForgeResultSuccess);
+
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
 
@@ -149,6 +164,7 @@ int main(void) {
     failed |= test_extensible_float16_format_is_rejected();
     failed |= test_additional_pcm_bit_depths();
     failed |= test_additional_float_bit_depths();
+    failed |= test_compressed_formats_are_not_uncompressed_validated();
 
     return failed;
 }

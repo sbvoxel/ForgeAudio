@@ -26,7 +26,7 @@ static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBu
                                              const ForgeBufferWMA *buffer_wma, const uint32_t size);
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 
-static uint8_t validate_uncompressed_format(ForgeAudioEngine *audio, const ForgeAudioFormat *format) {
+static uint8_t validate_known_uncompressed_format(ForgeAudioEngine *audio, const ForgeAudioFormat *format) {
     const ForgeAudioFormat *base = format;
     uint8_t isPCM = 0;
     uint8_t isFloat = 0;
@@ -40,6 +40,7 @@ static uint8_t validate_uncompressed_format(ForgeAudioEngine *audio, const Forge
         } else if (fa_format_id_equals(ext->format_id, fa_format_id_ieee_float)) {
             isFloat = 1;
         } else {
+            /* Compressed/opaque extensible formats are validated by their format-specific setup paths. */
             return 1;
         }
     } else if (format->format_tag == FORGE_AUDIO_FORMAT_PCM) {
@@ -47,6 +48,7 @@ static uint8_t validate_uncompressed_format(ForgeAudioEngine *audio, const Forge
     } else if (format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
         isFloat = 1;
     } else {
+        /* Compressed/opaque simple formats are validated by their format-specific setup paths. */
         return 1;
     }
 
@@ -330,7 +332,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
         return ForgeResultInvalidCall;
     }
 
-    if (!validate_uncompressed_format(audio, source_format)) {
+    if (!validate_known_uncompressed_format(audio, source_format)) {
         return ForgeResultInvalidCall;
     }
 
