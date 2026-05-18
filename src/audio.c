@@ -3683,7 +3683,7 @@ FORGE_AUDIO_API ForgeResult forge_master_voice_get_channel_mask(ForgeMasterVoice
 
 #ifdef FORGE_AUDIO_DUMP_VOICES
 
-static inline ForgeAudioIOStreamOut *DumpVoices_fopen(const ForgeSourceVoice *voice, const ForgeAudioFormat *format,
+static inline ForgeAudioIOStreamOut *dump_voices_fopen(const ForgeSourceVoice *voice, const ForgeAudioFormat *format,
                                                       const char *mode, const char *ext) {
     char loc[64];
     uint16_t format_tag = format->format_tag;
@@ -3694,15 +3694,15 @@ static inline ForgeAudioIOStreamOut *DumpVoices_fopen(const ForgeSourceVoice *vo
     }
     forge_snprintf(loc, sizeof(loc), "FA_fmt_0x%04X_0x%04X_0x%016lX%s.wav", format_tag, format_ex_tag, (uint64_t)voice,
                    ext);
-    ForgeAudioIOStreamOut *fileOut = fa_dump_fopen_out(loc, mode);
-    return fileOut;
+    ForgeAudioIOStreamOut *file_out = fa_dump_fopen_out(loc, mode);
+    return file_out;
 }
 
-static inline void DumpVoices_finalize_section(const ForgeSourceVoice *voice, const ForgeAudioFormat *format,
+static inline void dump_voices_finalize_section(const ForgeSourceVoice *voice, const ForgeAudioFormat *format,
                                                const char *section /* one of "data" or "dpds" */
 ) {
     /* data file only contains the real data bytes */
-    ForgeAudioIOStreamOut *io_data = DumpVoices_fopen(voice, format, "rb", section);
+    ForgeAudioIOStreamOut *io_data = dump_voices_fopen(voice, format, "rb", section);
     if (!io_data) {
         return;
     }
@@ -3717,7 +3717,7 @@ static inline void DumpVoices_finalize_section(const ForgeSourceVoice *voice, co
     }
 
     /* we got some data: append data section to main file */
-    ForgeAudioIOStreamOut *io = DumpVoices_fopen(voice, format, "ab", "");
+    ForgeAudioIOStreamOut *io = dump_voices_fopen(voice, format, "ab", "");
     if (!io) {
         /* close data file */
         fa_platform_unlock_mutex((ForgeAudioMutex)io_data->lock);
@@ -3750,7 +3750,7 @@ static inline void DumpVoices_finalize_section(const ForgeSourceVoice *voice, co
 static void dump_voice_init(const ForgeSourceVoice *voice) {
     const ForgeAudioFormat *format = voice->src.format;
 
-    ForgeAudioIOStreamOut *io = DumpVoices_fopen(voice, format, "wb", "");
+    ForgeAudioIOStreamOut *io = dump_voices_fopen(voice, format, "wb", "");
     if (!io) {
         return;
     }
@@ -3840,7 +3840,7 @@ static void dump_voice_init(const ForgeSourceVoice *voice) {
     }
     { /* data sub-chunk - 8 bytes + data */
         /* create file to hold the data samples */
-        ForgeAudioIOStreamOut *io_data = DumpVoices_fopen(voice, format, "wb", "data");
+        ForgeAudioIOStreamOut *io_data = dump_voices_fopen(voice, format, "wb", "data");
         fa_dump_close_out(io_data);
         /* io_data file will be filled by SubmitBuffer */
     }
@@ -3852,10 +3852,10 @@ static void dump_voice_finalize(const ForgeSourceVoice *voice) {
     const ForgeAudioFormat *format = voice->src.format;
 
     /* add data subchunk */
-    DumpVoices_finalize_section(voice, format, "data");
+    dump_voices_finalize_section(voice, format, "data");
 
     /* open main file to update filesize */
-    ForgeAudioIOStreamOut *io = DumpVoices_fopen(voice, format, "r+b", "");
+    ForgeAudioIOStreamOut *io = dump_voices_fopen(voice, format, "r+b", "");
     if (!io) {
         return;
     }
@@ -3872,7 +3872,7 @@ static void dump_voice_finalize(const ForgeSourceVoice *voice) {
 }
 
 static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBuffer *buffer, const uint32_t size) {
-    ForgeAudioIOStreamOut *io_data = DumpVoices_fopen(voice, voice->src.format, "ab", "data");
+    ForgeAudioIOStreamOut *io_data = dump_voices_fopen(voice, voice->src.format, "ab", "data");
     if (io_data == NULL) {
         return;
     }

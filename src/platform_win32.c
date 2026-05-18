@@ -45,8 +45,8 @@ static HRESULT init_hr;
 
 struct ForgeAudioWin32PlatformData {
     IAudioClient *client;
-    HANDLE audioThread;
-    HANDLE stopEvent;
+    HANDLE audio_thread;
+    HANDLE stop_event;
 };
 
 struct ForgeAudioAudioClientThreadArgs {
@@ -54,7 +54,7 @@ struct ForgeAudioAudioClientThreadArgs {
     IAudioClient *client;
     HANDLE events[2];
     ForgeAudioEngine *audio;
-    UINT updateSize;
+    UINT update_size;
 };
 
 void fa_platform_log_message(char const *msg) {
@@ -62,73 +62,73 @@ void fa_platform_log_message(char const *msg) {
 }
 
 static HMODULE kernelbase = NULL;
-static HRESULT(WINAPI *my_SetThreadDescription)(HANDLE, PCWSTR) = NULL;
+static HRESULT(WINAPI *set_thread_description)(HANDLE, PCWSTR) = NULL;
 
-static void ForgeAudio_ResolveSetThreadDescription(void) {
+static void resolve_set_thread_description(void) {
     kernelbase = LoadLibraryA("kernelbase.dll");
     if (!kernelbase)
         return;
 
-    my_SetThreadDescription = (HRESULT(WINAPI *)(HANDLE, PCWSTR))GetProcAddress(kernelbase, "SetThreadDescription");
-    if (!my_SetThreadDescription) {
+    set_thread_description = (HRESULT(WINAPI *)(HANDLE, PCWSTR))GetProcAddress(kernelbase, "SetThreadDescription");
+    if (!set_thread_description) {
         FreeLibrary(kernelbase);
         kernelbase = NULL;
     }
 }
 
-static void ForgeAudio_SetThreadName(char const *name) {
+static void set_thread_name(char const *name) {
     int ret;
-    WCHAR *nameW;
+    WCHAR *name_w;
 
-    if (!my_SetThreadDescription)
+    if (!set_thread_description)
         return;
 
     ret = MultiByteToWideChar(CP_UTF8, 0, name, -1, NULL, 0);
 
-    nameW = forge_malloc(ret * sizeof(WCHAR));
-    if (!nameW)
+    name_w = forge_malloc(ret * sizeof(WCHAR));
+    if (!name_w)
         return;
 
-    ret = MultiByteToWideChar(CP_UTF8, 0, name, -1, nameW, ret);
+    ret = MultiByteToWideChar(CP_UTF8, 0, name, -1, name_w, ret);
     if (ret)
-        my_SetThreadDescription(GetCurrentThread(), nameW);
+        set_thread_description(GetCurrentThread(), name_w);
 
-    forge_free(nameW);
+    forge_free(name_w);
 }
 
-static HRESULT ForgeAudio_FillAudioClientBuffer(struct ForgeAudioAudioClientThreadArgs *args,
+static HRESULT fill_audio_client_buffer(struct ForgeAudioAudioClientThreadArgs *args,
                                                 IAudioRenderClient *client, UINT frames, UINT padding) {
     HRESULT hr = S_OK;
     BYTE *buffer;
 
-    while (padding + args->updateSize <= frames) {
+    while (padding + args->update_size <= frames) {
         hr = IAudioRenderClient_GetBuffer(client, frames - padding, &buffer);
         if (FAILED(hr))
             return hr;
 
-        forge_zero(buffer, args->updateSize * args->format.format.block_align);
+        forge_zero(buffer, args->update_size * args->format.format.block_align);
 
         if (args->audio->active) {
             fa_audio_update_engine(args->audio, (float *)buffer);
         }
 
-        hr = IAudioRenderClient_ReleaseBuffer(client, args->updateSize, 0);
+        hr = IAudioRenderClient_ReleaseBuffer(client, args->update_size, 0);
         if (FAILED(hr))
             return hr;
 
-        padding += args->updateSize;
+        padding += args->update_size;
     }
 
     return hr;
 }
 
-static DWORD WINAPI ForgeAudio_AudioClientThread(void *user) {
+static DWORD WINAPI audio_client_thread(void *user) {
     struct ForgeAudioAudioClientThreadArgs *args = user;
     IAudioRenderClient *render_client;
     HRESULT hr = S_OK;
     UINT frames, padding = 0;
 
-    ForgeAudio_SetThreadName(__func__);
+    set_thread_name(__func__);
 
     hr = IAudioClient_GetService(args->client, &IID_IAudioRenderClient, (void **)&render_client);
     forge_assert(!FAILED(hr) && "Failed to get IAudioRenderClient service!");
@@ -136,7 +136,7 @@ static DWORD WINAPI ForgeAudio_AudioClientThread(void *user) {
     hr = IAudioClient_GetBufferSize(args->client, &frames);
     forge_assert(!FAILED(hr) && "Failed to get IAudioClient buffer size!");
 
-    hr = ForgeAudio_FillAudioClientBuffer(args, render_client, frames, 0);
+    hr = fill_audio_client_buffer(args, render_client, frames, 0);
     forge_assert(!FAILED(hr) && "Failed to initialize IAudioClient buffer!");
 
     hr = IAudioClient_Start(args->client);
@@ -150,7 +150,7 @@ static DWORD WINAPI ForgeAudio_AudioClientThread(void *user) {
         }
         forge_assert(!FAILED(hr) && "Failed to get IAudioClient current padding!");
 
-        hr = ForgeAudio_FillAudioClientBuffer(args, render_client, frames, padding);
+        hr = fill_audio_client_buffer(args, render_client, frames, padding);
         forge_assert(!FAILED(hr) && "Failed to fill IAudioClient buffer!");
     }
 
@@ -162,11 +162,11 @@ static DWORD WINAPI ForgeAudio_AudioClientThread(void *user) {
     return 0;
 }
 
-/* Sets `defaultDeviceIndex` to the default audio device index in
- * `deviceCollection`.
- * On failure, `defaultDeviceIndex` is not modified and the latest error is
+/* Sets `default_device_index_value` to the default audio device index in
+ * `device_collection`.
+ * On failure, `default_device_index_value` is not modified and the latest error is
  * returned. */
-static HRESULT ForgeAudio_DefaultDeviceIndex(IMMDeviceCollection *deviceCollection, uint32_t *defaultDeviceIndex) {
+static HRESULT default_device_index(IMMDeviceCollection *device_collection, uint32_t *default_device_index_value) {
     IMMDevice *device;
     HRESULT hr;
     uint32_t i, count;
@@ -187,7 +187,7 @@ static HRESULT ForgeAudio_DefaultDeviceIndex(IMMDeviceCollection *deviceCollecti
     /* Free the default device. */
     IMMDevice_Release(device);
 
-    hr = IMMDeviceCollection_GetCount(deviceCollection, &count);
+    hr = IMMDeviceCollection_GetCount(device_collection, &count);
     if (FAILED(hr)) {
         CoTaskMemFree(default_guid);
         return hr;
@@ -195,7 +195,7 @@ static HRESULT ForgeAudio_DefaultDeviceIndex(IMMDeviceCollection *deviceCollecti
 
     for (i = 0; i < count; i += 1) {
         /* Open the device and get its GUID. */
-        hr = IMMDeviceCollection_Item(deviceCollection, i, &device);
+        hr = IMMDeviceCollection_Item(device_collection, i, &device);
         if (FAILED(hr)) {
             CoTaskMemFree(default_guid);
             return hr;
@@ -212,7 +212,7 @@ static HRESULT ForgeAudio_DefaultDeviceIndex(IMMDeviceCollection *deviceCollecti
             CoTaskMemFree(default_guid);
             CoTaskMemFree(device_guid);
             IMMDevice_Release(device);
-            *defaultDeviceIndex = i;
+            *default_device_index_value = i;
             return S_OK;
         }
 
@@ -221,65 +221,65 @@ static HRESULT ForgeAudio_DefaultDeviceIndex(IMMDeviceCollection *deviceCollecti
     }
 
     /* This should probably never happen. Just in case, set
-     * `defaultDeviceIndex` to 0 and return S_OK. */
+     * `default_device_index_value` to 0 and return S_OK. */
     CoTaskMemFree(default_guid);
-    *defaultDeviceIndex = 0;
+    *default_device_index_value = 0;
     return S_OK;
 }
 
-/* Open `device`, corresponding to `deviceIndex`. `deviceIndex` 0 always
+/* Open `device`, corresponding to `device_index`. `device_index` 0 always
  * corresponds to the default device. ForgeAudio exposes the default device at
- * index 0 by swapping the devices at indexes 0 and `defaultDeviceIndex`.
+ * index 0 by swapping the devices at indexes 0 and `default_device_index_value`.
  */
-static HRESULT ForgeAudio_OpenDevice(uint32_t deviceIndex, IMMDevice **device) {
-    IMMDeviceCollection *deviceCollection;
+static HRESULT open_device(uint32_t device_index, IMMDevice **device) {
+    IMMDeviceCollection *device_collection;
     HRESULT hr;
-    uint32_t defaultDeviceIndex;
-    uint32_t actualIndex;
+    uint32_t default_device_index_value;
+    uint32_t actual_index;
 
     *device = NULL;
 
-    hr = IMMDeviceEnumerator_EnumAudioEndpoints(device_enumerator, eRender, DEVICE_STATE_ACTIVE, &deviceCollection);
+    hr = IMMDeviceEnumerator_EnumAudioEndpoints(device_enumerator, eRender, DEVICE_STATE_ACTIVE, &device_collection);
     if (FAILED(hr)) {
         return hr;
     }
 
     /* Get the default device index. */
-    hr = ForgeAudio_DefaultDeviceIndex(deviceCollection, &defaultDeviceIndex);
+    hr = default_device_index(device_collection, &default_device_index_value);
     if (FAILED(hr)) {
-        IMMDeviceCollection_Release(deviceCollection);
+        IMMDeviceCollection_Release(device_collection);
         return hr;
     }
 
-    if (deviceIndex == 0) {
+    if (device_index == 0) {
         /* Default device. */
-        actualIndex = defaultDeviceIndex;
-    } else if (deviceIndex == defaultDeviceIndex) {
+        actual_index = default_device_index_value;
+    } else if (device_index == default_device_index_value) {
         /* Open the device at index 0 instead of the "correct" one. */
-        actualIndex = 0;
+        actual_index = 0;
     } else {
         /* Otherwise, just open the device. */
-        actualIndex = deviceIndex;
+        actual_index = device_index;
     }
-    hr = IMMDeviceCollection_Item(deviceCollection, actualIndex, device);
+    hr = IMMDeviceCollection_Item(device_collection, actual_index, device);
     if (FAILED(hr)) {
-        IMMDeviceCollection_Release(deviceCollection);
+        IMMDeviceCollection_Release(device_collection);
         return hr;
     }
 
-    IMMDeviceCollection_Release(deviceCollection);
+    IMMDeviceCollection_Release(device_collection);
 
     return hr;
 }
 
-void fa_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t deviceIndex,
-                      ForgeAudioFormatExtensible *mixFormat, uint32_t *updateSize, void **platformDevice) {
+void fa_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t device_index,
+                      ForgeAudioFormatExtensible *mix_format, uint32_t *update_size, void **platform_device) {
     struct ForgeAudioAudioClientThreadArgs *args;
     struct ForgeAudioWin32PlatformData *data;
     REFERENCE_TIME duration;
     IMMDevice *device = NULL;
     HRESULT hr;
-    HANDLE audioEvent = NULL;
+    HANDLE audio_event = NULL;
     BOOL has_sse2 = IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE);
 #if defined(__aarch64__) || defined(_M_ARM64) || defined(__arm64ec__) || defined(_M_ARM64EC)
     BOOL has_neon = TRUE;
@@ -289,9 +289,9 @@ void fa_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t deviceIn
     BOOL has_neon = FALSE;
 #endif
     fa_simd_init_functions(has_sse2, has_neon);
-    ForgeAudio_ResolveSetThreadDescription();
+    resolve_set_thread_description();
 
-    *platformDevice = NULL;
+    *platform_device = NULL;
 
     args = forge_malloc(sizeof(*args));
     forge_assert(!!args && "Failed to allocate ForgeAudio thread args!");
@@ -300,27 +300,27 @@ void fa_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t deviceIn
     forge_assert(!!data && "Failed to allocate ForgeAudio platform data!");
     forge_zero(data, sizeof(*data));
 
-    args->format.format.format_tag = mixFormat->format.format_tag;
-    args->format.format.channels = mixFormat->format.channels;
-    args->format.format.sample_rate = mixFormat->format.sample_rate;
-    args->format.format.average_bytes_per_second = mixFormat->format.average_bytes_per_second;
-    args->format.format.block_align = mixFormat->format.block_align;
-    args->format.format.bits_per_sample = mixFormat->format.bits_per_sample;
-    args->format.format.extra_size = mixFormat->format.extra_size;
+    args->format.format.format_tag = mix_format->format.format_tag;
+    args->format.format.channels = mix_format->format.channels;
+    args->format.format.sample_rate = mix_format->format.sample_rate;
+    args->format.format.average_bytes_per_second = mix_format->format.average_bytes_per_second;
+    args->format.format.block_align = mix_format->format.block_align;
+    args->format.format.bits_per_sample = mix_format->format.bits_per_sample;
+    args->format.format.extra_size = mix_format->format.extra_size;
 
     if (args->format.format.format_tag == WAVE_FORMAT_EXTENSIBLE) {
-        args->format.samples.valid_bits_per_sample = mixFormat->samples.valid_bits_per_sample;
-        args->format.channel_mask = mixFormat->channel_mask;
-        forge_memcpy(&args->format.sub_format, mixFormat->format_id, FORGE_AUDIO_FORMAT_ID_SIZE);
+        args->format.samples.valid_bits_per_sample = mix_format->samples.valid_bits_per_sample;
+        args->format.channel_mask = mix_format->channel_mask;
+        forge_memcpy(&args->format.sub_format, mix_format->format_id, FORGE_AUDIO_FORMAT_ID_SIZE);
     }
 
-    audioEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
-    forge_assert(!!audioEvent && "Failed to create ForgeAudio thread buffer event!");
+    audio_event = CreateEventW(NULL, FALSE, FALSE, NULL);
+    forge_assert(!!audio_event && "Failed to create ForgeAudio thread buffer event!");
 
-    data->stopEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
-    forge_assert(!!data->stopEvent && "Failed to create ForgeAudio thread stop event!");
+    data->stop_event = CreateEventW(NULL, FALSE, FALSE, NULL);
+    forge_assert(!!data->stop_event && "Failed to create ForgeAudio thread stop event!");
 
-    hr = ForgeAudio_OpenDevice(deviceIndex, &device);
+    hr = open_device(device_index, &device);
     forge_assert(!FAILED(hr) && "Failed to get audio device!");
 
     hr = IMMDevice_Activate(device, &IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&data->client);
@@ -337,51 +337,51 @@ void fa_platform_init(ForgeAudioEngine *audio, uint32_t flags, uint32_t deviceIn
                                  0, &args->format.format, &GUID_NULL);
     forge_assert(!FAILED(hr) && "Failed to initialize audio client!");
 
-    hr = IAudioClient_SetEventHandle(data->client, audioEvent);
+    hr = IAudioClient_SetEventHandle(data->client, audio_event);
     forge_assert(!FAILED(hr) && "Failed to set audio client event!");
 
-    mixFormat->format.format_tag = args->format.format.format_tag;
-    mixFormat->format.channels = args->format.format.channels;
-    mixFormat->format.sample_rate = args->format.format.sample_rate;
-    mixFormat->format.average_bytes_per_second = args->format.format.average_bytes_per_second;
-    mixFormat->format.block_align = args->format.format.block_align;
-    mixFormat->format.bits_per_sample = args->format.format.bits_per_sample;
+    mix_format->format.format_tag = args->format.format.format_tag;
+    mix_format->format.channels = args->format.format.channels;
+    mix_format->format.sample_rate = args->format.format.sample_rate;
+    mix_format->format.average_bytes_per_second = args->format.format.average_bytes_per_second;
+    mix_format->format.block_align = args->format.format.block_align;
+    mix_format->format.bits_per_sample = args->format.format.bits_per_sample;
 
     if (args->format.format.format_tag == WAVE_FORMAT_EXTENSIBLE) {
-        mixFormat->format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
-        mixFormat->samples.valid_bits_per_sample = args->format.samples.valid_bits_per_sample;
-        mixFormat->channel_mask = args->format.channel_mask;
-        forge_memcpy(mixFormat->format_id, &args->format.sub_format, FORGE_AUDIO_FORMAT_ID_SIZE);
+        mix_format->format.extra_size = sizeof(ForgeAudioFormatExtensible) - sizeof(ForgeAudioFormat);
+        mix_format->samples.valid_bits_per_sample = args->format.samples.valid_bits_per_sample;
+        mix_format->channel_mask = args->format.channel_mask;
+        forge_memcpy(mix_format->format_id, &args->format.sub_format, FORGE_AUDIO_FORMAT_ID_SIZE);
     } else {
-        mixFormat->format.extra_size = sizeof(ForgeAudioFormat);
+        mix_format->format.extra_size = sizeof(ForgeAudioFormat);
     }
 
     args->client = data->client;
-    args->events[0] = audioEvent;
-    args->events[1] = data->stopEvent;
+    args->events[0] = audio_event;
+    args->events[1] = data->stop_event;
     args->audio = audio;
     if (flags & FORGE_AUDIO_1024_QUANTUM)
-        args->updateSize = args->format.format.sample_rate / (1000.0 / (64.0 / 3.0));
+        args->update_size = args->format.format.sample_rate / (1000.0 / (64.0 / 3.0));
     else
-        args->updateSize = args->format.format.sample_rate / 100;
+        args->update_size = args->format.format.sample_rate / 100;
 
-    data->audioThread = CreateThread(NULL, 0, &ForgeAudio_AudioClientThread, args, 0, NULL);
-    forge_assert(!!data->audioThread && "Failed to create audio client thread!");
+    data->audio_thread = CreateThread(NULL, 0, &audio_client_thread, args, 0, NULL);
+    forge_assert(!!data->audio_thread && "Failed to create audio client thread!");
 
-    *updateSize = args->updateSize;
-    *platformDevice = data;
+    *update_size = args->update_size;
+    *platform_device = data;
     return;
 }
 
-void fa_platform_quit(void *platformDevice) {
-    struct ForgeAudioWin32PlatformData *data = platformDevice;
+void fa_platform_quit(void *platform_device) {
+    struct ForgeAudioWin32PlatformData *data = platform_device;
 
-    SetEvent(data->stopEvent);
-    WaitForSingleObject(data->audioThread, INFINITE);
+    SetEvent(data->stop_event);
+    WaitForSingleObject(data->audio_thread, INFINITE);
     if (data->client)
         IAudioClient_Release(data->client);
     if (kernelbase) {
-        my_SetThreadDescription = NULL;
+        set_thread_description = NULL;
         FreeLibrary(kernelbase);
         kernelbase = NULL;
     }
@@ -443,7 +443,7 @@ ForgeResult fa_platform_get_device_details(uint32_t index, ForgeDeviceDetails *d
     IAudioClient *client;
     IMMDevice *device;
     IPropertyStore *properties;
-    PROPVARIANT deviceName;
+    PROPVARIANT device_name;
     uint32_t count = 0;
     ForgeResult ret = ForgeResultSuccess;
     HRESULT hr;
@@ -460,7 +460,7 @@ ForgeResult fa_platform_get_device_details(uint32_t index, ForgeDeviceDetails *d
         return ForgeResultInvalidCall;
     }
 
-    if (FAILED(hr = ForgeAudio_OpenDevice(index, &device))) {
+    if (FAILED(hr = open_device(index, &device))) {
         fa_platform_release();
         return hr;
     }
@@ -477,14 +477,14 @@ ForgeResult fa_platform_get_device_details(uint32_t index, ForgeDeviceDetails *d
         fa_platform_release();
         return hr;
     }
-    if (FAILED(hr = IPropertyStore_GetValue(properties, (PROPERTYKEY *)&DEVPKEY_Device_FriendlyName, &deviceName))) {
+    if (FAILED(hr = IPropertyStore_GetValue(properties, (PROPERTYKEY *)&DEVPKEY_Device_FriendlyName, &device_name))) {
         IPropertyStore_Release(properties);
         IMMDevice_Release(device);
         fa_platform_release();
         return hr;
     }
-    lstrcpynW((LPWSTR)details->display_name, deviceName.pwszVal, ARRAYSIZE(details->display_name) - 1);
-    PropVariantClear(&deviceName);
+    lstrcpynW((LPWSTR)details->display_name, device_name.pwszVal, ARRAYSIZE(details->display_name) - 1);
+    PropVariantClear(&device_name);
     IPropertyStore_Release(properties);
 
     /* Set the Device ID */
@@ -589,7 +589,7 @@ static DWORD WINAPI fa_platform_thread_wrapper(void *user) {
     struct ForgeAudioThreadArgs *args = user;
     DWORD ret;
 
-    ForgeAudio_SetThreadName(args->name);
+    set_thread_name(args->name);
     ret = args->func(args->data);
 
     forge_free(args);
@@ -632,20 +632,20 @@ uint32_t fa_platform_time_ms(void) {
 
 /* ForgeAudio I/O */
 
-static size_t FORGE_AUDIO_CALL ForgeAudio_File_read(void *data, void *dst, size_t size, size_t count) {
+static size_t FORGE_AUDIO_CALL win32_file_read(void *data, void *dst, size_t size, size_t count) {
     if (!data)
         return 0;
     return fread(dst, size, count, data);
 }
 
-static int64_t FORGE_AUDIO_CALL ForgeAudio_File_seek(void *data, int64_t offset, int whence) {
+static int64_t FORGE_AUDIO_CALL win32_file_seek(void *data, int64_t offset, int whence) {
     if (!data)
         return -1;
     fseek(data, offset, whence);
     return ftell(data);
 }
 
-static int FORGE_AUDIO_CALL ForgeAudio_File_close(void *data) {
+static int FORGE_AUDIO_CALL win32_file_close(void *data) {
     if (!data)
         return 0;
     fclose(data);
@@ -660,9 +660,9 @@ ForgeIOStream *forge_audio_fopen(const char *path) {
         return NULL;
 
     io->data = fopen(path, "rb");
-    io->read = ForgeAudio_File_read;
-    io->seek = ForgeAudio_File_seek;
-    io->close = ForgeAudio_File_close;
+    io->read = win32_file_read;
+    io->seek = win32_file_seek;
+    io->close = win32_file_close;
     io->lock = fa_platform_create_mutex();
 
     return io;
@@ -674,7 +674,7 @@ struct ForgeAudioMemStream {
     int64_t pos;
 };
 
-static size_t FORGE_AUDIO_CALL ForgeAudio_MemRead(void *data, void *dst, size_t size, size_t count) {
+static size_t FORGE_AUDIO_CALL win32_mem_read(void *data, void *dst, size_t size, size_t count) {
     struct ForgeAudioMemStream *io = data;
     size_t len = size * count;
 
@@ -689,7 +689,7 @@ static size_t FORGE_AUDIO_CALL ForgeAudio_MemRead(void *data, void *dst, size_t 
     return len;
 }
 
-static int64_t FORGE_AUDIO_CALL ForgeAudio_MemSeek(void *data, int64_t offset, int whence) {
+static int64_t FORGE_AUDIO_CALL win32_mem_seek(void *data, int64_t offset, int whence) {
     struct ForgeAudioMemStream *io = data;
     if (!data)
         return -1;
@@ -716,7 +716,7 @@ static int64_t FORGE_AUDIO_CALL ForgeAudio_MemSeek(void *data, int64_t offset, i
     return io->pos;
 }
 
-static int FORGE_AUDIO_CALL ForgeAudio_MemClose(void *data) {
+static int FORGE_AUDIO_CALL win32_mem_close(void *data) {
     if (!data)
         return 0;
     forge_free(data);
@@ -742,9 +742,9 @@ ForgeIOStream *forge_audio_memopen(void *mem, int len) {
     data->pos = 0;
 
     io->data = data;
-    io->read = ForgeAudio_MemRead;
-    io->seek = ForgeAudio_MemSeek;
-    io->close = ForgeAudio_MemClose;
+    io->read = win32_mem_read;
+    io->seek = win32_mem_seek;
+    io->close = win32_mem_close;
     io->lock = fa_platform_create_mutex();
     return io;
 }
