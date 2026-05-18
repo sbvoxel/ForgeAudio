@@ -69,7 +69,6 @@ struct ForgeEffectBase {
 FORGE_INTERNAL_API void fa_effect_base_init(ForgeEffectBase *effect, const ForgeEffectInfo *effect_info,
                                             uint8_t *parameters, uint32_t parameter_block_byte_size);
 
-/* See "extensions/custom allocator.txt" for more information. */
 FORGE_INTERNAL_API void fa_effect_base_init_with_allocator(ForgeEffectBase *effect, const ForgeEffectInfo *effect_info,
                                                            uint8_t *parameters, uint32_t parameter_block_byte_size,
                                                            ForgeMallocFunc custom_malloc, ForgeFreeFunc custom_free,

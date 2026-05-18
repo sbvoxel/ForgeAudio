@@ -14,7 +14,7 @@ ForgeAudio is an independent audio library derived from FAudio.
 
 Current state:
 
-- The public headers, build targets, symbols, result types, and extension documents use ForgeAudio names and conventions.
+- The public headers, build targets, symbols, and result types use ForgeAudio names and conventions.
 - XACT, XNA song support, MSADPCM source support, legacy compatibility utilities, generated project files, and inherited packaging have been removed.
 - The build has been simplified around CMake and C23.
 - SDL3 is the default portable backend path, with a native Win32 path still available behind `PLATFORM_WIN32`.
