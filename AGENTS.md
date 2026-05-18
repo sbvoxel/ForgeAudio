@@ -10,3 +10,4 @@
 # ForgeAudio Runtime Semantics
 
 - Engine/batch code owns timeline semantics: command ordering, batch boundaries, ms-to-frame conversion, ramp duration, and timeline advancement. Effects own parameter meaning and DSP-safe application: validation, interpolation domain, coefficient/state updates, and whether a field is smoothable, hard-set, rebuild-only, or crossfade-only.
+- Hard setters cancel matching automation only when the setter applies on the audio timeline. Do not delete matching pending deferred batch commands; deferred batches remain isolated until `forge_audio_apply_batch` moves them to the ready queue.
