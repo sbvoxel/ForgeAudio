@@ -1581,12 +1581,6 @@ ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels
         return ForgeResultInvalidCall;
     }
 
-    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
-        fa_batch_queue_set_channel_volumes(voice, channels, volumes, batch_id);
-        LOG_API_EXIT(voice->audio)
-        return 0;
-    }
-
     if (volumes == NULL) {
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
@@ -1600,6 +1594,12 @@ ForgeResult forge_voice_set_channel_volumes(ForgeVoice *voice, uint32_t channels
     if (channels != voice->outputChannels) {
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        fa_batch_queue_set_channel_volumes(voice, channels, volumes, batch_id);
+        LOG_API_EXIT(voice->audio)
+        return 0;
     }
 
     fa_platform_lock_mutex(voice->sendLock);
@@ -1697,6 +1697,11 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
         return ForgeResultInvalidCall;
     }
 
+    if (level_matrix == NULL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
     if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
         fa_batch_queue_set_output_matrix(voice, destination_voice, source_channels, destination_channels, level_matrix,
                                          batch_id);
@@ -1711,7 +1716,10 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
     if (destination_voice == NULL && voice->sends.send_count == 1) {
         destination_voice = voice->sends.sends[0].send.output_voice;
     }
-    forge_assert(destination_voice != NULL);
+    if (destination_voice == NULL) {
+        result = ForgeResultInvalidCall;
+        goto end;
+    }
     for (i = 0; i < voice->sends.send_count; i += 1) {
         if (destination_voice == voice->sends.sends[i].send.output_voice) {
             break;
@@ -1799,7 +1807,10 @@ ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destin
     if (destination_voice == NULL && voice->sends.send_count == 1) {
         destination_voice = voice->sends.sends[0].send.output_voice;
     }
-    forge_assert(destination_voice != NULL);
+    if (destination_voice == NULL) {
+        result = ForgeResultInvalidCall;
+        goto end;
+    }
     for (i = 0; i < voice->sends.send_count; i += 1) {
         if (destination_voice == voice->sends.sends[i].send.output_voice) {
             break;
