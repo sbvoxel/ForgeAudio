@@ -51,10 +51,3 @@ void fa_decode_pcm32f(ForgeVoice *voice, const void *src, float *decodeCache, ui
     forge_memcpy(decodeCache, src, sizeof(float) * samples * voice->src.format->channels);
     LOG_FUNC_EXIT(voice->audio)
 }
-
-void fa_decode_wma_error(ForgeVoice *voice, const void *src, float *decodeCache, uint32_t samples) {
-    LOG_FUNC_ENTER(voice->audio)
-    LOG_ERROR(voice->audio, "%s", "WMA IS NOT SUPPORTED IN THIS BUILD!")
-    forge_zero(decodeCache, samples * voice->src.format->channels * sizeof(float));
-    LOG_FUNC_EXIT(voice->audio)
-}

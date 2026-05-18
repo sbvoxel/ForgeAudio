@@ -826,7 +826,7 @@ FORGE_AUDIO_API ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice
 /* Submits a block of wavedata for the source to process.
  *
  * buffer:    See ForgeBuffer for details.
- * buffer_wma:    See ForgeBufferWMA for details. (Also, don't use WMA.)
+ * buffer_wma:    Must be NULL. WMA source buffers are not supported.
  *
  * Returns ForgeResultSuccess on success.
  */

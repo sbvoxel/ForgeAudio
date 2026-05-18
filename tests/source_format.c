@@ -85,6 +85,53 @@ static int expect_extensible_format_result(const char *name, uint16_t format_tag
     return expect_source_format_result(name, &format.format, expected);
 }
 
+static int expect_wma_buffer_submit_result(const char *name, ForgeResult expected) {
+    static const float samples[1] = {1.0f};
+    static const uint32_t cumulative_bytes[1] = {sizeof(samples)};
+    ForgeAudioFormat format = make_format(FORGE_AUDIO_FORMAT_IEEE_FLOAT, 32);
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeBuffer buffer;
+    ForgeBufferWMA buffer_wma;
+    ForgeResult result;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 64, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "forge_audio_test_create_virtual_master_voice failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    result = forge_audio_create_source_voice(audio, &voice, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL, NULL);
+    if (result != ForgeResultSuccess) {
+        fprintf(stderr, "%s: source voice creation failed: %d\n", name, result);
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    forge_zero(&buffer, sizeof(buffer));
+    buffer.audio_data = (const uint8_t *)samples;
+    buffer.audio_bytes = sizeof(samples);
+
+    buffer_wma.decoded_packet_cumulative_bytes = cumulative_bytes;
+    buffer_wma.packet_count = 1;
+
+    result = forge_source_voice_submit_buffer(voice, &buffer, &buffer_wma);
+    forge_audio_test_destroy_offline_engine(audio);
+
+    if (result != expected) {
+        fprintf(stderr, "%s: got %d, expected %d\n", name, result, expected);
+        return 1;
+    }
+
+    return 0;
+}
+
 static int test_pcm16_format_is_accepted(void) {
     return expect_simple_format_result("pcm16_simple", FORGE_AUDIO_FORMAT_PCM, 16, ForgeResultSuccess);
 }
@@ -138,19 +185,32 @@ static int test_additional_float_bit_depths(void) {
     return failed;
 }
 
-static int test_compressed_formats_are_not_uncompressed_validated(void) {
+static int test_compressed_formats_are_unsupported(void) {
     int failed = 0;
 
-    failed |= expect_simple_format_result("wma2_simple_12bit", FORGE_AUDIO_FORMAT_WMAUDIO2, 12, ForgeResultSuccess);
-    failed |= expect_simple_format_result("wma3_simple_12bit", FORGE_AUDIO_FORMAT_WMAUDIO3, 12, ForgeResultSuccess);
     failed |=
-        expect_extensible_format_result("wma2_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO2, 12, ForgeResultSuccess);
+        expect_simple_format_result("wma2_simple_12bit", FORGE_AUDIO_FORMAT_WMAUDIO2, 12, ForgeResultUnsupportedFormat);
     failed |=
-        expect_extensible_format_result("wma3_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO3, 12, ForgeResultSuccess);
+        expect_simple_format_result("wma3_simple_12bit", FORGE_AUDIO_FORMAT_WMAUDIO3, 12, ForgeResultUnsupportedFormat);
+    failed |= expect_simple_format_result("wma_lossless_simple_12bit", FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS, 12,
+                                          ForgeResultUnsupportedFormat);
+    failed |=
+        expect_simple_format_result("xma2_simple_12bit", FORGE_AUDIO_FORMAT_XMAUDIO2, 12, ForgeResultUnsupportedFormat);
+
+    failed |= expect_extensible_format_result("wma2_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO2, 12,
+                                              ForgeResultUnsupportedFormat);
+    failed |= expect_extensible_format_result("wma3_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO3, 12,
+                                              ForgeResultUnsupportedFormat);
     failed |= expect_extensible_format_result("wma_lossless_extensible_12bit", FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS, 12,
-                                              ForgeResultSuccess);
+                                              ForgeResultUnsupportedFormat);
+    failed |= expect_extensible_format_result("xma2_extensible_12bit", FORGE_AUDIO_FORMAT_XMAUDIO2, 12,
+                                              ForgeResultUnsupportedFormat);
 
     return failed;
+}
+
+static int test_wma_buffer_submit_is_unsupported(void) {
+    return expect_wma_buffer_submit_result("wma_buffer_submit", ForgeResultUnsupportedFormat);
 }
 
 static int test_unknown_formats_are_rejected(void) {
@@ -165,10 +225,6 @@ static int test_unknown_formats_are_rejected(void) {
     return failed;
 }
 
-static int test_xma2_format_is_unsupported(void) {
-    return expect_simple_format_result("xma2_simple", FORGE_AUDIO_FORMAT_XMAUDIO2, 32, ForgeResultUnsupportedFormat);
-}
-
 int main(void) {
     int failed = 0;
 
@@ -180,9 +236,9 @@ int main(void) {
     failed |= test_extensible_float16_format_is_rejected();
     failed |= test_additional_pcm_bit_depths();
     failed |= test_additional_float_bit_depths();
-    failed |= test_compressed_formats_are_not_uncompressed_validated();
+    failed |= test_compressed_formats_are_unsupported();
+    failed |= test_wma_buffer_submit_is_unsupported();
     failed |= test_unknown_formats_are_rejected();
-    failed |= test_xma2_format_is_unsupported();
 
     return failed;
 }

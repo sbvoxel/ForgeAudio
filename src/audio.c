@@ -39,11 +39,6 @@ static uint8_t validate_known_uncompressed_format(ForgeAudioEngine *audio, const
             isPCM = 1;
         } else if (fa_format_id_equals(ext->format_id, fa_format_id_ieee_float)) {
             isFloat = 1;
-        } else if (fa_format_id_equals(ext->format_id, fa_format_id_wmaudio2) ||
-                   fa_format_id_equals(ext->format_id, fa_format_id_wmaudio3) ||
-                   fa_format_id_equals(ext->format_id, fa_format_id_wmaudio_lossless)) {
-            /* Known compressed extensible formats are handled by their format-specific setup paths. */
-            return 1;
         } else {
             LOG_ERROR(audio, "%s", "Unsupported extensible source format identifier");
             return 0;
@@ -52,11 +47,6 @@ static uint8_t validate_known_uncompressed_format(ForgeAudioEngine *audio, const
         isPCM = 1;
     } else if (format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
         isFloat = 1;
-    } else if (format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO2 ||
-               format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO3 ||
-               format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
-        /* Known compressed simple formats are handled by their format-specific setup paths. */
-        return 1;
     } else {
         LOG_ERROR(audio, "Unsupported source format tag: %u", format->format_tag);
         return 0;
@@ -85,6 +75,22 @@ static uint8_t validate_known_uncompressed_format(ForgeAudioEngine *audio, const
     }
 
     return 1;
+}
+
+static uint8_t is_unsupported_compressed_source_format(const ForgeAudioFormat *format) {
+    if (format->format_tag == FORGE_AUDIO_FORMAT_EXTENSIBLE) {
+        const ForgeAudioFormatExtensible *ext = (const ForgeAudioFormatExtensible *)format;
+
+        return fa_format_id_equals(ext->format_id, fa_format_id_wmaudio2) ||
+               fa_format_id_equals(ext->format_id, fa_format_id_wmaudio3) ||
+               fa_format_id_equals(ext->format_id, fa_format_id_wmaudio_lossless) ||
+               fa_format_id_equals(ext->format_id, fa_format_id_xmaudio2);
+    }
+
+    return format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO2 ||
+           format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO3 ||
+           format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS ||
+           format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2;
 }
 
 static uint32_t send_list_output_rate(ForgeAudioEngine *audio, const ForgeSendList *send_list) {
@@ -342,13 +348,13 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
         return ForgeResultInvalidCall;
     }
 
-    if (!validate_known_uncompressed_format(audio, source_format)) {
-        return ForgeResultInvalidCall;
+    if (is_unsupported_compressed_source_format(source_format)) {
+        LOG_ERROR(audio, "%s", "Compressed source voices are not supported");
+        return ForgeResultUnsupportedFormat;
     }
 
-    if (source_format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
-        LOG_ERROR(audio, "%s", "XMA2 source voices are not supported");
-        return ForgeResultUnsupportedFormat;
+    if (!validate_known_uncompressed_format(audio, source_format)) {
+        return ForgeResultInvalidCall;
     }
 
     *source_voice = (ForgeSourceVoice *)audio->malloc_func(sizeof(ForgeVoice));
@@ -374,9 +380,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     (*source_voice)->src.maxFreqRatio = max_frequency_ratio;
 
     if (source_format->format_tag == FORGE_AUDIO_FORMAT_PCM ||
-        source_format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT ||
-        source_format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO2 ||
-        source_format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO3) {
+        source_format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
         ForgeAudioFormatExtensible *fmtex =
             (ForgeAudioFormatExtensible *)audio->malloc_func(sizeof(ForgeAudioFormatExtensible));
         /* convert PCM to EXTENSIBLE */
@@ -393,10 +397,6 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
             forge_memcpy(fmtex->format_id, fa_format_id_pcm, FORGE_AUDIO_FORMAT_ID_SIZE);
         } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
             forge_memcpy(fmtex->format_id, fa_format_id_ieee_float, FORGE_AUDIO_FORMAT_ID_SIZE);
-        } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO2) {
-            forge_memcpy(fmtex->format_id, fa_format_id_wmaudio2, FORGE_AUDIO_FORMAT_ID_SIZE);
-        } else if (source_format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO3) {
-            forge_memcpy(fmtex->format_id, fa_format_id_wmaudio3, FORGE_AUDIO_FORMAT_ID_SIZE);
         }
         (*source_voice)->src.format = &fmtex->format;
     } else {
@@ -421,7 +421,6 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
             (*source_voice)->src.decode = decoder_for_pcm_bits(fmtex->format.bits_per_sample);
         } else if (COMPARE_FORMAT_ID(ieee_float)) {
             (*source_voice)->src.decode = fa_decode_pcm32f;
-        } else if (COMPARE_FORMAT_ID(wmaudio2) || COMPARE_FORMAT_ID(wmaudio3) || COMPARE_FORMAT_ID(wmaudio_lossless)) {
         } else {
             forge_assert(0 && "Unsupported extensible audio format identifier!");
         }
@@ -2095,11 +2094,6 @@ static void destroy_voice(ForgeVoice *voice) {
         voice->audio->free_func(voice->src.format);
         LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
         fa_platform_destroy_mutex(voice->src.bufferLock);
-#ifdef HAVE_WMADEC
-        if (voice->src.wmadec) {
-            ForgeAudio_WMADEC_free(voice);
-        }
-#endif /* HAVE_WMADEC */
     } else if (voice->type == FORGE_AUDIO_VOICE_SUBMIX) {
         /* Remove submix from list */
         fa_linked_list_remove_entry(&voice->audio->submixes, voice, voice->audio->submixLock, voice->audio->free_func);
@@ -2276,14 +2270,19 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
 
     forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
 
+    if (buffer_wma != NULL) {
+        LOG_ERROR(voice->audio, "%s", "WMA source buffers are not supported");
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultUnsupportedFormat;
+    }
+
     if (block_size == 0) {
         LOG_ERROR(voice->audio, "%s", "Source voice has zero block alignment");
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
-    if (buffer_wma == NULL && voice->src.format->format_tag != FORGE_AUDIO_FORMAT_XMAUDIO2 &&
-        buffer->audio_bytes % block_size != 0) {
+    if (buffer->audio_bytes % block_size != 0) {
         LOG_ERROR(voice->audio, "PCM source buffer audio_bytes must be a multiple of block_align: %u %% %u",
                   buffer->audio_bytes, block_size)
         LOG_API_EXIT(voice->audio)
@@ -2302,15 +2301,7 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
         return ForgeResultInvalidCall;
     }
 
-    if (voice->src.format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
-        ForgeXMA2Format *fmtex = (ForgeXMA2Format *)voice->src.format;
-        bufferLength = fmtex->dwSamplesEncoded;
-    } else if (buffer_wma != NULL) {
-        bufferLength = buffer_wma->decoded_packet_cumulative_bytes[buffer_wma->packet_count - 1] /
-                       (voice->src.format->channels * voice->src.format->bits_per_sample / 8);
-    } else {
-        bufferLength = buffer->audio_bytes / voice->src.format->block_align;
-    }
+    bufferLength = buffer->audio_bytes / voice->src.format->block_align;
 
     if (playBegin + playLength > bufferLength || playBegin + playLength < playLength) {
         /* Reading past the end of the buffer, or begin + length overflow uint32_t, which
@@ -2319,7 +2310,7 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
         return ForgeResultInvalidCall;
     }
 
-    if (buffer->loop_count > 0 && buffer_wma == NULL && voice->src.format->format_tag != FORGE_AUDIO_FORMAT_XMAUDIO2) {
+    if (buffer->loop_count > 0) {
         uint32_t realPlayLength = playLength;
         uint32_t realLoopLength = loopLength;
 
@@ -2348,12 +2339,6 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
         }
     }
 
-    if (buffer_wma != NULL || voice->src.format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2) {
-        /* WMA only supports looping the whole buffer */
-        loopBegin = 0;
-        loopLength = playBegin + playLength;
-    }
-
     fa_platform_lock_mutex(voice->src.bufferLock);
     LOG_MUTEX_LOCK(voice->audio, voice->src.bufferLock)
 
@@ -2367,20 +2352,16 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
     entry->buffer.play_length = playLength;
     entry->buffer.loop_begin = loopBegin;
     entry->buffer.loop_length = loopLength;
-    if (buffer_wma != NULL) {
-        forge_memcpy(&entry->bufferWMA, buffer_wma, sizeof(ForgeBufferWMA));
+    if (playLength != 0) {
+        entry->play_bytes = playLength * block_size;
     } else {
-        if (playLength != 0) {
-            entry->play_bytes = playLength * block_size;
-        } else {
-            entry->play_bytes = buffer->audio_bytes - (playBegin * block_size);
-        }
+        entry->play_bytes = buffer->audio_bytes - (playBegin * block_size);
+    }
 
-        if (loopLength != 0) {
-            entry->loop_bytes = loopLength * block_size;
-        } else {
-            entry->loop_bytes = entry->play_bytes + (playBegin * block_size) - (loopBegin * block_size);
-        }
+    if (loopLength != 0) {
+        entry->loop_bytes = loopLength * block_size;
+    } else {
+        entry->loop_bytes = entry->play_bytes + (playBegin * block_size) - (loopBegin * block_size);
     }
 
 #ifdef FORGE_AUDIO_DUMP_VOICES

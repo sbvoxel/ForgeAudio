@@ -28,7 +28,6 @@ typedef enum ForgeAudioVoiceType {
 
 struct queued_buffer {
     ForgeBuffer buffer;
-    ForgeBufferWMA bufferWMA;
     uint32_t loop_bytes, play_bytes;
     bool sent_OnStartBuffer;
 };

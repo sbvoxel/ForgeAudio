@@ -58,7 +58,6 @@ DECODE_FUNC(pcm16)
 DECODE_FUNC(pcm24)
 DECODE_FUNC(pcm32)
 DECODE_FUNC(pcm32f)
-DECODE_FUNC(wma_error)
 #undef DECODE_FUNC
 
 /* Resampling fixed-point helpers. */
