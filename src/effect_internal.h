@@ -13,7 +13,7 @@
 #ifndef FORGE_EFFECT_INTERNAL_H
 #define FORGE_EFFECT_INTERNAL_H
 
-#include "forge_effect.h"
+#include <forge/effect.h>
 
 #define FORGE_EFFECT_CALL FORGE_AUDIO_CALL
 

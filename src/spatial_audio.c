@@ -10,7 +10,7 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_spatial_audio.h"
+#include <forge/spatial_audio.h>
 #include "audio_internal.h"
 
 #include <math.h>  /* ONLY USE THIS FOR isnan! */

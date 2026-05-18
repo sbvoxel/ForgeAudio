@@ -10,7 +10,7 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_audio.h"
+#include <forge/audio.h>
 #include "effect_base_internal.h"
 #include <stdalign.h>
 #include <stdarg.h>

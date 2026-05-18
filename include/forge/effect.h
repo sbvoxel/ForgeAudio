@@ -13,7 +13,7 @@
 #ifndef FORGE_EFFECT_H
 #define FORGE_EFFECT_H
 
-#include "forge_audio.h"
+#include <forge/audio.h>
 
 #ifdef __cplusplus
 extern "C" {

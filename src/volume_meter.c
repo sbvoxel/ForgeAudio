@@ -10,7 +10,7 @@
  * See LICENSE for full terms.
  */
 
-#include "forge_effects.h"
+#include <forge/effects.h>
 #include "audio_internal.h"
 
 /* volume Meter ForgeEffect Implementation */

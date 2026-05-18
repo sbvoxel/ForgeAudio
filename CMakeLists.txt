@@ -65,10 +65,10 @@ endif()
 # Source lists
 add_library(ForgeAudio
     # Public Headers
-    include/forge_spatial_audio.h
-    include/forge_effect.h
-    include/forge_effects.h
-    include/forge_audio.h
+    include/forge/spatial_audio.h
+    include/forge/effect.h
+    include/forge/effects.h
+    include/forge/audio.h
     # Internal Headers
     src/effect_internal.h
     src/effect_base_internal.h
