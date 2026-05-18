@@ -43,6 +43,13 @@ typedef struct ForgeDelayParameters {
     float lowpass_hz;  /* Feedback damping cutoff. 0 disables damping; values at/above Nyquist bypass. */
 } ForgeDelayParameters;
 
+typedef struct ForgeDelayTarget {
+    uint32_t field_mask; /* Mix of FORGE_DELAY_TARGET_* flags. delay_ms is hard-set/blob-only. */
+    float wet_dry_mix;
+    float feedback;
+    float lowpass_hz;
+} ForgeDelayTarget;
+
 typedef enum ForgeBiquadType {
     ForgeBiquadLowPass,
     ForgeBiquadHighPass,
@@ -182,6 +189,12 @@ typedef struct ForgeReverbI3DL2Parameters {
 #define FORGE_DELAY_MIN_LOWPASS_HZ 0.0f
 #define FORGE_DELAY_MAX_LOWPASS_HZ 20000.0f
 #define FORGE_DELAY_DEFAULT_LOWPASS_HZ FORGE_DELAY_BYPASS_LOWPASS_HZ
+
+#define FORGE_DELAY_TARGET_WET_DRY_MIX 0x00000001u
+#define FORGE_DELAY_TARGET_FEEDBACK 0x00000002u
+#define FORGE_DELAY_TARGET_LOWPASS_HZ 0x00000004u
+#define FORGE_DELAY_TARGET_ALL                                                                                         \
+    (FORGE_DELAY_TARGET_WET_DRY_MIX | FORGE_DELAY_TARGET_FEEDBACK | FORGE_DELAY_TARGET_LOWPASS_HZ)
 
 #define FORGE_BIQUAD_MIN_FREQUENCY_HZ 20.0f
 #define FORGE_BIQUAD_MAX_FREQUENCY_HZ 20000.0f
@@ -429,6 +442,37 @@ FORGE_AUDIO_API ForgeResult forge_voice_get_reverb_parameters(ForgeVoice *voice,
  */
 FORGE_AUDIO_API ForgeResult forge_voice_get_reverb_7point1_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                                       ForgeReverbParameters7Point1 *parameters);
+
+/* Targets selected cheap continuous delay parameters using ForgeAudio's
+ * internal default de-zip duration. delay_ms is hard-set/blob-only.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_set_delay_parameters_target(ForgeVoice *voice, uint32_t effect_index,
+                                                                    const ForgeDelayTarget *target,
+                                                                    ForgeAudioBatchId batch_id);
+
+/* Ramps selected cheap continuous delay parameters over exact rendered frames.
+ * Blob parameter sets remain hard sets and cancel active typed delay automation
+ * when they are applied on the audio timeline.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_delay_parameters_frames(ForgeVoice *voice, uint32_t effect_index,
+                                                                     const ForgeDelayTarget *target,
+                                                                     uint32_t duration_frames,
+                                                                     ForgeAudioBatchId batch_id);
+
+/* Ramps selected cheap continuous delay parameters over milliseconds converted
+ * through forge_audio_ms_to_frames when this function is called.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_delay_parameters_ms(ForgeVoice *voice, uint32_t effect_index,
+                                                                 const ForgeDelayTarget *target,
+                                                                 double duration_ms,
+                                                                 ForgeAudioBatchId batch_id);
+
+/* Gets the current effective clamped delay parameters. delay_ms reports the
+ * current hard-set value; smoothable fields report the current timeline value
+ * during active typed ramps.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_get_delay_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                             ForgeDelayParameters *parameters);
 
 /* Targets selected continuous biquad parameters using ForgeAudio's internal
  * default de-zip duration. Filter type is discrete and is changed only by a

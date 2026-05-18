@@ -20,9 +20,23 @@ static const ForgeEffectInfo delay_info = {
 
 #define DELAY_SIGNAL_EPSILON 0.0000001f
 
+typedef struct DelayFieldAutomation {
+    float target;
+    float step;
+    uint32_t remaining_frames;
+    uint8_t active;
+} DelayFieldAutomation;
+
+typedef struct DelayAutomation {
+    DelayFieldAutomation wet_dry_mix;
+    DelayFieldAutomation feedback;
+    DelayFieldAutomation lowpass_hz;
+} DelayAutomation;
+
 typedef struct ForgeDelay {
     ForgeEffectBase base;
     ForgeDelayParameters applied_parameters;
+    DelayAutomation automation;
     uint32_t sample_rate;
     uint16_t channels;
     uint32_t delay_frames;
@@ -55,6 +69,14 @@ static int8_t delay_is_float_format(const ForgeAudioFormat *format) {
     return 0;
 }
 
+static uint8_t delay_float_is_finite(float value) {
+    return value == value && value > -3.4e38f && value < 3.4e38f;
+}
+
+static float delay_sanitize(float value, float fallback) {
+    return delay_float_is_finite(value) ? value : fallback;
+}
+
 static uint32_t delay_ms_to_frames(uint32_t sample_rate, float ms) {
     float frames;
 
@@ -73,10 +95,14 @@ static uint32_t delay_ms_to_frames(uint32_t sample_rate, float ms) {
 static ForgeDelayParameters delay_clamp_parameters(const ForgeDelayParameters *parameters) {
     ForgeDelayParameters result = *parameters;
 
+    result.wet_dry_mix = delay_sanitize(result.wet_dry_mix, FORGE_DELAY_DEFAULT_WET_DRY_MIX);
     result.wet_dry_mix =
         forge_clamp(result.wet_dry_mix, FORGE_DELAY_MIN_WET_DRY_MIX, FORGE_DELAY_MAX_WET_DRY_MIX);
+    result.delay_ms = delay_sanitize(result.delay_ms, FORGE_DELAY_DEFAULT_DELAY_MS);
     result.delay_ms = forge_clamp(result.delay_ms, FORGE_DELAY_MIN_DELAY_MS, FORGE_DELAY_MAX_DELAY_MS);
+    result.feedback = delay_sanitize(result.feedback, FORGE_DELAY_DEFAULT_FEEDBACK);
     result.feedback = forge_clamp(result.feedback, FORGE_DELAY_MIN_FEEDBACK, FORGE_DELAY_MAX_FEEDBACK);
+    result.lowpass_hz = delay_sanitize(result.lowpass_hz, FORGE_DELAY_DEFAULT_LOWPASS_HZ);
     result.lowpass_hz = forge_clamp(result.lowpass_hz, FORGE_DELAY_MIN_LOWPASS_HZ, FORGE_DELAY_MAX_LOWPASS_HZ);
 
     return result;
@@ -101,6 +127,7 @@ static void delay_apply_parameters(ForgeDelay *effect, const ForgeDelayParameter
     const float pi = 3.14159265358979323846f;
 
     effect->applied_parameters = delay_clamp_parameters(parameters);
+    forge_memcpy(effect->base.parameters, &effect->applied_parameters, sizeof(effect->applied_parameters));
     effect->wet_mix = effect->applied_parameters.wet_dry_mix / 100.0f;
     effect->dry_mix = 1.0f - effect->wet_mix;
 
@@ -154,6 +181,154 @@ static void delay_apply_parameters(ForgeDelay *effect, const ForgeDelayParameter
     }
 }
 
+static uint8_t delay_automation_active(ForgeDelay *effect) {
+    return effect->automation.wet_dry_mix.active || effect->automation.feedback.active ||
+           effect->automation.lowpass_hz.active;
+}
+
+static void delay_clear_automation(ForgeDelay *effect) {
+    forge_zero(&effect->automation, sizeof(effect->automation));
+}
+
+static float *delay_parameter_ptr(ForgeDelay *effect, uint32_t field) {
+    ForgeDelayParameters *params = (ForgeDelayParameters *)effect->base.parameters;
+
+    switch (field) {
+    case FORGE_DELAY_TARGET_WET_DRY_MIX:
+        return &params->wet_dry_mix;
+    case FORGE_DELAY_TARGET_FEEDBACK:
+        return &params->feedback;
+    case FORGE_DELAY_TARGET_LOWPASS_HZ:
+        return &params->lowpass_hz;
+    }
+
+    return NULL;
+}
+
+static DelayFieldAutomation *delay_automation_ptr(ForgeDelay *effect, uint32_t field) {
+    switch (field) {
+    case FORGE_DELAY_TARGET_WET_DRY_MIX:
+        return &effect->automation.wet_dry_mix;
+    case FORGE_DELAY_TARGET_FEEDBACK:
+        return &effect->automation.feedback;
+    case FORGE_DELAY_TARGET_LOWPASS_HZ:
+        return &effect->automation.lowpass_hz;
+    }
+
+    return NULL;
+}
+
+static float delay_target_value(const ForgeDelayTarget *target, uint32_t field) {
+    switch (field) {
+    case FORGE_DELAY_TARGET_WET_DRY_MIX:
+        return target->wet_dry_mix;
+    case FORGE_DELAY_TARGET_FEEDBACK:
+        return target->feedback;
+    case FORGE_DELAY_TARGET_LOWPASS_HZ:
+        return target->lowpass_hz;
+    }
+
+    return 0.0f;
+}
+
+static float delay_clamp_target_field(uint32_t field, float value) {
+    switch (field) {
+    case FORGE_DELAY_TARGET_WET_DRY_MIX:
+        value = delay_sanitize(value, FORGE_DELAY_DEFAULT_WET_DRY_MIX);
+        return forge_clamp(value, FORGE_DELAY_MIN_WET_DRY_MIX, FORGE_DELAY_MAX_WET_DRY_MIX);
+    case FORGE_DELAY_TARGET_FEEDBACK:
+        value = delay_sanitize(value, FORGE_DELAY_DEFAULT_FEEDBACK);
+        return forge_clamp(value, FORGE_DELAY_MIN_FEEDBACK, FORGE_DELAY_MAX_FEEDBACK);
+    case FORGE_DELAY_TARGET_LOWPASS_HZ:
+        value = delay_sanitize(value, FORGE_DELAY_DEFAULT_LOWPASS_HZ);
+        return forge_clamp(value, FORGE_DELAY_MIN_LOWPASS_HZ, FORGE_DELAY_MAX_LOWPASS_HZ);
+    }
+
+    return value;
+}
+
+static uint8_t delay_advance_field_one_frame(DelayFieldAutomation *automation, float *value) {
+    if (!automation->active) {
+        return 0;
+    }
+
+    automation->remaining_frames -= 1;
+    if (automation->remaining_frames == 0) {
+        *value = automation->target;
+        automation->active = 0;
+    } else {
+        *value += automation->step;
+    }
+    return 1;
+}
+
+static void delay_advance_automation_one_frame(ForgeDelay *effect) {
+    uint8_t advanced = 0;
+
+    advanced |= delay_advance_field_one_frame(&effect->automation.wet_dry_mix,
+                                              delay_parameter_ptr(effect, FORGE_DELAY_TARGET_WET_DRY_MIX));
+    advanced |= delay_advance_field_one_frame(&effect->automation.feedback,
+                                              delay_parameter_ptr(effect, FORGE_DELAY_TARGET_FEEDBACK));
+    advanced |= delay_advance_field_one_frame(&effect->automation.lowpass_hz,
+                                              delay_parameter_ptr(effect, FORGE_DELAY_TARGET_LOWPASS_HZ));
+
+    if (advanced) {
+        delay_apply_parameters(effect, (const ForgeDelayParameters *)effect->base.parameters);
+    }
+}
+
+static void fa_delay_advance_automation(ForgeDelay *effect, uint32_t frame_count) {
+    while (frame_count > 0 && delay_automation_active(effect)) {
+        delay_advance_automation_one_frame(effect);
+        frame_count -= 1;
+    }
+}
+
+static void delay_set_field_automation(ForgeDelay *effect, uint32_t field, float target, uint32_t duration_frames) {
+    DelayFieldAutomation *automation = delay_automation_ptr(effect, field);
+    float *value = delay_parameter_ptr(effect, field);
+
+    if (duration_frames == 0) {
+        *value = target;
+        automation->active = 0;
+        automation->remaining_frames = 0;
+        return;
+    }
+
+    automation->target = target;
+    automation->step = (target - *value) / (float)duration_frames;
+    automation->remaining_frames = duration_frames;
+    automation->active = 1;
+}
+
+static ForgeResult fa_delay_set_target(ForgeDelay *effect, const ForgeDelayTarget *target, uint32_t duration_frames) {
+    static const uint32_t fields[] = {FORGE_DELAY_TARGET_WET_DRY_MIX, FORGE_DELAY_TARGET_FEEDBACK,
+                                      FORGE_DELAY_TARGET_LOWPASS_HZ};
+    uint32_t unknown;
+
+    if (target == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    unknown = target->field_mask & ~FORGE_DELAY_TARGET_ALL;
+    if (target->field_mask == 0 || unknown != 0) {
+        return ForgeResultInvalidArgument;
+    }
+
+    for (uint32_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i += 1) {
+        uint32_t field = fields[i];
+
+        if (target->field_mask & field) {
+            float value = delay_clamp_target_field(field, delay_target_value(target, field));
+            delay_set_field_automation(effect, field, value, duration_frames);
+        }
+    }
+
+    if (duration_frames == 0) {
+        delay_apply_parameters(effect, (const ForgeDelayParameters *)effect->base.parameters);
+    }
+    return ForgeResultSuccess;
+}
+
 static ForgeResult fa_delay_initialize(ForgeDelay *effect, const void *data, uint32_t data_byte_size) {
     ForgeDelayParameters parameters;
 
@@ -163,9 +338,8 @@ static ForgeResult fa_delay_initialize(ForgeDelay *effect, const void *data, uin
     }
 
     parameters = delay_clamp_parameters((const ForgeDelayParameters *)data);
-    forge_memcpy(effect->base.parameters, &parameters, sizeof(parameters));
-    effect->base.parameters_changed = 1;
     delay_apply_parameters(effect, &parameters);
+    effect->base.parameters_changed = 1;
     return ForgeResultSuccess;
 }
 
@@ -260,6 +434,7 @@ static void fa_delay_process(ForgeDelay *effect, uint32_t input_buffer_count,
             forge_memcpy(output, input, frame_count * effect->channels * sizeof(float));
         }
         delay_reset_ring(effect);
+        fa_delay_advance_automation(effect, frame_count);
         fa_effect_base_end_process(&effect->base);
         return;
     }
@@ -312,6 +487,10 @@ static void fa_delay_process(ForgeDelay *effect, uint32_t input_buffer_count,
 
         effect->read_frame = (effect->read_frame + 1) % effect->ring_capacity_frames;
         effect->write_frame = (effect->write_frame + 1) % effect->ring_capacity_frames;
+
+        if (delay_automation_active(effect)) {
+            delay_advance_automation_one_frame(effect);
+        }
     }
 
     output_buffers->buffer_flags = (output_peak > DELAY_SIGNAL_EPSILON ||
@@ -339,6 +518,7 @@ static void fa_delay_set_parameters(ForgeDelay *effect, const ForgeDelayParamete
     clamped_parameters = delay_clamp_parameters(parameters);
     forge_memcpy(effect->base.parameters, &clamped_parameters, sizeof(clamped_parameters));
     effect->base.parameters_changed = 1;
+    delay_clear_automation(effect);
 }
 
 static void fa_delay_get_parameters(ForgeDelay *effect, ForgeDelayParameters *parameters, uint32_t parameter_byte_size) {
@@ -392,6 +572,7 @@ ForgeResult forge_create_delay_with_allocator(ForgeEffect **effect, uint32_t fla
     fa_effect_base_init_with_allocator(&result->base, &delay_info, params, sizeof(ForgeDelayParameters),
                                        custom_malloc, custom_free, custom_realloc);
     forge_zero(&result->applied_parameters, sizeof(result->applied_parameters));
+    forge_zero(&result->automation, sizeof(result->automation));
     result->sample_rate = 0;
     result->channels = 0;
     result->delay_frames = 0;
@@ -416,6 +597,8 @@ ForgeResult forge_create_delay_with_allocator(ForgeEffect **effect, uint32_t fla
     result->base.base.set_parameters = (ForgeEffectSetParametersFunc)fa_delay_set_parameters;
     result->base.base.get_parameters = (ForgeEffectGetParametersFunc)fa_delay_get_parameters;
     result->base.base.kind = ForgeEffectKindDelay;
+    result->base.base.set_delay_target = (ForgeEffectSetDelayTargetFunc)fa_delay_set_target;
+    result->base.base.advance_automation = (ForgeEffectAdvanceAutomationFunc)fa_delay_advance_automation;
     result->base.destructor = fa_delay_free;
 
     result->base.base.initialize(result, &default_parameters, sizeof(default_parameters));

@@ -49,6 +49,7 @@ compatibility with it or XAudio is not a design goal.
 - Deferred audio batches for synchronized control changes.
 - Gain automation for voice volume, channel volume, and output matrices.
 - Source-rate target and ramp automation for pitch/resampling changes.
+- Typed effect automation for selected reverb, biquad, and delay parameters.
 - Target/de-zip APIs for common smoothed gain changes.
 - Explicit frame-duration ramps and millisecond convenience ramps.
 - Source fade-stop automation for "fade, then stop on the audio timeline."
@@ -80,6 +81,11 @@ ratio-domain and updates the source resampler step as it advances. Use
 `forge_source_voice_set_rate` for a hard pitch/rate change, or
 `forge_source_voice_set_rate_target`, `forge_source_voice_ramp_rate_frames`, and
 `forge_source_voice_ramp_rate_ms` for smoothed motion.
+
+Built-in effect automation follows the same batch and timing model for selected
+cheap continuous parameters. Delay supports typed target/ramp automation for
+`wet_dry_mix`, `feedback`, and `lowpass_hz`; `delay_ms` remains hard-set through
+`ForgeDelayParameters` blob sets only.
 
 ## Building
 

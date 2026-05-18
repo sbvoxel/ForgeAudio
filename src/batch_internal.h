@@ -53,6 +53,9 @@ FORGE_INTERNAL_API ForgeResult fa_voice_install_set_effect_parameters(ForgeVoice
 FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                                        const ForgeReverbTarget *target,
                                                                        uint32_t duration_frames);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_delay_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                                      const ForgeDelayTarget *target,
+                                                                      uint32_t duration_frames);
 FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_biquad_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                                        const ForgeBiquadTarget *target,
                                                                        uint32_t duration_frames);
@@ -90,6 +93,10 @@ FORGE_INTERNAL_API void fa_batch_queue_ramp_reverb_parameters(ForgeVoice *voice,
                                                               const ForgeReverbTarget *target,
                                                               uint32_t duration_frames,
                                                               ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void fa_batch_queue_ramp_delay_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                             const ForgeDelayTarget *target,
+                                                             uint32_t duration_frames,
+                                                             ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_ramp_biquad_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                               const ForgeBiquadTarget *target,
                                                               uint32_t duration_frames,

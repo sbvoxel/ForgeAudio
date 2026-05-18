@@ -204,6 +204,25 @@ int main(void) {
                          test_delay_format_validation_rejects_channel_change);
     failures += run_test("delay_parameter_clamping", test_delay_parameter_clamping);
     failures += run_test("delay_blob_parameter_set_get_on_voice", test_delay_blob_parameter_set_get_on_voice);
+    failures += run_test("delay_typed_getter_reports_defaults", test_delay_typed_getter_reports_defaults);
+    failures += run_test("delay_wrong_effect_kind_for_typed_api", test_delay_wrong_effect_kind_for_typed_api);
+    failures += run_test("delay_invalid_typed_arguments", test_delay_invalid_typed_arguments);
+    failures += run_test("delay_ramp_ms_uses_engine_rate", test_delay_ramp_ms_uses_engine_rate);
+    failures += run_test("delay_typed_automation_clamping_zero_and_mid_ramp",
+                         test_delay_typed_automation_clamping_zero_and_mid_ramp);
+    failures += run_test("delay_field_mask_preserves_other_active_ramps",
+                         test_delay_field_mask_preserves_other_active_ramps);
+    failures += run_test("delay_deferred_ramp_waits_for_apply", test_delay_deferred_ramp_waits_for_apply);
+    failures += run_test("delay_blob_set_cancels_typed_automation_when_applied",
+                         test_delay_blob_set_cancels_typed_automation_when_applied);
+    failures += run_test("delay_blob_set_does_not_delete_pending_deferred_ramp",
+                         test_delay_blob_set_does_not_delete_pending_deferred_ramp);
+    failures += run_test("stopped_source_delay_ramp_advances_on_engine_timeline",
+                         test_stopped_source_delay_ramp_advances_on_engine_timeline);
+    failures += run_test("disabled_delay_ramp_advances_on_engine_timeline",
+                         test_disabled_delay_ramp_advances_on_engine_timeline);
+    failures += run_test("delay_wet_dry_ramp_renders_expected_mix", test_delay_wet_dry_ramp_renders_expected_mix);
+    failures += run_test("delay_feedback_lowpass_ramp_getter_state", test_delay_feedback_lowpass_ramp_getter_state);
     failures += run_test("delay_impulse_after_expected_frames", test_delay_impulse_after_expected_frames);
     failures += run_test("delay_wet_dry_mix", test_delay_wet_dry_mix);
     failures += run_test("delay_feedback_repeats_decay", test_delay_feedback_repeats_decay);

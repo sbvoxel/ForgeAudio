@@ -21,6 +21,7 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_DISABLE_EFFECT,
     FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS,
     FORGE_AUDIO_COMMAND_RAMP_REVERB_PARAMETERS,
+    FORGE_AUDIO_COMMAND_RAMP_DELAY_PARAMETERS,
     FORGE_AUDIO_COMMAND_RAMP_BIQUAD_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_FILTER_TYPE,
@@ -64,6 +65,11 @@ struct ForgeAudioCommand {
             ForgeReverbTarget target;
             uint32_t duration_frames;
         } RampReverbParameters;
+        struct {
+            uint32_t effect_index;
+            ForgeDelayTarget target;
+            uint32_t duration_frames;
+        } RampDelayParameters;
         struct {
             uint32_t effect_index;
             ForgeBiquadTarget target;
@@ -187,6 +193,12 @@ static inline void execute_command(ForgeAudioCommand *op) {
         fa_voice_install_ramp_reverb_parameters(op->voice, op->Data.RampReverbParameters.effect_index,
                                                 &op->Data.RampReverbParameters.target,
                                                 op->Data.RampReverbParameters.duration_frames);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_DELAY_PARAMETERS:
+        fa_voice_install_ramp_delay_parameters(op->voice, op->Data.RampDelayParameters.effect_index,
+                                               &op->Data.RampDelayParameters.target,
+                                               op->Data.RampDelayParameters.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_RAMP_BIQUAD_PARAMETERS:
@@ -482,6 +494,23 @@ void fa_batch_queue_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_in
     op->Data.RampReverbParameters.effect_index = effect_index;
     op->Data.RampReverbParameters.target = *target;
     op->Data.RampReverbParameters.duration_frames = duration_frames;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_ramp_delay_parameters(ForgeVoice *voice, uint32_t effect_index, const ForgeDelayTarget *target,
+                                          uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_DELAY_PARAMETERS, batch_id);
+
+    op->Data.RampDelayParameters.effect_index = effect_index;
+    op->Data.RampDelayParameters.target = *target;
+    op->Data.RampDelayParameters.duration_frames = duration_frames;
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
