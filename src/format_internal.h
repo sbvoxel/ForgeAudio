@@ -16,6 +16,10 @@
 #include "common_internal.h"
 
 #define FORGE_AUDIO_FORMAT_ID_SIZE 16
+#define FA_AUDIO_FORMAT_WMAUDIO2 0x0161
+#define FA_AUDIO_FORMAT_WMAUDIO3 0x0162
+#define FA_AUDIO_FORMAT_WMAUDIO_LOSSLESS 0x0163
+#define FA_AUDIO_FORMAT_XMAUDIO2 0x0166
 
 FORGE_INTERNAL_API extern const uint8_t fa_format_id_pcm[FORGE_AUDIO_FORMAT_ID_SIZE];
 FORGE_INTERNAL_API extern const uint8_t fa_format_id_ieee_float[FORGE_AUDIO_FORMAT_ID_SIZE];

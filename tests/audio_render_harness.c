@@ -83,7 +83,7 @@ int audio_render_harness_submit_float_buffer(ForgeSourceVoice *voice, const floa
     buffer.audio_bytes = frames * channels * sizeof(float);
     buffer.audio_data = (const uint8_t *)samples;
 
-    result = forge_source_voice_submit_buffer(voice, &buffer, NULL);
+    result = forge_source_voice_submit_buffer(voice, &buffer);
     if (result != 0) {
         fprintf(stderr, "forge_source_voice_submit_buffer failed: %d\n", result);
         return 1;

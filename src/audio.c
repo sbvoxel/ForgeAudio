@@ -88,10 +88,10 @@ static uint8_t is_unsupported_compressed_source_format(const ForgeAudioFormat *f
                fa_format_id_equals(ext->format_id, fa_format_id_xmaudio2);
     }
 
-    return format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO2 ||
-           format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO3 ||
-           format->format_tag == FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS ||
-           format->format_tag == FORGE_AUDIO_FORMAT_XMAUDIO2;
+    return format->format_tag == FA_AUDIO_FORMAT_WMAUDIO2 ||
+           format->format_tag == FA_AUDIO_FORMAT_WMAUDIO3 ||
+           format->format_tag == FA_AUDIO_FORMAT_WMAUDIO_LOSSLESS ||
+           format->format_tag == FA_AUDIO_FORMAT_XMAUDIO2;
 }
 
 static uint32_t send_list_output_rate(ForgeAudioEngine *audio, const ForgeSendList *send_list) {
@@ -2399,7 +2399,6 @@ ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice, float volume, 
 }
 
 static ForgeResult validate_source_buffer_submission(ForgeSourceVoice *voice, const ForgeBuffer *buffer,
-                                                     const ForgeBufferWMA *buffer_wma,
                                                      struct queued_buffer *validated) {
     const uint32_t block_size = voice->src.format->block_align;
     uint32_t playBegin, playLength, loopBegin, loopLength, bufferLength;
@@ -2408,11 +2407,6 @@ static ForgeResult validate_source_buffer_submission(ForgeSourceVoice *voice, co
     if (buffer == NULL) {
         LOG_ERROR(voice->audio, "%s", "Source buffer must not be NULL");
         return ForgeResultInvalidCall;
-    }
-
-    if (buffer_wma != NULL) {
-        LOG_ERROR(voice->audio, "%s", "WMA source buffers are not supported");
-        return ForgeResultUnsupportedFormat;
     }
 
     if (block_size == 0) {
@@ -2484,8 +2478,7 @@ static ForgeResult validate_source_buffer_submission(ForgeSourceVoice *voice, co
     return ForgeResultSuccess;
 }
 
-ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const ForgeBuffer *buffer,
-                                             const ForgeBufferWMA *buffer_wma) {
+ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const ForgeBuffer *buffer) {
     struct queued_buffer validated;
     struct queued_buffer *entry;
     ForgeResult result;
@@ -2494,7 +2487,7 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
 
     forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
 
-    result = validate_source_buffer_submission(voice, buffer, buffer_wma, &validated);
+    result = validate_source_buffer_submission(voice, buffer, &validated);
     if (result != ForgeResultSuccess) {
         LOG_API_EXIT(voice->audio)
         return result;

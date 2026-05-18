@@ -169,11 +169,6 @@ typedef struct ForgeBuffer {
     void *context;
 } ForgeBuffer;
 
-typedef struct ForgeBufferWMA {
-    const uint32_t *decoded_packet_cumulative_bytes;
-    uint32_t packet_count;
-} ForgeBufferWMA;
-
 typedef struct ForgeVoiceState {
     void *current_buffer_context;
     uint32_t buffers_queued;
@@ -193,8 +188,6 @@ typedef struct ForgePerformanceData {
     uint32_t active_submix_voice_count;
     uint32_t active_resampler_count;
     uint32_t active_matrix_mix_count;
-    uint32_t active_xma_source_voices;
-    uint32_t active_xma_streams;
 } ForgePerformanceData;
 
 typedef struct ForgeDebugConfiguration {
@@ -209,24 +202,6 @@ typedef struct ForgeDebugConfiguration {
 } ForgeDebugConfiguration;
 
 #pragma pack(pop)
-
-/* This ISN'T packed. Strictly speaking it wouldn't have mattered anyway but eh.
- * See https://github.com/microsoft/DirectXTK/issues/256
- */
-typedef struct ForgeXMA2FormatEx {
-    ForgeAudioFormat wfx;
-    uint16_t wNumStreams;
-    uint32_t dwChannelMask;
-    uint32_t dwSamplesEncoded;
-    uint32_t dwBytesPerBlock;
-    uint32_t dwPlayBegin;
-    uint32_t dwPlayLength;
-    uint32_t dwLoopBegin;
-    uint32_t dwLoopLength;
-    uint8_t bLoopCount;
-    uint8_t bEncoderVersion;
-    uint16_t wBlockCount;
-} ForgeXMA2Format;
 
 /* Results */
 
@@ -347,15 +322,11 @@ typedef enum ForgeResult {
 
 #define FORGE_AUDIO_FORMAT_PCM 1
 #define FORGE_AUDIO_FORMAT_IEEE_FLOAT 3
-#define FORGE_AUDIO_FORMAT_WMAUDIO2 0x0161
-#define FORGE_AUDIO_FORMAT_WMAUDIO3 0x0162
-#define FORGE_AUDIO_FORMAT_WMAUDIO_LOSSLESS 0x0163
-#define FORGE_AUDIO_FORMAT_XMAUDIO2 0x0166
 #define FORGE_AUDIO_FORMAT_EXTENSIBLE 0xFFFE
 
 /* Version API */
 
-#define FORGE_AUDIO_ABI_VERSION 2
+#define FORGE_AUDIO_ABI_VERSION 3
 #define FORGE_AUDIO_MAJOR_VERSION 0
 #define FORGE_AUDIO_MINOR_VERSION 1
 #define FORGE_AUDIO_PATCH_VERSION 0
@@ -867,12 +838,10 @@ FORGE_AUDIO_API ForgeResult forge_source_voice_fade_stop(ForgeSourceVoice *voice
 /* Submits a block of wavedata for the source to process.
  *
  * buffer:    See ForgeBuffer for details.
- * buffer_wma:    Must be NULL. WMA source buffers are not supported.
  *
  * Returns ForgeResultSuccess on success.
  */
-FORGE_AUDIO_API ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const ForgeBuffer *buffer,
-                                                             const ForgeBufferWMA *buffer_wma);
+FORGE_AUDIO_API ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const ForgeBuffer *buffer);
 
 /* Removes all buffers from a source, with a minor exception.
  * If the voice is still playing, the active buffer is left alone.
