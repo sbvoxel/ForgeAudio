@@ -55,7 +55,7 @@
 #define SPEEDOFSOUND(spatializer) ((spatializer)->speed_of_sound)
 #define SPEEDOFSOUNDEPSILON(spatializer) ((spatializer)->speed_of_sound_epsilon)
 
-static bool fa_spatializer_check_init_params(uint32_t speaker_channel_mask, float speed_of_sound,
+static bool check_init_params(uint32_t speaker_channel_mask, float speed_of_sound,
                                              ForgeSpatializer *spatializer) {
     const uint32_t kAllowedSpeakerMasks[] = {
         FORGE_SPEAKER_MONO,     FORGE_SPEAKER_STEREO,           FORGE_SPEAKER_2POINT1, FORGE_SPEAKER_QUAD,
@@ -103,7 +103,7 @@ bool forge_spatializer_init(uint32_t speaker_channel_mask, float speed_of_sound,
     } epsilonHack;
     uint32_t speakerCount = 0;
 
-    if (!fa_spatializer_check_init_params(speaker_channel_mask, speed_of_sound, spatializer)) {
+    if (!check_init_params(speaker_channel_mask, speed_of_sound, spatializer)) {
         return false;
     }
 
@@ -219,7 +219,7 @@ static inline uint8_t CheckCurve(ForgeSpatialDistanceCurve *curve) {
     return PARAM_CHECK_OK;
 }
 
-static uint8_t fa_spatializer_check_calculate_params(const ForgeSpatializer *spatializer,
+static uint8_t check_calculate_params(const ForgeSpatializer *spatializer,
                                                      const ForgeSpatialListener *listener,
                                                      const ForgeSpatialEmitter *emitter, uint32_t flags,
                                                      ForgeSpatialDspSettings *dsp_settings) {
@@ -1070,7 +1070,7 @@ void forge_spatializer_calculate(const ForgeSpatializer *spatializer, const Forg
     eToLDistance = VectorLength(emitterToListener);
     dsp_settings->emitter_to_listener_distance = eToLDistance;
 
-    fa_spatializer_check_calculate_params(spatializer, listener, emitter, flags, dsp_settings);
+    check_calculate_params(spatializer, listener, emitter, flags, dsp_settings);
 
     /* This is used by MATRIX, LPF, and REVERB */
     normalizedDistance = eToLDistance / emitter->curve_distance_scaler;

@@ -1052,7 +1052,7 @@ void fa_mix_generic_scalar(uint32_t toMix, uint32_t srcChans, uint32_t dstChans,
 #if HAVE_SSE2_INTRINSICS
 /* SSE horizontal add by Peter Cordes, CC-BY-SA.
  * From https://stackoverflow.com/a/35270026 */
-static inline float fa_audio_simd_hadd(__m128 v) {
+static inline float simd_hadd(__m128 v) {
     __m128 shuf = _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 3, 0, 1));
     __m128 sums = _mm_add_ps(v, shuf);
     shuf = _mm_movehl_ps(shuf, sums);
@@ -1069,7 +1069,7 @@ static void fa_audio_mix_generic_sse2(uint32_t toMix, uint32_t srcChans, uint32_
                 /* do SIMD */
                 const __m128 vols = _mm_loadu_ps(&coefficients[co * srcChans + ci]);
                 const __m128 dat = _mm_loadu_ps(&src[ci]);
-                dst[co] += fa_audio_simd_hadd(_mm_mul_ps(dat, vols));
+                dst[co] += simd_hadd(_mm_mul_ps(dat, vols));
             }
 
             for (; ci < srcChans; ci += 1) {

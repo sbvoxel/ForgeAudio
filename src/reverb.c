@@ -358,7 +358,7 @@ typedef enum ForgeReverbChannelPositionFlags {
     Position_Rear = 0x8,
 } ForgeReverbChannelPositionFlags;
 
-static ForgeReverbChannelPositionFlags fa_reverb_get_channel_position_flags(int32_t total_channels, int32_t channel) {
+static ForgeReverbChannelPositionFlags get_channel_position_flags(int32_t total_channels, int32_t channel) {
     switch (total_channels) {
     case 1:
         return Position_Center;
@@ -403,8 +403,8 @@ static ForgeReverbChannelPositionFlags fa_reverb_get_channel_position_flags(int3
     return Position_Left;
 }
 
-static float fa_reverb_get_stereo_spread_delay_ms(int32_t total_channels, int32_t channel) {
-    ForgeReverbChannelPositionFlags flags = fa_reverb_get_channel_position_flags(total_channels, channel);
+static float get_stereo_spread_delay_ms(int32_t total_channels, int32_t channel) {
+    ForgeReverbChannelPositionFlags flags = get_channel_position_flags(total_channels, channel);
     return (flags & Position_Right) ? 0.5216f : 0.0f;
 }
 
@@ -459,13 +459,13 @@ static inline void DspReverb_Create(DspReverb *reverb, int32_t sampleRate, int32
         for (i = 0; i < REVERB_COUNT_COMB; i += 1) {
             DspCombShelving_Initialize(&reverb->channel[c].lpf_comb[i], sampleRate,
                                        COMB_DELAYS[i] +
-                                           fa_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c),
+                                           get_stereo_spread_delay_ms(reverb->reverb_channels, c),
                                        500, 500, -6, 5000, -6, malloc_func);
         }
 
         for (i = 0; i < REVERB_COUNT_APF_OUT; i += 1) {
             DspAllPass_Initialize(&reverb->channel[c].apf_out[i], sampleRate,
-                                  APF_OUT_DELAYS[i] + fa_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c),
+                                  APF_OUT_DELAYS[i] + get_stereo_spread_delay_ms(reverb->reverb_channels, c),
                                   0.5f, malloc_func);
         }
 
@@ -522,7 +522,7 @@ static inline void DspReverb_SetParameters(DspReverb *reverb, ForgeReverbParamet
 
     /* Reverberation */
     for (c = 0; c < reverb->reverb_channels; c += 1) {
-        float channel_delay = (fa_reverb_get_channel_position_flags(reverb->reverb_channels, c) & Position_Rear)
+        float channel_delay = (get_channel_position_flags(reverb->reverb_channels, c) & Position_Rear)
                                   ? params->rear_delay
                                   : 0.0f;
 
@@ -533,7 +533,7 @@ static inline void DspReverb_SetParameters(DspReverb *reverb, ForgeReverbParamet
 
             /* Set decay time of comb filter */
             DspDelay_Change(&comb->comb_delay,
-                            COMB_DELAYS[i] + fa_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c));
+                            COMB_DELAYS[i] + get_stereo_spread_delay_ms(reverb->reverb_channels, c));
             comb->comb_feedback_gain = DspComb_FeedbackFromRT60(
                 &comb->comb_delay, forge_max(params->decay_time, FORGE_REVERB_MIN_DECAY_TIME) * 1000.0f);
 
@@ -554,12 +554,12 @@ static inline void DspReverb_SetParameters(DspReverb *reverb, ForgeReverbParamet
     late_diffusion = 0.6f - ((params->late_diffusion / 15.0f) * 0.2f);
 
     for (c = 0; c < reverb->reverb_channels; c += 1) {
-        ForgeReverbChannelPositionFlags position = fa_reverb_get_channel_position_flags(reverb->reverb_channels, c);
+        ForgeReverbChannelPositionFlags position = get_channel_position_flags(reverb->reverb_channels, c);
         float gain;
 
         for (i = 0; i < REVERB_COUNT_APF_OUT; i += 1) {
             DspAllPass_Change(&reverb->channel[c].apf_out[i],
-                              APF_OUT_DELAYS[i] + fa_reverb_get_stereo_spread_delay_ms(reverb->reverb_channels, c),
+                              APF_OUT_DELAYS[i] + get_stereo_spread_delay_ms(reverb->reverb_channels, c),
                               late_diffusion);
         }
 
@@ -861,7 +861,7 @@ typedef struct ForgeReverb {
     DspReverb reverb;
 } ForgeReverb;
 
-static inline int8_t fa_reverb_is_float_format(const ForgeAudioFormat *format) {
+static inline int8_t is_float_format(const ForgeAudioFormat *format) {
     if (format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
         /* Plain ol' WaveFormatEx */
         return 1;
@@ -893,7 +893,7 @@ static ForgeResult fa_reverb_is_input_format_supported(ForgeEffectBase *effect, 
     }
 
     /* Data type */
-    if (!fa_reverb_is_float_format(requested_input_format)) {
+    if (!is_float_format(requested_input_format)) {
         SET_SUPPORTED_FIELD(format_tag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
     }
 
@@ -933,7 +933,7 @@ static ForgeResult fa_reverb_is_output_format_supported(ForgeEffectBase *effect,
     }
 
     /* Data type */
-    if (!fa_reverb_is_float_format(requested_output_format)) {
+    if (!is_float_format(requested_output_format)) {
         SET_SUPPORTED_FIELD(format_tag, FORGE_AUDIO_FORMAT_IEEE_FLOAT);
     }
 
@@ -973,7 +973,7 @@ static ForgeResult fa_reverb_lock_for_process(ForgeReverb *effect, uint32_t inpu
     ForgeResult result;
 
     /* reverb specific validation */
-    if (!fa_reverb_is_float_format(input_locked_parameters->format)) {
+    if (!is_float_format(input_locked_parameters->format)) {
         return ForgeResultEffectFormatUnsupported;
     }
 
@@ -1023,7 +1023,7 @@ static void fa_reverb_unlock_for_process(ForgeReverb *effect) {
     fa_effect_base_unlock_for_process(&effect->base);
 }
 
-static inline void fa_reverb_copy_buffer(ForgeReverb *effect, float *restrict buffer_in, float *restrict buffer_out,
+static inline void copy_buffer(ForgeReverb *effect, float *restrict buffer_in, float *restrict buffer_out,
                                          size_t frames_in) {
     /* In-place processing? */
     if (buffer_in == buffer_out) {
@@ -1091,7 +1091,7 @@ static void fa_reverb_process(ForgeReverb *effect, uint32_t input_buffer_count,
         output_buffers->buffer_flags = input_buffers->buffer_flags;
 
         if (output_buffers->buffer_flags != FORGE_EFFECT_BUFFER_SILENT) {
-            fa_reverb_copy_buffer(effect, (float *)input_buffers->buffer, (float *)output_buffers->buffer,
+            copy_buffer(effect, (float *)input_buffers->buffer, (float *)output_buffers->buffer,
                                   input_buffers->valid_frame_count);
         }
 

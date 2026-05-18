@@ -49,7 +49,7 @@ static void fa_audio_mix_callback(void *userdata, SDL_AudioStream *stream, int a
 
 /* Platform Functions */
 
-static void fa_audio_prioritize_direct_sound(void) {
+static void prioritize_direct_sound(void) {
     int numdrivers, i, wasapi, directsound;
     void *dll, *proc;
 
@@ -97,7 +97,7 @@ static void fa_audio_prioritize_direct_sound(void) {
 }
 
 void fa_platform_add_ref(void) {
-    fa_audio_prioritize_direct_sound();
+    prioritize_direct_sound();
 
     /* SDL tracks ref counts for each subsystem */
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
@@ -184,7 +184,7 @@ uint32_t fa_platform_get_device_count(void) {
     return devcount + 1; /* Add one for "Default Device" */
 }
 
-static void fa_utf8_to_utf16(const char *src, uint16_t *dst, size_t len);
+static void utf8_to_utf16(const char *src, uint16_t *dst, size_t len);
 
 ForgeResult fa_platform_get_device_details(uint32_t index, ForgeDeviceDetails *details) {
     const char *name, *envvar;
@@ -211,13 +211,13 @@ ForgeResult fa_platform_get_device_details(uint32_t index, ForgeDeviceDetails *d
          */
         envvar = SDL_getenv("FORGE_AUDIO_FORCE_DEFAULT_DEVICEID");
         if (envvar != NULL) {
-            fa_utf8_to_utf16(envvar, (uint16_t *)details->device_id, sizeof(details->device_id));
+            utf8_to_utf16(envvar, (uint16_t *)details->device_id, sizeof(details->device_id));
         }
     } else {
         name = SDL_GetAudioDeviceName(devs[index - 1]);
         details->role = ForgeDeviceRoleNone;
     }
-    fa_utf8_to_utf16(name, (uint16_t *)details->display_name, sizeof(details->display_name));
+    utf8_to_utf16(name, (uint16_t *)details->display_name, sizeof(details->display_name));
 
     /* Environment variables take precedence over all possible values */
     envvar = SDL_getenv("SDL_AUDIO_FREQUENCY");
@@ -390,7 +390,7 @@ void fa_dump_close_out(ForgeAudioIOStreamOut *io) {
 #define UNICODE_BOGUS_CHAR_VALUE 0xFFFFFFFF
 #define UNICODE_BOGUS_CHAR_CODEPOINT '?'
 
-static uint32_t fa_utf8_code_point(const char **_str) {
+static uint32_t utf8_code_point(const char **_str) {
     const char *str = *_str;
     uint32_t retval = 0;
     uint32_t octet = (uint32_t)((uint8_t)*str);
@@ -542,10 +542,10 @@ static uint32_t fa_utf8_code_point(const char **_str) {
     return UNICODE_BOGUS_CHAR_VALUE;
 }
 
-static void fa_utf8_to_utf16(const char *src, uint16_t *dst, size_t len) {
+static void utf8_to_utf16(const char *src, uint16_t *dst, size_t len) {
     len -= sizeof(uint16_t); /* save room for null char. */
     while (len >= sizeof(uint16_t)) {
-        uint32_t cp = fa_utf8_code_point(&src);
+        uint32_t cp = utf8_code_point(&src);
         if (cp == 0)
             break;
         else if (cp == UNICODE_BOGUS_CHAR_VALUE)
