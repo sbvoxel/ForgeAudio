@@ -748,9 +748,13 @@ static void mix_source(ForgeSourceVoice *voice) {
     toResample += FIXED_FRACTION_MASK;
     /* ... undo step size, fixed to int. */
     toResample /= voice->src.resampleStep;
-    /* FIXME: Document and test the EXTRA_DECODE_PADDING invariant used by resampling. */
+    /* EXTRA_DECODE_PADDING keeps one decoded frame available for interpolation.
+     * Covered by source_resampler padding and split-vs-contiguous tests.
+     */
     toResample += EXTRA_DECODE_PADDING;
-    /* FIXME: Verify whether this clamp is masking a broken resample-size invariant. */
+    /* Clamp to the per-pass resample cache capacity. Source resampler tests verify
+     * decode sizing leaves interpolation padding available.
+     */
     toResample = forge_min(toResample, voice->src.resampleSamples);
 
     /* Resample... */
@@ -771,8 +775,9 @@ static void mix_source(ForgeSourceVoice *voice) {
         /* ... chop off any ints we got from the above increment */
         voice->src.curBufferOffsetDec &= FIXED_FRACTION_MASK;
 
-        /* FIXME: Verify interpolation continuity when the previous source frame
-         * lives in an already-consumed buffer.
+        /* Preserve the previous source frame for interpolation across buffer
+         * boundaries. Split-vs-contiguous resampler tests cover this at
+         * fractional source-rate ratios.
          */
         if (voice->src.curBufferOffsetDec > 0 && voice->src.curBufferOffset > 0) {
             voice->src.curBufferOffset -= 1;
