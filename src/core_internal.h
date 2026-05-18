@@ -238,6 +238,7 @@ FORGE_AUDIO_API uint32_t forge_audio_test_source_decode_frame_count(uint32_t res
                                                                     float max_frequency_ratio,
                                                                     uint32_t source_sample_rate,
                                                                     uint32_t output_sample_rate);
+/* Creates a fully initialized active engine without acquiring a platform audio device. */
 FORGE_AUDIO_API ForgeResult forge_audio_test_create_offline_engine(ForgeAudioEngine **engine);
 FORGE_AUDIO_API void forge_audio_test_destroy_offline_engine(ForgeAudioEngine *audio);
 FORGE_AUDIO_API ForgeResult forge_audio_test_create_virtual_master_voice(ForgeAudioEngine *audio,

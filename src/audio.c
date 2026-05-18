@@ -224,6 +224,7 @@ void forge_audio_destroy(ForgeAudioEngine *audio) {
 #ifdef FORGE_AUDIO_TESTING
 ForgeResult forge_audio_test_create_offline_engine(ForgeAudioEngine **engine) {
     engine_construct_offline_with_allocator(engine, forge_malloc, forge_free, forge_realloc);
+    /* Offline here means no platform device; normal initialization still starts the engine. */
     engine_initialize(*engine, 0);
     return 0;
 }
