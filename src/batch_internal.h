@@ -46,6 +46,12 @@ FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_output_filter(ForgeVoice *v
                                                                    ForgeVoice *destination_voice,
                                                                    const ForgeFilterTarget *target,
                                                                    uint32_t duration_frames);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                                      const void *parameters,
+                                                                      uint32_t parameters_byte_size);
+FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                                       const ForgeReverbTarget *target,
+                                                                       uint32_t duration_frames);
 FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_volume(ForgeVoice *voice, float volume,
                                                             uint32_t duration_frames);
 FORGE_INTERNAL_API ForgeResult fa_voice_install_set_volume(ForgeVoice *voice, float volume);
@@ -73,6 +79,10 @@ FORGE_INTERNAL_API void fa_batch_queue_disable_effect(ForgeVoice *voice, uint32_
 FORGE_INTERNAL_API void fa_batch_queue_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index,
                                                              const void *parameters, uint32_t parameters_byte_size,
                                                              ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void fa_batch_queue_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                              const ForgeReverbTarget *target,
+                                                              uint32_t duration_frames,
+                                                              ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_set_filter_parameters(ForgeVoice *voice, const ForgeFilterParameters *parameters,
                                                              ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_set_filter_type(ForgeVoice *voice, ForgeFilterType type,

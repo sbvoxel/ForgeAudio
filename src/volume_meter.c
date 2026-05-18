@@ -150,6 +150,7 @@ ForgeResult forge_create_volume_meter_with_allocator(ForgeEffect **effect, uint3
     result->base.base.unlock_for_process = (ForgeEffectUnlockForProcessFunc)fa_volume_meter_unlock_for_process;
     result->base.base.process = (ForgeEffectProcessFunc)fa_volume_meter_process;
     result->base.base.get_parameters = (ForgeEffectGetParametersFunc)fa_volume_meter_get_parameters;
+    result->base.base.kind = ForgeEffectKindVolumeMeter;
     result->base.destructor = fa_volume_meter_free;
 
     /* Finally. */

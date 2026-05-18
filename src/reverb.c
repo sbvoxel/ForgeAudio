@@ -433,6 +433,40 @@ typedef struct DspReverb {
     float dry_ratio;
 } DspReverb;
 
+typedef enum ForgeReverbParameterLayout {
+    FORGE_REVERB_PARAMETER_LAYOUT_STANDARD,
+    FORGE_REVERB_PARAMETER_LAYOUT_7POINT1
+} ForgeReverbParameterLayout;
+
+typedef struct ForgeReverbFieldAutomation {
+    uint8_t active;
+    float target;
+    float step;
+    uint32_t remainingFrames;
+} ForgeReverbFieldAutomation;
+
+typedef struct ForgeReverbAutomation {
+    ForgeReverbFieldAutomation wet_dry_mix;
+    ForgeReverbFieldAutomation reflections_gain;
+    ForgeReverbFieldAutomation reverb_gain;
+    ForgeReverbFieldAutomation room_filter_main;
+    ForgeReverbFieldAutomation room_filter_hf;
+} ForgeReverbAutomation;
+
+typedef struct ForgeReverb {
+    ForgeEffectBase base;
+
+    uint16_t inChannels;
+    uint16_t outChannels;
+    uint32_t sampleRate;
+    uint16_t inBlockAlign;
+    uint16_t outBlockAlign;
+
+    ForgeReverbParameterLayout parameter_layout;
+    DspReverb reverb;
+    ForgeReverbAutomation automation;
+} ForgeReverb;
+
 static inline void DspReverb_Create(DspReverb *reverb, int32_t sampleRate, int32_t in_channels, int32_t out_channels,
                                     ForgeMallocFunc malloc_func) {
     int32_t i, c;
@@ -623,6 +657,265 @@ static inline void DspReverb_SetParameters7Point1(DspReverb *reverb, ForgeReverb
     standard_params.density = params->density;
     standard_params.room_size = params->room_size;
     DspReverb_SetParameters(reverb, &standard_params);
+}
+
+static inline void DspReverb_SetSmoothParameters(DspReverb *reverb, ForgeReverbParameters *params) {
+    int32_t c;
+
+    reverb->early_gain = DbGainToFactor(params->reflections_gain);
+    reverb->reverb_gain = DbGainToFactor(params->reverb_gain);
+    reverb->room_gain = DbGainToFactor(params->room_filter_main);
+
+    for (c = 0; c < reverb->reverb_channels; c += 1) {
+        ForgeReverbChannelPositionFlags position = get_channel_position_flags(reverb->reverb_channels, c);
+        float gain;
+
+        DspBiQuad_Change(&reverb->channel[c].room_high_shelf, DSP_BIQUAD_HIGHSHELVING, params->room_filter_freq, 0.0f,
+                         params->room_filter_main + params->room_filter_hf);
+
+        if (position & Position_Left) {
+            gain = params->position_left;
+        } else if (position & Position_Right) {
+            gain = params->position_right;
+        } else {
+            gain = (params->position_left + params->position_right) / 2.0f;
+        }
+        reverb->channel[c].early_gain = 1.2f - (gain / 6.0f) * 0.2f;
+        reverb->channel[c].early_gain = reverb->channel[c].early_gain * reverb->early_gain;
+    }
+
+    reverb->wet_ratio = params->wet_dry_mix / 100.0f;
+    reverb->dry_ratio = 1.0f - reverb->wet_ratio;
+}
+
+static void fa_reverb_get_standard_parameters(ForgeReverb *effect, ForgeReverbParameters *params) {
+    if (effect->parameter_layout == FORGE_REVERB_PARAMETER_LAYOUT_7POINT1) {
+        ForgeReverbParameters7Point1 *params7 = (ForgeReverbParameters7Point1 *)effect->base.parameters;
+
+        params->wet_dry_mix = params7->wet_dry_mix;
+        params->reflections_delay = params7->reflections_delay;
+        params->reverb_delay = params7->reverb_delay;
+        params->rear_delay = params7->rear_delay;
+        params->position_left = params7->position_left;
+        params->position_right = params7->position_right;
+        params->position_matrix_left = params7->position_matrix_left;
+        params->position_matrix_right = params7->position_matrix_right;
+        params->early_diffusion = params7->early_diffusion;
+        params->late_diffusion = params7->late_diffusion;
+        params->low_eq_gain = params7->low_eq_gain;
+        params->low_eq_cutoff = params7->low_eq_cutoff;
+        params->high_eq_gain = params7->high_eq_gain;
+        params->high_eq_cutoff = params7->high_eq_cutoff;
+        params->room_filter_freq = params7->room_filter_freq;
+        params->room_filter_main = params7->room_filter_main;
+        params->room_filter_hf = params7->room_filter_hf;
+        params->reflections_gain = params7->reflections_gain;
+        params->reverb_gain = params7->reverb_gain;
+        params->decay_time = params7->decay_time;
+        params->density = params7->density;
+        params->room_size = params7->room_size;
+    } else {
+        forge_memcpy(params, effect->base.parameters, sizeof(*params));
+    }
+}
+
+static float *fa_reverb_parameter_ptr(ForgeReverb *effect, uint32_t field) {
+    if (effect->parameter_layout == FORGE_REVERB_PARAMETER_LAYOUT_7POINT1) {
+        ForgeReverbParameters7Point1 *params = (ForgeReverbParameters7Point1 *)effect->base.parameters;
+
+        switch (field) {
+        case FORGE_REVERB_TARGET_WET_DRY_MIX:
+            return &params->wet_dry_mix;
+        case FORGE_REVERB_TARGET_REFLECTIONS_GAIN:
+            return &params->reflections_gain;
+        case FORGE_REVERB_TARGET_REVERB_GAIN:
+            return &params->reverb_gain;
+        case FORGE_REVERB_TARGET_ROOM_FILTER_MAIN:
+            return &params->room_filter_main;
+        case FORGE_REVERB_TARGET_ROOM_FILTER_HF:
+            return &params->room_filter_hf;
+        }
+    } else {
+        ForgeReverbParameters *params = (ForgeReverbParameters *)effect->base.parameters;
+
+        switch (field) {
+        case FORGE_REVERB_TARGET_WET_DRY_MIX:
+            return &params->wet_dry_mix;
+        case FORGE_REVERB_TARGET_REFLECTIONS_GAIN:
+            return &params->reflections_gain;
+        case FORGE_REVERB_TARGET_REVERB_GAIN:
+            return &params->reverb_gain;
+        case FORGE_REVERB_TARGET_ROOM_FILTER_MAIN:
+            return &params->room_filter_main;
+        case FORGE_REVERB_TARGET_ROOM_FILTER_HF:
+            return &params->room_filter_hf;
+        }
+    }
+
+    return NULL;
+}
+
+static ForgeReverbFieldAutomation *fa_reverb_automation_ptr(ForgeReverb *effect, uint32_t field) {
+    switch (field) {
+    case FORGE_REVERB_TARGET_WET_DRY_MIX:
+        return &effect->automation.wet_dry_mix;
+    case FORGE_REVERB_TARGET_REFLECTIONS_GAIN:
+        return &effect->automation.reflections_gain;
+    case FORGE_REVERB_TARGET_REVERB_GAIN:
+        return &effect->automation.reverb_gain;
+    case FORGE_REVERB_TARGET_ROOM_FILTER_MAIN:
+        return &effect->automation.room_filter_main;
+    case FORGE_REVERB_TARGET_ROOM_FILTER_HF:
+        return &effect->automation.room_filter_hf;
+    }
+
+    return NULL;
+}
+
+static float fa_reverb_clamp_target_field(uint32_t field, float value) {
+    switch (field) {
+    case FORGE_REVERB_TARGET_WET_DRY_MIX:
+        return forge_clamp(value, FORGE_REVERB_MIN_WET_DRY_MIX, FORGE_REVERB_MAX_WET_DRY_MIX);
+    case FORGE_REVERB_TARGET_REFLECTIONS_GAIN:
+        return forge_clamp(value, FORGE_REVERB_MIN_REFLECTIONS_GAIN, FORGE_REVERB_MAX_REFLECTIONS_GAIN);
+    case FORGE_REVERB_TARGET_REVERB_GAIN:
+        return forge_clamp(value, FORGE_REVERB_MIN_REVERB_GAIN, FORGE_REVERB_MAX_REVERB_GAIN);
+    case FORGE_REVERB_TARGET_ROOM_FILTER_MAIN:
+        return forge_clamp(value, FORGE_REVERB_MIN_ROOM_FILTER_MAIN, FORGE_REVERB_MAX_ROOM_FILTER_MAIN);
+    case FORGE_REVERB_TARGET_ROOM_FILTER_HF:
+        return forge_clamp(value, FORGE_REVERB_MIN_ROOM_FILTER_HF, FORGE_REVERB_MAX_ROOM_FILTER_HF);
+    }
+
+    return value;
+}
+
+static float fa_reverb_target_value(const ForgeReverbTarget *target, uint32_t field) {
+    switch (field) {
+    case FORGE_REVERB_TARGET_WET_DRY_MIX:
+        return target->wet_dry_mix;
+    case FORGE_REVERB_TARGET_REFLECTIONS_GAIN:
+        return target->reflections_gain;
+    case FORGE_REVERB_TARGET_REVERB_GAIN:
+        return target->reverb_gain;
+    case FORGE_REVERB_TARGET_ROOM_FILTER_MAIN:
+        return target->room_filter_main;
+    case FORGE_REVERB_TARGET_ROOM_FILTER_HF:
+        return target->room_filter_hf;
+    }
+
+    return 0.0f;
+}
+
+static void fa_reverb_clear_automation(ForgeReverb *effect) {
+    forge_zero(&effect->automation, sizeof(effect->automation));
+}
+
+static uint8_t fa_reverb_automation_active(ForgeReverb *effect) {
+    return effect->automation.wet_dry_mix.active || effect->automation.reflections_gain.active ||
+           effect->automation.reverb_gain.active || effect->automation.room_filter_main.active ||
+           effect->automation.room_filter_hf.active;
+}
+
+static void fa_reverb_apply_smooth_parameters(ForgeReverb *effect) {
+    ForgeReverbParameters params;
+
+    fa_reverb_get_standard_parameters(effect, &params);
+    DspReverb_SetSmoothParameters(&effect->reverb, &params);
+}
+
+static uint8_t fa_reverb_advance_field_one_frame(ForgeReverbFieldAutomation *automation, float *value) {
+    if (!automation->active) {
+        return 0;
+    }
+
+    automation->remainingFrames -= 1;
+    if (automation->remainingFrames == 0) {
+        *value = automation->target;
+        automation->active = 0;
+    } else {
+        *value += automation->step;
+    }
+    return 1;
+}
+
+static void fa_reverb_advance_automation_one_frame(ForgeReverb *effect) {
+    uint8_t advanced = 0;
+
+    advanced |= fa_reverb_advance_field_one_frame(&effect->automation.wet_dry_mix,
+                                                  fa_reverb_parameter_ptr(effect, FORGE_REVERB_TARGET_WET_DRY_MIX));
+    advanced |= fa_reverb_advance_field_one_frame(
+        &effect->automation.reflections_gain, fa_reverb_parameter_ptr(effect, FORGE_REVERB_TARGET_REFLECTIONS_GAIN));
+    advanced |= fa_reverb_advance_field_one_frame(&effect->automation.reverb_gain,
+                                                  fa_reverb_parameter_ptr(effect, FORGE_REVERB_TARGET_REVERB_GAIN));
+    advanced |= fa_reverb_advance_field_one_frame(
+        &effect->automation.room_filter_main, fa_reverb_parameter_ptr(effect, FORGE_REVERB_TARGET_ROOM_FILTER_MAIN));
+    advanced |= fa_reverb_advance_field_one_frame(&effect->automation.room_filter_hf,
+                                                  fa_reverb_parameter_ptr(effect, FORGE_REVERB_TARGET_ROOM_FILTER_HF));
+
+    if (advanced) {
+        fa_reverb_apply_smooth_parameters(effect);
+    }
+}
+
+static void fa_reverb_advance_automation(ForgeReverb *effect, uint32_t frame_count) {
+    while (frame_count > 0 && fa_reverb_automation_active(effect)) {
+        fa_reverb_advance_automation_one_frame(effect);
+        frame_count -= 1;
+    }
+}
+
+static void fa_reverb_set_field_automation(ForgeReverb *effect, uint32_t field, float target,
+                                           uint32_t duration_frames) {
+    ForgeReverbFieldAutomation *automation = fa_reverb_automation_ptr(effect, field);
+    float *value = fa_reverb_parameter_ptr(effect, field);
+
+    if (duration_frames == 0) {
+        *value = target;
+        automation->active = 0;
+        automation->remainingFrames = 0;
+        return;
+    }
+
+    automation->target = target;
+    automation->step = (target - *value) / (float)duration_frames;
+    automation->remainingFrames = duration_frames;
+    automation->active = 1;
+}
+
+static ForgeResult fa_reverb_set_target(ForgeReverb *effect, const ForgeReverbTarget *target,
+                                        uint32_t duration_frames) {
+    static const uint32_t fields[] = {FORGE_REVERB_TARGET_WET_DRY_MIX, FORGE_REVERB_TARGET_REFLECTIONS_GAIN,
+                                      FORGE_REVERB_TARGET_REVERB_GAIN, FORGE_REVERB_TARGET_ROOM_FILTER_MAIN,
+                                      FORGE_REVERB_TARGET_ROOM_FILTER_HF};
+    uint32_t unknown;
+
+    if (target == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    unknown = target->field_mask & ~FORGE_REVERB_TARGET_ALL;
+    if (target->field_mask == 0 || unknown != 0) {
+        return ForgeResultInvalidArgument;
+    }
+
+    for (uint32_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i += 1) {
+        uint32_t field = fields[i];
+
+        if (target->field_mask & field) {
+            float value = fa_reverb_clamp_target_field(field, fa_reverb_target_value(target, field));
+            fa_reverb_set_field_automation(effect, field, value, duration_frames);
+        }
+    }
+
+    if (duration_frames == 0) {
+        fa_reverb_apply_smooth_parameters(effect);
+    }
+    return ForgeResultSuccess;
+}
+
+static void fa_reverb_on_set_parameters(ForgeEffectBase *effect, const void *parameters, uint32_t parametersSize) {
+    (void)parameters;
+    (void)parametersSize;
+    fa_reverb_clear_automation((ForgeReverb *)effect);
 }
 
 static inline float DspReverb_INTERNAL_ProcessEarly(DspReverb *reverb, float sample_in) {
@@ -831,6 +1124,98 @@ static inline float DspReverb_INTERNAL_Process_5p1_to_5p1(DspReverb *reverb, flo
     return squared_sum;
 }
 
+static inline float DspReverb_INTERNAL_ProcessOneFrame(ForgeReverb *effect, float *restrict samples_in,
+                                                       float *restrict samples_out) {
+    DspReverb *reverb = &effect->reverb;
+
+    switch (reverb->out_channels) {
+    case 1: {
+        float in = samples_in[0];
+        float early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
+        float late = DspReverb_INTERNAL_ProcessChannel(reverb, &reverb->channel[0], early);
+        float out = (late * reverb->wet_ratio) + (in * reverb->dry_ratio);
+        samples_out[0] = out;
+        return out * out;
+    }
+    case 2: {
+        float in = (samples_in[0] + samples_in[1]) / 2.0f;
+        float early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
+        float late0 = (DspReverb_INTERNAL_ProcessChannel(reverb, &reverb->channel[0], early) * reverb->wet_ratio) +
+                      samples_in[0] * reverb->dry_ratio;
+        float late1 = (DspReverb_INTERNAL_ProcessChannel(reverb, &reverb->channel[1], early) * reverb->wet_ratio) +
+                      samples_in[1] * reverb->dry_ratio;
+        samples_out[0] = late0;
+        samples_out[1] = late1;
+        return (late0 * late0) + (late1 * late1);
+    }
+    default:
+        if (reverb->in_channels == 1) {
+            float in = samples_in[0];
+            float in_ratio = in * reverb->dry_ratio;
+            float early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
+            float total = 0.0f;
+
+            for (int32_t c = 0; c < 4; c += 1) {
+                float late =
+                    (DspReverb_INTERNAL_ProcessChannel(reverb, &reverb->channel[c], early) * reverb->wet_ratio) +
+                    in_ratio;
+                samples_out[c < 2 ? c : c + 2] = late;
+                total += late * late;
+            }
+            samples_out[2] = 0.0f;
+            samples_out[3] = 0.0f;
+            return total;
+        }
+        if (reverb->in_channels == 2) {
+            float in = (samples_in[0] + samples_in[1]) / 2.0f;
+            float in_ratio = in * reverb->dry_ratio;
+            float early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
+            float total = 0.0f;
+
+            for (int32_t c = 0; c < 4; c += 1) {
+                float late =
+                    (DspReverb_INTERNAL_ProcessChannel(reverb, &reverb->channel[c], early) * reverb->wet_ratio) +
+                    in_ratio;
+                samples_out[c < 2 ? c : c + 2] = late;
+                total += late * late;
+            }
+            samples_out[2] = 0.0f;
+            samples_out[3] = 0.0f;
+            return total;
+        }
+        {
+            float in = (samples_in[0] + samples_in[1] + samples_in[2] + samples_in[4] + samples_in[5]) / 5.0f;
+            float in_ratio = in * reverb->dry_ratio;
+            float early = DspReverb_INTERNAL_ProcessEarly(reverb, in);
+            float total = 0.0f;
+
+            for (int32_t c = 0; c < 5; c += 1) {
+                float late =
+                    (DspReverb_INTERNAL_ProcessChannel(reverb, &reverb->channel[c], early) * reverb->wet_ratio) +
+                    in_ratio;
+                samples_out[c < 3 ? c : c + 1] = late;
+                total += late * late;
+            }
+            samples_out[3] = samples_in[3];
+            return total;
+        }
+    }
+}
+
+static inline float DspReverb_INTERNAL_ProcessAutomated(ForgeReverb *effect, float *restrict samples_in,
+                                                       float *restrict samples_out, uint32_t frame_count) {
+    float squared_sum = 0.0f;
+
+    for (uint32_t frame = 0; frame < frame_count; frame += 1) {
+        squared_sum += DspReverb_INTERNAL_ProcessOneFrame(effect, samples_in, samples_out);
+        fa_reverb_advance_automation_one_frame(effect);
+        samples_in += effect->reverb.in_channels;
+        samples_out += effect->reverb.out_channels;
+    }
+
+    return squared_sum;
+}
+
 #undef OUTPUT_SAMPLE
 
 /* reverb ForgeEffect Implementation */
@@ -842,24 +1227,6 @@ static const ForgeEffectInfo ReverbInfo = {
     .max_input_buffer_count = 1,
     .min_output_buffer_count = 1,
     .max_output_buffer_count = 1};
-
-typedef enum ForgeReverbParameterLayout {
-    FORGE_REVERB_PARAMETER_LAYOUT_STANDARD,
-    FORGE_REVERB_PARAMETER_LAYOUT_7POINT1
-} ForgeReverbParameterLayout;
-
-typedef struct ForgeReverb {
-    ForgeEffectBase base;
-
-    uint16_t inChannels;
-    uint16_t outChannels;
-    uint32_t sampleRate;
-    uint16_t inBlockAlign;
-    uint16_t outBlockAlign;
-
-    ForgeReverbParameterLayout parameter_layout;
-    DspReverb reverb;
-} ForgeReverb;
 
 static inline int8_t is_float_format(const ForgeAudioFormat *format) {
     if (format->format_tag == FORGE_AUDIO_FORMAT_IEEE_FLOAT) {
@@ -1105,7 +1472,14 @@ static void fa_reverb_process(ForgeReverb *effect, uint32_t input_buffer_count,
         forge_zero(input_buffers->buffer, input_buffers->valid_frame_count * effect->inBlockAlign);
     }
 
-/* Run reverb effect */
+    /* Run reverb effect */
+    if (fa_reverb_automation_active(effect)) {
+        total = DspReverb_INTERNAL_ProcessAutomated(effect, (float *)input_buffers->buffer,
+                                                    (float *)output_buffers->buffer,
+                                                    input_buffers->valid_frame_count);
+        goto processed;
+    }
+
 #define PROCESS(pin, pout)                                                                                             \
     DspReverb_INTERNAL_Process_##pin##_to_##pout(&effect->reverb, (float *)input_buffers->buffer,                      \
                                                  (float *)output_buffers->buffer,                                      \
@@ -1130,6 +1504,7 @@ static void fa_reverb_process(ForgeReverb *effect, uint32_t input_buffer_count,
     }
 #undef PROCESS
 
+processed:
     /* Set buffer_flags to silent so PLAY_TAILS knows when to stop */
     output_buffers->buffer_flags = (total < 0.0000001f) ? FORGE_EFFECT_BUFFER_SILENT : FORGE_EFFECT_BUFFER_VALID;
 
@@ -1202,6 +1577,7 @@ ForgeResult forge_create_reverb_with_allocator(ForgeEffect **effect, uint32_t fl
     result->outChannels = 0;
     result->sampleRate = 0;
     forge_zero(&result->reverb, sizeof(DspReverb));
+    forge_zero(&result->automation, sizeof(result->automation));
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)fa_reverb_lock_for_process;
@@ -1213,6 +1589,10 @@ ForgeResult forge_create_reverb_with_allocator(ForgeEffect **effect, uint32_t fl
     result->base.base.initialize = (ForgeEffectInitializeFunc)fa_reverb_initialize;
     result->base.base.reset = (ForgeEffectResetFunc)fa_reverb_reset;
     result->base.base.process = (ForgeEffectProcessFunc)fa_reverb_process;
+    result->base.base.kind = ForgeEffectKindReverb;
+    result->base.base.set_reverb_target = (ForgeEffectSetReverbTargetFunc)fa_reverb_set_target;
+    result->base.base.advance_automation = (ForgeEffectAdvanceAutomationFunc)fa_reverb_advance_automation;
+    result->base.on_set_parameters = fa_reverb_on_set_parameters;
     result->base.destructor = fa_reverb_free;
 
     /* Prepare the default parameters */
@@ -1316,6 +1696,7 @@ ForgeResult forge_create_reverb_7point1_with_allocator(ForgeEffect **effect, uin
     result->outChannels = 0;
     result->sampleRate = 0;
     forge_zero(&result->reverb, sizeof(DspReverb));
+    forge_zero(&result->automation, sizeof(result->automation));
 
     /* Function table... */
     result->base.base.lock_for_process = (ForgeEffectLockForProcessFunc)fa_reverb_lock_for_process;
@@ -1327,6 +1708,10 @@ ForgeResult forge_create_reverb_7point1_with_allocator(ForgeEffect **effect, uin
     result->base.base.initialize = (ForgeEffectInitializeFunc)fa_reverb_initialize;
     result->base.base.reset = (ForgeEffectResetFunc)fa_reverb_reset;
     result->base.base.process = (ForgeEffectProcessFunc)fa_reverb_process;
+    result->base.base.kind = ForgeEffectKindReverb7Point1;
+    result->base.base.set_reverb_target = (ForgeEffectSetReverbTargetFunc)fa_reverb_set_target;
+    result->base.base.advance_automation = (ForgeEffectAdvanceAutomationFunc)fa_reverb_advance_automation;
+    result->base.on_set_parameters = fa_reverb_on_set_parameters;
     result->base.destructor = fa_reverb_free;
 
     /* Prepare the default parameters */

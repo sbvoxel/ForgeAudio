@@ -130,6 +130,20 @@ int main(void) {
     failures += run_test("stopped_source_output_filter_ramp_uses_output_rate",
                          test_stopped_source_output_filter_ramp_uses_output_rate);
     failures += run_test("filter_invalid_type_rejected", test_filter_invalid_type_rejected);
+    failures += run_test("reverb_ramp_getter_reports_current_value",
+                         test_reverb_ramp_getter_reports_current_value);
+    failures += run_test("reverb_wet_dry_ramp_renders_dry_path",
+                         test_reverb_wet_dry_ramp_renders_dry_path);
+    failures += run_test("reverb_field_mask_preserves_other_active_ramps",
+                         test_reverb_field_mask_preserves_other_active_ramps);
+    failures += run_test("stopped_source_reverb_ramp_advances_on_engine_timeline",
+                         test_stopped_source_reverb_ramp_advances_on_engine_timeline);
+    failures += run_test("reverb_batch_blob_then_ramp_order", test_reverb_batch_blob_then_ramp_order);
+    failures += run_test("reverb_batch_ramp_then_blob_order", test_reverb_batch_ramp_then_blob_order);
+    failures += run_test("reverb_zero_duration_ramp_snaps_after_render",
+                         test_reverb_zero_duration_ramp_snaps_after_render);
+    failures += run_test("reverb_invalid_arguments", test_reverb_invalid_arguments);
+    failures += run_test("reverb_7point1_target_and_getter", test_reverb_7point1_target_and_getter);
 
     return failures == 0 ? 0 : 1;
 }

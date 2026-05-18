@@ -13,7 +13,7 @@
 #ifndef FORGE_EFFECT_INTERNAL_H
 #define FORGE_EFFECT_INTERNAL_H
 
-#include <forge/effect.h>
+#include <forge/effects.h>
 
 #define FORGE_EFFECT_CALL FORGE_AUDIO_CALL
 
@@ -87,6 +87,16 @@ typedef void(FORGE_EFFECT_CALL *ForgeEffectSetParametersFunc)(void *effect, cons
                                                               uint32_t parameter_byte_size);
 typedef void(FORGE_EFFECT_CALL *ForgeEffectGetParametersFunc)(void *effect, void *parameters,
                                                               uint32_t parameter_byte_size);
+typedef ForgeResult(FORGE_EFFECT_CALL *ForgeEffectSetReverbTargetFunc)(void *effect, const ForgeReverbTarget *target,
+                                                                       uint32_t duration_frames);
+typedef void(FORGE_EFFECT_CALL *ForgeEffectAdvanceAutomationFunc)(void *effect, uint32_t frame_count);
+
+typedef enum ForgeEffectKind {
+    ForgeEffectKindUnknown,
+    ForgeEffectKindReverb,
+    ForgeEffectKindReverb7Point1,
+    ForgeEffectKindVolumeMeter
+} ForgeEffectKind;
 
 struct ForgeEffect {
     ForgeEffectDestroyFunc destroy;
@@ -102,6 +112,9 @@ struct ForgeEffect {
     ForgeEffectCalcOutputFramesFunc calc_output_frames;
     ForgeEffectSetParametersFunc set_parameters;
     ForgeEffectGetParametersFunc get_parameters;
+    ForgeEffectKind kind;
+    ForgeEffectSetReverbTargetFunc set_reverb_target;
+    ForgeEffectAdvanceAutomationFunc advance_automation;
 };
 
 #ifdef __cplusplus

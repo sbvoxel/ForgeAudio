@@ -39,6 +39,9 @@ void fa_effect_base_init_with_allocator(ForgeEffectBase *effect, const ForgeEffe
     effect->base.calc_output_frames = (ForgeEffectCalcOutputFramesFunc)fa_effect_base_calc_output_frames;
     effect->base.set_parameters = (ForgeEffectSetParametersFunc)fa_effect_base_set_parameters;
     effect->base.get_parameters = (ForgeEffectGetParametersFunc)fa_effect_base_get_parameters;
+    effect->base.kind = ForgeEffectKindUnknown;
+    effect->base.set_reverb_target = NULL;
+    effect->base.advance_automation = NULL;
 
     /* Public Virtual Functions */
     effect->on_set_parameters = (ForgeEffectBaseSetParametersFunc)fa_effect_base_on_set_parameters;

@@ -490,6 +490,16 @@ static inline float *process_effect_chain(ForgeVoice *voice, float *buffer, uint
     return (float *)dstParams.buffer;
 }
 
+static void advance_effect_chain_automation_locked(ForgeVoice *voice, uint32_t frames) {
+    for (uint32_t i = 0; i < voice->effects.count; i += 1) {
+        ForgeEffect *effect = voice->effects.desc[i].effect;
+
+        if (effect->advance_automation != NULL) {
+            effect->advance_automation(effect, frames);
+        }
+    }
+}
+
 static void apply_voice_volume_locked(ForgeVoice *voice, float *samples, uint32_t frames, uint32_t channels) {
     uint32_t frame = 0;
 
@@ -1208,6 +1218,11 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
                 fa_platform_unlock_mutex(audio->processingSource->filterLock);
                 LOG_MUTEX_UNLOCK(audio, audio->processingSource->filterLock)
             }
+            fa_platform_lock_mutex(audio->processingSource->effectLock);
+            LOG_MUTEX_LOCK(audio, audio->processingSource->effectLock)
+            advance_effect_chain_automation_locked(audio->processingSource, sourceTimelineFrames);
+            fa_platform_unlock_mutex(audio->processingSource->effectLock);
+            LOG_MUTEX_UNLOCK(audio, audio->processingSource->effectLock)
             fa_platform_lock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_LOCK(audio, audio->processingSource->volumeLock)
             advance_voice_volume_locked(audio->processingSource, sourceTimelineFrames);

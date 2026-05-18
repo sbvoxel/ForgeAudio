@@ -1800,15 +1800,26 @@ ForgeResult forge_voice_set_effect_parameters(ForgeVoice *voice, uint32_t effect
                                               uint32_t parameters_byte_size, ForgeAudioBatchId batch_id) {
     LOG_API_ENTER(voice->audio)
 
-    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || parameters == NULL) {
         LOG_API_EXIT(voice->audio)
         return ForgeResultInvalidCall;
     }
 
-    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+    if (voice->audio->active) {
         fa_batch_queue_set_effect_parameters(voice, effect_index, parameters, parameters_byte_size, batch_id);
         LOG_API_EXIT(voice->audio)
         return 0;
+    }
+
+    ForgeResult result = fa_voice_install_set_effect_parameters(voice, effect_index, parameters, parameters_byte_size);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult fa_voice_install_set_effect_parameters(ForgeVoice *voice, uint32_t effect_index, const void *parameters,
+                                                   uint32_t parameters_byte_size) {
+    if (parameters == NULL || voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        return ForgeResultInvalidCall;
     }
 
     if (voice->effects.parameters == NULL) {
@@ -1816,22 +1827,27 @@ ForgeResult forge_voice_set_effect_parameters(ForgeVoice *voice, uint32_t effect
         return ForgeResultInvalidCall;
     }
 
-    if (voice->effects.parameters[effect_index] == NULL) {
-        voice->effects.parameters[effect_index] = voice->audio->malloc_func(parameters_byte_size);
-        voice->effects.parameterSizes[effect_index] = parameters_byte_size;
-    }
     fa_platform_lock_mutex(voice->effectLock);
     LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
-    if (voice->effects.parameterSizes[effect_index] < parameters_byte_size) {
+
+    if (voice->effects.parameters[effect_index] == NULL ||
+        voice->effects.parameterSizes[effect_index] < parameters_byte_size) {
         voice->effects.parameters[effect_index] =
             voice->audio->realloc_func(voice->effects.parameters[effect_index], parameters_byte_size);
-        voice->effects.parameterSizes[effect_index] = parameters_byte_size;
+        if (voice->effects.parameters[effect_index] == NULL) {
+            fa_platform_unlock_mutex(voice->effectLock);
+            LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+            return ForgeResultOutOfMemory;
+        }
     }
+
+    voice->effects.parameterSizes[effect_index] = parameters_byte_size;
     forge_memcpy(voice->effects.parameters[effect_index], parameters, parameters_byte_size);
-    voice->effects.parameterUpdates[effect_index] = 1;
+    voice->effects.parameterUpdates[effect_index] = 0;
+    voice->effects.desc[effect_index].effect->set_parameters(voice->effects.desc[effect_index].effect, parameters,
+                                                             parameters_byte_size);
     fa_platform_unlock_mutex(voice->effectLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
-    LOG_API_EXIT(voice->audio)
     return 0;
 }
 
@@ -1847,6 +1863,169 @@ ForgeResult forge_voice_get_effect_parameters(ForgeVoice *voice, uint32_t effect
     LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
     LOG_API_EXIT(voice->audio)
     return 0;
+}
+
+static ForgeResult validate_reverb_target_arg(const ForgeReverbTarget *target) {
+    if (target == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    if (target->field_mask == 0 || (target->field_mask & ~FORGE_REVERB_TARGET_ALL) != 0) {
+        return ForgeResultInvalidArgument;
+    }
+    return ForgeResultSuccess;
+}
+
+static ForgeResult validate_reverb_effect_slot(ForgeVoice *voice, uint32_t effect_index, uint8_t allow_7point1,
+                                               ForgeEffect **effect) {
+    ForgeEffect *slot_effect;
+    ForgeResult result = ForgeResultSuccess;
+
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->effectLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+    slot_effect = voice->effects.desc[effect_index].effect;
+    if (slot_effect == NULL || slot_effect->set_reverb_target == NULL) {
+        result = ForgeResultInvalidCall;
+    } else if (slot_effect->kind != ForgeEffectKindReverb &&
+               (!allow_7point1 || slot_effect->kind != ForgeEffectKindReverb7Point1)) {
+        result = ForgeResultInvalidCall;
+    } else if (effect != NULL) {
+        *effect = slot_effect;
+    }
+    fa_platform_unlock_mutex(voice->effectLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+
+    return result;
+}
+
+ForgeResult fa_voice_install_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                    const ForgeReverbTarget *target, uint32_t duration_frames) {
+    ForgeEffect *effect;
+    ForgeResult result = validate_reverb_target_arg(target);
+
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    if (voice->effects.desc == NULL || effect_index >= voice->effects.count) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->effectLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+    effect = voice->effects.desc[effect_index].effect;
+    if (effect == NULL || effect->set_reverb_target == NULL ||
+        (effect->kind != ForgeEffectKindReverb && effect->kind != ForgeEffectKindReverb7Point1)) {
+        result = ForgeResultInvalidCall;
+    } else {
+        result = effect->set_reverb_target(effect, target, duration_frames);
+    }
+    fa_platform_unlock_mutex(voice->effectLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+
+    return result;
+}
+
+static ForgeResult queue_or_install_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                           const ForgeReverbTarget *target,
+                                                           uint32_t duration_frames,
+                                                           ForgeAudioBatchId batch_id) {
+    ForgeResult result = validate_reverb_target_arg(target);
+
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        return ForgeResultInvalidCall;
+    }
+    result = validate_reverb_effect_slot(voice, effect_index, 1, NULL);
+    if (result != ForgeResultSuccess) {
+        return result;
+    }
+    if (voice->audio->active) {
+        fa_batch_queue_ramp_reverb_parameters(voice, effect_index, target, duration_frames, batch_id);
+        return ForgeResultSuccess;
+    }
+    return fa_voice_install_ramp_reverb_parameters(voice, effect_index, target, duration_frames);
+}
+
+ForgeResult forge_voice_set_reverb_parameters_target(ForgeVoice *voice, uint32_t effect_index,
+                                                     const ForgeReverbTarget *target,
+                                                     ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_reverb_parameters(voice, effect_index, target,
+                                                     FA_AUTOMATION_DEFAULT_TARGET_FRAMES, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_reverb_parameters_frames(ForgeVoice *voice, uint32_t effect_index,
+                                                      const ForgeReverbTarget *target,
+                                                      uint32_t duration_frames,
+                                                      ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+    result = queue_or_install_ramp_reverb_parameters(voice, effect_index, target, duration_frames, batch_id);
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_reverb_parameters_ms(ForgeVoice *voice, uint32_t effect_index,
+                                                  const ForgeReverbTarget *target, double duration_ms,
+                                                  ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+
+    LOG_API_ENTER(voice->audio)
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_reverb_parameters(voice, effect_index, target, duration_frames, batch_id);
+    }
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_get_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                              ForgeReverbParameters *parameters) {
+    ForgeEffect *effect;
+
+    if (parameters == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    if (validate_reverb_effect_slot(voice, effect_index, 0, &effect) != ForgeResultSuccess ||
+        effect->kind != ForgeEffectKindReverb) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->effectLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+    effect->get_parameters(effect, parameters, sizeof(*parameters));
+    fa_platform_unlock_mutex(voice->effectLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+    return ForgeResultSuccess;
+}
+
+ForgeResult forge_voice_get_reverb_7point1_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                      ForgeReverbParameters7Point1 *parameters) {
+    ForgeEffect *effect;
+
+    if (parameters == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    if (validate_reverb_effect_slot(voice, effect_index, 1, &effect) != ForgeResultSuccess ||
+        effect->kind != ForgeEffectKindReverb7Point1) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->effectLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->effectLock)
+    effect->get_parameters(effect, parameters, sizeof(*parameters));
+    fa_platform_unlock_mutex(voice->effectLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
+    return ForgeResultSuccess;
 }
 
 static ForgeResult validate_filter_target_arg(const ForgeFilterTarget *target) {

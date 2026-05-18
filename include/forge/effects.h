@@ -80,6 +80,15 @@ typedef struct ForgeReverbParameters7Point1 {
     float room_size;
 } ForgeReverbParameters7Point1;
 
+typedef struct ForgeReverbTarget {
+    uint32_t field_mask;  /* Mix of FORGE_REVERB_TARGET_* flags. */
+    float wet_dry_mix;   /* Percent, [FORGE_REVERB_MIN_WET_DRY_MIX, FORGE_REVERB_MAX_WET_DRY_MIX] */
+    float reflections_gain; /* dB, [FORGE_REVERB_MIN_REFLECTIONS_GAIN, FORGE_REVERB_MAX_REFLECTIONS_GAIN] */
+    float reverb_gain;      /* dB, [FORGE_REVERB_MIN_REVERB_GAIN, FORGE_REVERB_MAX_REVERB_GAIN] */
+    float room_filter_main; /* dB, [FORGE_REVERB_MIN_ROOM_FILTER_MAIN, FORGE_REVERB_MAX_ROOM_FILTER_MAIN] */
+    float room_filter_hf;   /* dB, [FORGE_REVERB_MIN_ROOM_FILTER_HF, FORGE_REVERB_MAX_ROOM_FILTER_HF] */
+} ForgeReverbTarget;
+
 typedef struct ForgeReverbI3DL2Parameters {
     float wet_dry_mix;
     int32_t room;
@@ -166,6 +175,15 @@ typedef struct ForgeReverbI3DL2Parameters {
 #define FORGE_REVERB_DEFAULT_DECAY_TIME 1.0f
 #define FORGE_REVERB_DEFAULT_DENSITY 100.0f
 #define FORGE_REVERB_DEFAULT_ROOM_SIZE 100.0f
+
+#define FORGE_REVERB_TARGET_WET_DRY_MIX 0x00000001u
+#define FORGE_REVERB_TARGET_REFLECTIONS_GAIN 0x00000002u
+#define FORGE_REVERB_TARGET_REVERB_GAIN 0x00000004u
+#define FORGE_REVERB_TARGET_ROOM_FILTER_MAIN 0x00000008u
+#define FORGE_REVERB_TARGET_ROOM_FILTER_HF 0x00000010u
+#define FORGE_REVERB_TARGET_ALL                                                                                       \
+    (FORGE_REVERB_TARGET_WET_DRY_MIX | FORGE_REVERB_TARGET_REFLECTIONS_GAIN | FORGE_REVERB_TARGET_REVERB_GAIN |       \
+     FORGE_REVERB_TARGET_ROOM_FILTER_MAIN | FORGE_REVERB_TARGET_ROOM_FILTER_HF)
 
 #define FORGE_REVERB_I3DL2_PRESET_DEFAULT                                                                              \
     {100, -10000, 0, 0.0f, 1.00f, 0.50f, -10000, 0.020f, -10000, 0.040f, 100.0f, 100.0f, 5000.0f}
@@ -255,6 +273,47 @@ FORGE_AUDIO_API void forge_reverb_convert_i3dl2(const ForgeReverbI3DL2Parameters
 FORGE_AUDIO_API void forge_reverb_convert_i3dl2_7point1(const ForgeReverbI3DL2Parameters *i3dl2,
                                                         ForgeReverbParameters7Point1 *parameters,
                                                         int32_t use_7point1_rear_delay);
+
+/* Targets selected cheap continuous reverb parameters using ForgeAudio's
+ * internal default de-zip duration. Only FORGE_REVERB_TARGET_* fields are
+ * affected; omitted fields keep their current value and active automation.
+ * This API is valid for both forge_create_reverb and forge_create_reverb_7point1
+ * effect slots.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_set_reverb_parameters_target(ForgeVoice *voice, uint32_t effect_index,
+                                                                     const ForgeReverbTarget *target,
+                                                                     ForgeAudioBatchId batch_id);
+
+/* Ramps selected cheap continuous reverb parameters over exact rendered frames.
+ * Blob parameter sets remain hard sets and cancel active typed reverb automation
+ * when they are applied on the audio timeline.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_reverb_parameters_frames(ForgeVoice *voice, uint32_t effect_index,
+                                                                      const ForgeReverbTarget *target,
+                                                                      uint32_t duration_frames,
+                                                                      ForgeAudioBatchId batch_id);
+
+/* Ramps selected cheap continuous reverb parameters over milliseconds converted
+ * through forge_audio_ms_to_frames when this function is called.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_reverb_parameters_ms(ForgeVoice *voice, uint32_t effect_index,
+                                                                  const ForgeReverbTarget *target,
+                                                                  double duration_ms,
+                                                                  ForgeAudioBatchId batch_id);
+
+/* Gets the current effective standard reverb parameters. During active typed
+ * ramps, smoothable fields report the current timeline value; hard-set-only
+ * fields report their current hard-set value. Returns ForgeResultInvalidCall
+ * for 7.1 reverb slots.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_get_reverb_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                              ForgeReverbParameters *parameters);
+
+/* Gets the current effective 7.1 reverb parameters. Returns
+ * ForgeResultInvalidCall for standard reverb slots.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_get_reverb_7point1_parameters(ForgeVoice *voice, uint32_t effect_index,
+                                                                      ForgeReverbParameters7Point1 *parameters);
 
 #ifdef __cplusplus
 }

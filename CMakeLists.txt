@@ -175,6 +175,7 @@ if(BUILD_TESTS)
         tests/engine_render_filter.c
         tests/engine_render_gain.c
         tests/engine_render_output_matrix.c
+        tests/engine_render_reverb.c
         tests/engine_render_tests.h
         tests/engine_render_volume.c
     )

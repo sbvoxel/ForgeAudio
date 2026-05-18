@@ -93,5 +93,14 @@ int test_stopped_source_filter_ramp_uses_output_rate(void);
 int test_output_filter_type_preserves_ready_ramp(void);
 int test_stopped_source_output_filter_ramp_uses_output_rate(void);
 int test_filter_invalid_type_rejected(void);
+int test_reverb_ramp_getter_reports_current_value(void);
+int test_reverb_wet_dry_ramp_renders_dry_path(void);
+int test_reverb_field_mask_preserves_other_active_ramps(void);
+int test_stopped_source_reverb_ramp_advances_on_engine_timeline(void);
+int test_reverb_batch_blob_then_ramp_order(void);
+int test_reverb_batch_ramp_then_blob_order(void);
+int test_reverb_zero_duration_ramp_snaps_after_render(void);
+int test_reverb_invalid_arguments(void);
+int test_reverb_7point1_target_and_getter(void);
 
 #endif /* FORGE_ENGINE_RENDER_TESTS_H */

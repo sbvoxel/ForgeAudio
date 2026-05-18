@@ -604,6 +604,9 @@ FORGE_AUDIO_API ForgeResult forge_voice_disable_effect(ForgeVoice *voice, uint32
 FORGE_AUDIO_API void forge_voice_get_effect_state(ForgeVoice *voice, uint32_t effect_index, int32_t *enabled);
 
 /* Submits a block of memory to be sent to ForgeEffect::set_parameters.
+ * This is a hard parameter set. For built-in effects with typed automation,
+ * setting the blob cancels active typed automation for that effect when the
+ * set is applied on the audio timeline.
  *
  * effect_index:        The index of the effect (based on the chain order).
  * parameters:        The values to be copied and submitted to the ForgeEffect.

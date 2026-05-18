@@ -20,6 +20,7 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_ENABLE_EFFECT,
     FORGE_AUDIO_COMMAND_DISABLE_EFFECT,
     FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS,
+    FORGE_AUDIO_COMMAND_RAMP_REVERB_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS,
     FORGE_AUDIO_COMMAND_SET_FILTER_TYPE,
     FORGE_AUDIO_COMMAND_RAMP_FILTER,
@@ -56,6 +57,11 @@ struct ForgeAudioCommand {
             void *parameters;
             uint32_t parameters_byte_size;
         } SetEffectParameters;
+        struct {
+            uint32_t effect_index;
+            ForgeReverbTarget target;
+            uint32_t duration_frames;
+        } RampReverbParameters;
         struct {
             ForgeFilterParameters Parameters;
         } SetFilterParameters;
@@ -161,9 +167,15 @@ static inline void execute_command(ForgeAudioCommand *op) {
         break;
 
     case FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS:
-        forge_voice_set_effect_parameters(
-            op->voice, op->Data.SetEffectParameters.effect_index, op->Data.SetEffectParameters.parameters,
-            op->Data.SetEffectParameters.parameters_byte_size, FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_voice_install_set_effect_parameters(op->voice, op->Data.SetEffectParameters.effect_index,
+                                               op->Data.SetEffectParameters.parameters,
+                                               op->Data.SetEffectParameters.parameters_byte_size);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_REVERB_PARAMETERS:
+        fa_voice_install_ramp_reverb_parameters(op->voice, op->Data.RampReverbParameters.effect_index,
+                                                &op->Data.RampReverbParameters.target,
+                                                op->Data.RampReverbParameters.duration_frames);
         break;
 
     case FORGE_AUDIO_COMMAND_SET_FILTER_PARAMETERS:
@@ -425,12 +437,29 @@ void fa_batch_queue_set_effect_parameters(ForgeVoice *voice, uint32_t effect_ind
     fa_platform_lock_mutex(voice->audio->batchLock);
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
-    op = queue_command(voice, FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS, batch_id);
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_SET_EFFECT_PARAMETERS, batch_id);
 
     op->Data.SetEffectParameters.effect_index = effect_index;
     op->Data.SetEffectParameters.parameters = voice->audio->malloc_func(parameters_byte_size);
     forge_memcpy(op->Data.SetEffectParameters.parameters, parameters, parameters_byte_size);
     op->Data.SetEffectParameters.parameters_byte_size = parameters_byte_size;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_queue_ramp_reverb_parameters(ForgeVoice *voice, uint32_t effect_index, const ForgeReverbTarget *target,
+                                           uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_REVERB_PARAMETERS, batch_id);
+
+    op->Data.RampReverbParameters.effect_index = effect_index;
+    op->Data.RampReverbParameters.target = *target;
+    op->Data.RampReverbParameters.duration_frames = duration_frames;
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
