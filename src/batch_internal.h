@@ -46,6 +46,10 @@ FORGE_INTERNAL_API void fa_batch_queue_ramp_channel_volumes(ForgeVoice *voice, u
 FORGE_INTERNAL_API void fa_batch_queue_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
                                                          uint32_t source_channels, uint32_t destination_channels,
                                                          const float *level_matrix, ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void fa_batch_queue_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                          uint32_t source_channels, uint32_t destination_channels,
+                                                          const float *level_matrix, uint32_t duration_frames,
+                                                          ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_start(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_stop(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_fade_stop(ForgeSourceVoice *voice, float volume, uint32_t duration_frames,

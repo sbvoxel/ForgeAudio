@@ -101,6 +101,12 @@ static void free_voice_send_runtime(ForgeVoice *voice) {
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
         voice->audio->free_func(voice->sends.sends[i].sendCoefficients);
         voice->audio->free_func(voice->sends.sends[i].mixCoefficients);
+        if (voice->sends.sends[i].matrixAutomation.target != NULL) {
+            voice->audio->free_func(voice->sends.sends[i].matrixAutomation.target);
+        }
+        if (voice->sends.sends[i].matrixAutomation.step != NULL) {
+            voice->audio->free_func(voice->sends.sends[i].matrixAutomation.step);
+        }
         if (voice->sends.sends[i].filterState != NULL) {
             voice->audio->free_func(voice->sends.sends[i].filterState);
         }
@@ -864,7 +870,7 @@ void forge_audio_get_processing_quantum(ForgeAudioEngine *audio, uint32_t *quant
 
 /* ForgeVoice Interface */
 
-static void recalc_mix_matrix(ForgeVoice *voice, uint32_t sendIndex) {
+void fa_voice_recalc_mix_matrix(ForgeVoice *voice, uint32_t sendIndex) {
     uint32_t oChan, s, d;
     ForgeVoiceSendRuntime *send = &voice->sends.sends[sendIndex];
     ForgeVoice *out = send->send.output_voice;
@@ -1003,12 +1009,19 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
             (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
         send->mixCoefficients =
             (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
+        send->matrixAutomation.target =
+            (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
+        send->matrixAutomation.step =
+            (float *)voice->audio->malloc_func(sizeof(float) * voice->outputChannels * outChannels);
 
         forge_assert(voice->outputChannels > 0 && voice->outputChannels < 9);
         forge_assert(outChannels > 0 && outChannels < 9);
         forge_memcpy(send->sendCoefficients, fa_audio_matrix_defaults[voice->outputChannels - 1][outChannels - 1],
                      voice->outputChannels * outChannels * sizeof(float));
-        recalc_mix_matrix(voice, i);
+        forge_memcpy(send->matrixAutomation.target, send->sendCoefficients,
+                     voice->outputChannels * outChannels * sizeof(float));
+        forge_zero(send->matrixAutomation.step, voice->outputChannels * outChannels * sizeof(float));
+        fa_voice_recalc_mix_matrix(voice, i);
 
         if (voice->outputChannels == 1) {
             if (outChannels == 1) {
@@ -1498,7 +1511,7 @@ ForgeResult forge_voice_set_volume(ForgeVoice *voice, float volume, ForgeAudioBa
     voice->volumeAutomation.stopSourceOnComplete = 0;
 
     for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
-        recalc_mix_matrix(voice, i);
+        fa_voice_recalc_mix_matrix(voice, i);
     }
 
     fa_platform_unlock_mutex(voice->volumeLock);
@@ -1740,8 +1753,109 @@ ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, ForgeVoice *destina
 
     forge_memcpy(voice->sends.sends[i].sendCoefficients, level_matrix,
                  sizeof(float) * source_channels * destination_channels);
+    voice->sends.sends[i].matrixAutomation.active = 0;
+    voice->sends.sends[i].matrixAutomation.remainingFrames = 0;
 
-    recalc_mix_matrix(voice, i);
+    fa_voice_recalc_mix_matrix(voice, i);
+
+    fa_platform_unlock_mutex(voice->volumeLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
+
+end:
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t source_channels,
+                                           uint32_t destination_channels, const float *level_matrix,
+                                           uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    uint32_t i;
+    ForgeResult result = ForgeResultSuccess;
+    LOG_API_ENTER(voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (level_matrix == NULL) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    if (batch_id != FORGE_AUDIO_BATCH_IMMEDIATE && voice->audio->active) {
+        fa_batch_queue_ramp_output_matrix(voice, destination_voice, source_channels, destination_channels,
+                                          level_matrix, duration_frames, batch_id);
+        LOG_API_EXIT(voice->audio)
+        return 0;
+    }
+
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+
+    /* Find the send index */
+    if (destination_voice == NULL && voice->sends.send_count == 1) {
+        destination_voice = voice->sends.sends[0].send.output_voice;
+    }
+    forge_assert(destination_voice != NULL);
+    for (i = 0; i < voice->sends.send_count; i += 1) {
+        if (destination_voice == voice->sends.sends[i].send.output_voice) {
+            break;
+        }
+    }
+    if (i >= voice->sends.send_count) {
+        LOG_ERROR(voice->audio, "Destination not attached to source: %p %p", (void *)voice, (void *)destination_voice)
+        result = ForgeResultInvalidCall;
+        goto end;
+    }
+
+    /* Verify the Source/Destination channel count */
+    if (source_channels != voice->outputChannels) {
+        LOG_ERROR(voice->audio, "source_channels not equal to voice channel count: %p %d %d", (void *)voice,
+                  source_channels, voice->outputChannels)
+        result = ForgeResultInvalidCall;
+        goto end;
+    }
+
+    if (destination_voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        if (destination_channels != destination_voice->master.inputChannels) {
+            LOG_ERROR(voice->audio, "destination_channels not equal to master channel count: %p %d %d",
+                      (void *)destination_voice, destination_channels, destination_voice->master.inputChannels)
+            result = ForgeResultInvalidCall;
+            goto end;
+        }
+    } else {
+        if (destination_channels != destination_voice->mix.inputChannels) {
+            LOG_ERROR(voice->audio, "destination_channels not equal to submix channel count: %p %d %d",
+                      (void *)destination_voice, destination_channels, destination_voice->mix.inputChannels)
+            result = ForgeResultInvalidCall;
+            goto end;
+        }
+    }
+
+    fa_platform_lock_mutex(voice->volumeLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
+
+    if (duration_frames == 0) {
+        forge_memcpy(voice->sends.sends[i].sendCoefficients, level_matrix,
+                     sizeof(float) * source_channels * destination_channels);
+        voice->sends.sends[i].matrixAutomation.active = 0;
+        voice->sends.sends[i].matrixAutomation.remainingFrames = 0;
+        fa_voice_recalc_mix_matrix(voice, i);
+    } else {
+        ForgeVoiceSendRuntime *send = &voice->sends.sends[i];
+        uint32_t coefficientCount = source_channels * destination_channels;
+
+        for (uint32_t coefficient = 0; coefficient < coefficientCount; coefficient += 1) {
+            send->matrixAutomation.target[coefficient] = level_matrix[coefficient];
+            send->matrixAutomation.step[coefficient] =
+                (level_matrix[coefficient] - send->sendCoefficients[coefficient]) / (float)duration_frames;
+        }
+        send->matrixAutomation.remainingFrames = duration_frames;
+        send->matrixAutomation.active = 1;
+    }
 
     fa_platform_unlock_mutex(voice->volumeLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
@@ -1776,11 +1890,7 @@ void forge_voice_get_output_matrix(ForgeVoice *voice, ForgeVoice *destination_vo
     }
 
     /* Verify the Source/Destination channel count */
-    if (voice->type == FORGE_AUDIO_VOICE_SOURCE) {
-        forge_assert(source_channels == voice->src.format->channels);
-    } else {
-        forge_assert(source_channels == voice->mix.inputChannels);
-    }
+    forge_assert(source_channels == voice->outputChannels);
     if (destination_voice->type == FORGE_AUDIO_VOICE_MASTER) {
         forge_assert(destination_channels == destination_voice->master.inputChannels);
     } else {

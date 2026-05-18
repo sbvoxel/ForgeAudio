@@ -53,6 +53,12 @@ typedef struct ForgeVoiceSendRuntime {
     ForgeAudioMixCallback mix;
     ForgeFilterParameters filter;
     ForgeAudioFilterState *filterState;
+    struct {
+        uint8_t active;
+        float *target;
+        float *step;
+        uint32_t remainingFrames;
+    } matrixAutomation;
 } ForgeVoiceSendRuntime;
 
 typedef struct ForgeVoiceSendRuntimeList {
@@ -242,5 +248,6 @@ FORGE_AUDIO_API ForgeResult forge_audio_test_render(ForgeAudioEngine *audio, flo
 #endif
 
 FORGE_INTERNAL_API extern const float fa_audio_matrix_defaults[8][8][64];
+FORGE_INTERNAL_API void fa_voice_recalc_mix_matrix(ForgeVoice *voice, uint32_t sendIndex);
 
 #endif /* FORGE_CORE_INTERNAL_H */

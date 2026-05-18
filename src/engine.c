@@ -534,6 +534,73 @@ static void advance_channel_volumes_locked(ForgeVoice *voice, uint32_t frames, u
     }
 }
 
+static void mix_one_matrix_frame(float *src, float *dst, float *coefficients, uint32_t srcChans, uint32_t dstChans) {
+    for (uint32_t dstChan = 0; dstChan < dstChans; dstChan += 1) {
+        for (uint32_t srcChan = 0; srcChan < srcChans; srcChan += 1) {
+            dst[dstChan] += src[srcChan] * coefficients[dstChan * srcChans + srcChan];
+        }
+    }
+}
+
+static void commit_output_matrix_target_locked(ForgeVoice *voice, uint32_t sendIndex, uint32_t coefficientCount) {
+    ForgeVoiceSendRuntime *send = &voice->sends.sends[sendIndex];
+
+    forge_memcpy(send->sendCoefficients, send->matrixAutomation.target, sizeof(float) * coefficientCount);
+    send->matrixAutomation.active = 0;
+    fa_voice_recalc_mix_matrix(voice, sendIndex);
+}
+
+static void apply_output_matrix_locked(ForgeVoice *voice, uint32_t sendIndex, uint32_t frames, uint32_t srcChans,
+                                       uint32_t dstChans, float *src, float *dst) {
+    ForgeVoiceSendRuntime *send = &voice->sends.sends[sendIndex];
+    uint32_t coefficientCount = srcChans * dstChans;
+    uint32_t frame = 0;
+
+    if (send->matrixAutomation.active) {
+        while (frame < frames && send->matrixAutomation.active) {
+            mix_one_matrix_frame(src + (frame * srcChans), dst + (frame * dstChans), send->sendCoefficients, srcChans,
+                                 dstChans);
+
+            send->matrixAutomation.remainingFrames -= 1;
+            if (send->matrixAutomation.remainingFrames == 0) {
+                commit_output_matrix_target_locked(voice, sendIndex, coefficientCount);
+            } else {
+                for (uint32_t coefficient = 0; coefficient < coefficientCount; coefficient += 1) {
+                    send->sendCoefficients[coefficient] += send->matrixAutomation.step[coefficient];
+                }
+            }
+            frame += 1;
+        }
+    }
+
+    if (frame < frames) {
+        send->mix(frames - frame, srcChans, dstChans, src + (frame * srcChans), dst + (frame * dstChans),
+                  send->mixCoefficients);
+    }
+}
+
+static void advance_output_matrices_locked(ForgeVoice *voice, uint32_t frames) {
+    for (uint32_t sendIndex = 0; sendIndex < voice->sends.send_count; sendIndex += 1) {
+        ForgeVoiceSendRuntime *send = &voice->sends.sends[sendIndex];
+        ForgeVoice *out = send->send.output_voice;
+        uint32_t dstChans = (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputChannels : out->mix.inputChannels;
+        uint32_t coefficientCount = voice->outputChannels * dstChans;
+        uint32_t framesToAdvance = frames;
+
+        while (framesToAdvance > 0 && send->matrixAutomation.active) {
+            send->matrixAutomation.remainingFrames -= 1;
+            if (send->matrixAutomation.remainingFrames == 0) {
+                commit_output_matrix_target_locked(voice, sendIndex, coefficientCount);
+            } else {
+                for (uint32_t coefficient = 0; coefficient < coefficientCount; coefficient += 1) {
+                    send->sendCoefficients[coefficient] += send->matrixAutomation.step[coefficient];
+                }
+            }
+            framesToAdvance -= 1;
+        }
+    }
+}
+
 #ifdef FORGE_AUDIO_TESTING
 float *forge_audio_test_process_effect_chain(ForgeVoice *voice, float *buffer, uint32_t *samples) {
     return process_effect_chain(voice, buffer, samples);
@@ -755,6 +822,7 @@ sendwork:
         LOG_MUTEX_LOCK(voice->audio, voice->volumeLock)
         advance_voice_volume_locked(voice, mixed);
         advance_channel_volumes_locked(voice, mixed, voice->outputChannels);
+        advance_output_matrices_locked(voice, mixed);
         fa_platform_unlock_mutex(voice->volumeLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->volumeLock)
 
@@ -781,7 +849,7 @@ sendwork:
             oChan = out->mix.inputChannels;
         }
 
-        send->mix(mixed, voice->outputChannels, oChan, finalSamples, stream, send->mixCoefficients);
+        apply_output_matrix_locked(voice, i, mixed, voice->outputChannels, oChan, finalSamples, stream);
 
         if (send->send.flags & FORGE_AUDIO_SEND_USEFILTER) {
             filter_voice(voice->audio, &send->filter, send->filterState, stream, mixed, oChan);
@@ -951,7 +1019,7 @@ static void mix_submix(ForgeSubmixVoice *voice) {
             oChan = out->mix.inputChannels;
         }
 
-        send->mix(resampled, voice->outputChannels, oChan, finalSamples, stream, send->mixCoefficients);
+        apply_output_matrix_locked(voice, i, resampled, voice->outputChannels, oChan, finalSamples, stream);
 
         if (send->send.flags & FORGE_AUDIO_SEND_USEFILTER) {
             filter_voice(voice->audio, &send->filter, send->filterState, stream, resampled, oChan);
@@ -1061,6 +1129,7 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
             advance_voice_volume_locked(audio->processingSource, audio->updateSize);
             advance_channel_volumes_locked(audio->processingSource, audio->updateSize,
                                            audio->processingSource->outputChannels);
+            advance_output_matrices_locked(audio->processingSource, audio->updateSize);
             fa_platform_unlock_mutex(audio->processingSource->volumeLock);
             LOG_MUTEX_UNLOCK(audio, audio->processingSource->volumeLock)
         }

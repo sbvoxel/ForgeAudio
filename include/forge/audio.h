@@ -731,8 +731,8 @@ FORGE_AUDIO_API ForgeResult forge_voice_ramp_channel_volumes(ForgeVoice *voice, 
 FORGE_AUDIO_API void forge_voice_get_channel_volumes(ForgeVoice *voice, uint32_t channels, float *volumes);
 
 /* Sets the volumes of a send's output channels. The matrix is based on the
- * voice's input channels. For example, the default matrix for a 2-channel
- * source and a 2-channel output voice is as follows:
+ * voice's rendered output channels. For example, the default matrix for a 2-channel source and a 2-channel output
+ * voice is as follows:
  * [0] = 1.0f; <- Left input, left output
  * [1] = 0.0f; <- Right input, left output
  * [2] = 0.0f; <- Left input, right output
@@ -740,7 +740,7 @@ FORGE_AUDIO_API void forge_voice_get_channel_volumes(ForgeVoice *voice, uint32_t
  * This is typically only used for panning or 3D sound (via forge_spatializer_calculate).
  *
  * destination_voice:    An output voice from the voice's send list.
- * source_channels:    Must match the voice's input channel count!
+ * source_channels:    Must match the voice's rendered output channel count!
  * destination_channels:    Must match the destination's input channel count!
  * level_matrix:    A float[source_channels * destination_channels].
  * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
@@ -751,11 +751,27 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_output_matrix(ForgeVoice *voice, For
                                                           uint32_t source_channels, uint32_t destination_channels,
                                                           const float *level_matrix, ForgeAudioBatchId batch_id);
 
+/* Ramps the volumes of a send's output channels over an exact number of rendered sample frames.
+ *
+ * destination_voice:    An output voice from the voice's send list.
+ * source_channels:    Must match the voice's rendered output channel count!
+ * destination_channels:    Must match the destination's input channel count!
+ * level_matrix:    Target matrix, as a float[source_channels * destination_channels].
+ * duration_frames: Number of output sample frames over which to reach the target matrix.
+ * batch_id:    Use FORGE_AUDIO_BATCH_IMMEDIATE to apply immediately, or pass a valid deferred batch id to defer.
+ *
+ * Returns ForgeResultSuccess on success.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                                           uint32_t source_channels, uint32_t destination_channels,
+                                                           const float *level_matrix, uint32_t duration_frames,
+                                                           ForgeAudioBatchId batch_id);
+
 /* Gets the volumes of a send's output channels. See forge_voice_set_output_matrix.
  *
  * destination_voice:    An output voice from the voice's send list.
- * source_channels:    Must match the voice's input channel count!
- * destination_channels:    Must match the voice's output channel count!
+ * source_channels:    Must match the voice's rendered output channel count!
+ * destination_channels:    Must match the destination's input channel count!
  * level_matrix:    A float[source_channels * destination_channels].
  */
 FORGE_AUDIO_API void forge_voice_get_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice,

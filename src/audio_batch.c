@@ -27,6 +27,7 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_SET_CHANNEL_VOLUMES,
     FORGE_AUDIO_COMMAND_RAMP_CHANNEL_VOLUMES,
     FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX,
+    FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX,
     FORGE_AUDIO_COMMAND_START,
     FORGE_AUDIO_COMMAND_STOP,
     FORGE_AUDIO_COMMAND_FADE_STOP,
@@ -81,6 +82,13 @@ struct ForgeAudioCommand {
             float *level_matrix;
         } SetOutputMatrix;
         struct {
+            ForgeVoice *destination_voice;
+            uint32_t source_channels;
+            uint32_t destination_channels;
+            float *level_matrix;
+            uint32_t duration_frames;
+        } RampOutputMatrix;
+        struct {
             uint32_t flags;
         } Start;
         struct {
@@ -114,6 +122,8 @@ static inline void destroy_command(ForgeAudioCommand *op, ForgeFreeFunc free_fun
         free_func(op->Data.RampChannelVolumes.volumes);
     } else if (op->type == FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX) {
         free_func(op->Data.SetOutputMatrix.level_matrix);
+    } else if (op->type == FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX) {
+        free_func(op->Data.RampOutputMatrix.level_matrix);
     }
     free_func(op);
 }
@@ -172,6 +182,14 @@ static inline void execute_command(ForgeAudioCommand *op) {
                                       op->Data.SetOutputMatrix.source_channels,
                                       op->Data.SetOutputMatrix.destination_channels,
                                       op->Data.SetOutputMatrix.level_matrix, FORGE_AUDIO_BATCH_IMMEDIATE);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX:
+        forge_voice_ramp_output_matrix(op->voice, op->Data.RampOutputMatrix.destination_voice,
+                                       op->Data.RampOutputMatrix.source_channels,
+                                       op->Data.RampOutputMatrix.destination_channels,
+                                       op->Data.RampOutputMatrix.level_matrix,
+                                       op->Data.RampOutputMatrix.duration_frames, FORGE_AUDIO_BATCH_IMMEDIATE);
         break;
 
     case FORGE_AUDIO_COMMAND_START:
@@ -487,6 +505,29 @@ void fa_batch_queue_set_output_matrix(ForgeVoice *voice, ForgeVoice *destination
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
+void fa_batch_queue_ramp_output_matrix(ForgeVoice *voice, ForgeVoice *destination_voice, uint32_t source_channels,
+                                       uint32_t destination_channels, const float *level_matrix,
+                                       uint32_t duration_frames, ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_command(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX, batch_id);
+
+    op->Data.RampOutputMatrix.destination_voice = destination_voice;
+    op->Data.RampOutputMatrix.source_channels = source_channels;
+    op->Data.RampOutputMatrix.destination_channels = destination_channels;
+    op->Data.RampOutputMatrix.level_matrix =
+        voice->audio->malloc_func(sizeof(float) * source_channels * destination_channels);
+    forge_memcpy(op->Data.RampOutputMatrix.level_matrix, level_matrix,
+                 sizeof(float) * source_channels * destination_channels);
+    op->Data.RampOutputMatrix.duration_frames = duration_frames;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
 void fa_batch_queue_start(ForgeSourceVoice *voice, uint32_t flags, ForgeAudioBatchId batch_id) {
     ForgeAudioCommand *op;
 
@@ -589,7 +630,9 @@ static inline void remove_voice_commands(ForgeVoice *voice, ForgeAudioCommand **
         const uint8_t dstVoice = (current->type == FORGE_AUDIO_COMMAND_SET_OUTPUT_FILTER_PARAMETERS &&
                                   voice == current->Data.SetOutputFilterParameters.destination_voice) ||
                                  (current->type == FORGE_AUDIO_COMMAND_SET_OUTPUT_MATRIX &&
-                                  voice == current->Data.SetOutputMatrix.destination_voice);
+                                  voice == current->Data.SetOutputMatrix.destination_voice) ||
+                                 (current->type == FORGE_AUDIO_COMMAND_RAMP_OUTPUT_MATRIX &&
+                                  voice == current->Data.RampOutputMatrix.destination_voice);
 
         next = current->next;
         if (baseVoice || dstVoice) {
