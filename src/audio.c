@@ -3756,16 +3756,116 @@ ForgeResult forge_source_voice_set_rate(ForgeSourceVoice *voice, float ratio, Fo
         LOG_API_EXIT(voice->audio)
         return 0;
     }
+
+    if (voice->audio->active) {
+        fa_batch_clear_ready_rate_automation(voice);
+    }
+
+    fa_source_voice_install_set_rate(voice, ratio);
+
+    LOG_API_EXIT(voice->audio)
+    return 0;
+}
+
+ForgeResult fa_source_voice_install_set_rate(ForgeSourceVoice *voice, float ratio) {
     forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
 
     if (voice->flags & FORGE_AUDIO_VOICE_NOPITCH) {
-        LOG_API_EXIT(voice->audio)
         return 0;
     }
 
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+
     voice->src.freqRatio = forge_clamp(ratio, FORGE_AUDIO_MIN_FREQ_RATIO, voice->src.maxFreqRatio);
-    LOG_API_EXIT(voice->audio)
+    voice->src.rateAutomation.active = 0;
+    voice->src.rateAutomation.remainingFrames = 0;
+
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+
     return 0;
+}
+
+ForgeResult fa_source_voice_install_ramp_rate(ForgeSourceVoice *voice, float ratio, uint32_t duration_frames) {
+    float target;
+
+    forge_assert(voice->type == FORGE_AUDIO_VOICE_SOURCE);
+
+    if (voice->flags & FORGE_AUDIO_VOICE_NOPITCH) {
+        return 0;
+    }
+
+    target = forge_clamp(ratio, FORGE_AUDIO_MIN_FREQ_RATIO, voice->src.maxFreqRatio);
+
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+
+    if (duration_frames == 0) {
+        voice->src.freqRatio = target;
+        voice->src.rateAutomation.active = 0;
+        voice->src.rateAutomation.remainingFrames = 0;
+    } else {
+        voice->src.rateAutomation.target = target;
+        voice->src.rateAutomation.remainingFrames = duration_frames;
+        voice->src.rateAutomation.step = (target - voice->src.freqRatio) / (float)duration_frames;
+        voice->src.rateAutomation.active = 1;
+    }
+
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+
+    return 0;
+}
+
+static ForgeResult queue_or_install_ramp_rate(ForgeSourceVoice *voice, float ratio, uint32_t duration_frames,
+                                              ForgeAudioBatchId batch_id) {
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        return ForgeResultInvalidCall;
+    }
+
+    if (voice->audio->active) {
+        fa_batch_queue_ramp_frequency_ratio(voice, ratio, duration_frames, batch_id);
+        return 0;
+    }
+
+    return fa_source_voice_install_ramp_rate(voice, ratio, duration_frames);
+}
+
+ForgeResult forge_source_voice_set_rate_target(ForgeSourceVoice *voice, float ratio, ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_rate(voice, ratio, FA_AUTOMATION_DEFAULT_TARGET_FRAMES, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_source_voice_ramp_rate_frames(ForgeSourceVoice *voice, float ratio, uint32_t duration_frames,
+                                                ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    LOG_API_ENTER(voice->audio)
+
+    result = queue_or_install_ramp_rate(voice, ratio, duration_frames, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
+}
+
+ForgeResult forge_source_voice_ramp_rate_ms(ForgeSourceVoice *voice, float ratio, double duration_ms,
+                                            ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t duration_frames = 0;
+    LOG_API_ENTER(voice->audio)
+
+    result = forge_audio_ms_to_frames(voice->audio, duration_ms, &duration_frames);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_rate(voice, ratio, duration_frames, batch_id);
+    }
+
+    LOG_API_EXIT(voice->audio)
+    return result;
 }
 
 void forge_source_voice_get_rate(ForgeSourceVoice *voice, float *ratio) {

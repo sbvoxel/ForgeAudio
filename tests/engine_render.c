@@ -27,6 +27,24 @@ int main(void) {
     failures += run_test("immediate_volume_before_deferred_apply", test_immediate_volume_before_deferred_apply);
     failures += run_test("deferred_stop_boundary", test_deferred_stop_boundary);
     failures += run_test("source_rate_change_continuity_smoke", test_source_rate_change_continuity_smoke);
+    failures += run_test("source_rate_target_default_duration", test_source_rate_target_default_duration);
+    failures += run_test("source_rate_ramp_frames_resamples_with_changing_step",
+                         test_source_rate_ramp_frames_resamples_with_changing_step);
+    failures += run_test("source_rate_ramp_ms_uses_engine_rate", test_source_rate_ramp_ms_uses_engine_rate);
+    failures += run_test("deferred_source_rate_ramp_waits_for_apply",
+                         test_deferred_source_rate_ramp_waits_for_apply);
+    failures += run_test("deferred_start_and_source_rate_ramp_same_batch",
+                         test_deferred_start_and_source_rate_ramp_same_batch);
+    failures += run_test("source_rate_ramp_retarget_uses_current_rate",
+                         test_source_rate_ramp_retarget_uses_current_rate);
+    failures += run_test("set_source_rate_cancels_active_and_ready_ramps",
+                         test_set_source_rate_cancels_active_and_ready_ramps);
+    failures += run_test("source_rate_zero_duration_ramp_snaps_at_boundary",
+                         test_source_rate_zero_duration_ramp_snaps_at_boundary);
+    failures += run_test("stopped_source_rate_ramp_advances_on_engine_timeline",
+                         test_stopped_source_rate_ramp_advances_on_engine_timeline);
+    failures += run_test("source_rate_invalid_arguments", test_source_rate_invalid_arguments);
+    failures += run_test("source_rate_nopitch_noop", test_source_rate_nopitch_noop);
     failures += run_test("render_api_rejects_invalid_inputs", test_render_api_rejects_invalid_inputs);
     failures += run_test("ms_to_frames_conversion", test_ms_to_frames_conversion);
     failures += run_test("volume_target_default_duration", test_volume_target_default_duration);

@@ -48,6 +48,7 @@ compatibility with it or XAudio is not a design goal.
 - Spatial audio helpers.
 - Deferred audio batches for synchronized control changes.
 - Gain automation for voice volume, channel volume, and output matrices.
+- Source-rate target and ramp automation for pitch/resampling changes.
 - Target/de-zip APIs for common smoothed gain changes.
 - Explicit frame-duration ramps and millisecond convenience ramps.
 - Source fade-stop automation for "fade, then stop on the audio timeline."
@@ -73,6 +74,12 @@ Gain-like parameters have two families of motion APIs:
 Existing setters such as `forge_voice_set_volume` remain hard setters. Target
 APIs such as `forge_voice_set_volume_target` use ForgeAudio's internal default
 de-zip duration.
+
+Source-rate automation follows the same batch and timing model, but it is
+ratio-domain and updates the source resampler step as it advances. Use
+`forge_source_voice_set_rate` for a hard pitch/rate change, or
+`forge_source_voice_set_rate_target`, `forge_source_voice_ramp_rate_frames`, and
+`forge_source_voice_ramp_rate_ms` for smoothed motion.
 
 ## Building
 
@@ -161,6 +168,9 @@ forge_voice_ramp_volume_frames(voice, 1.0f, 240, FORGE_AUDIO_BATCH_IMMEDIATE);
 
 /* Smooth to a target using ForgeAudio's internal de-zip duration. */
 forge_voice_set_volume_target(voice, 0.5f, FORGE_AUDIO_BATCH_IMMEDIATE);
+
+/* Ramp source playback rate over 100 ms. */
+forge_source_voice_ramp_rate_ms(source, 1.5f, 100.0, FORGE_AUDIO_BATCH_IMMEDIATE);
 
 /* Fade out, then stop the source voice on the audio timeline. */
 forge_source_voice_fade_stop_ms(source, 0.0f, 50.0, FORGE_AUDIO_BATCH_IMMEDIATE);

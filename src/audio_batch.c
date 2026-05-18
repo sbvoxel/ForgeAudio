@@ -38,7 +38,8 @@ typedef enum ForgeAudioCommandType {
     FORGE_AUDIO_COMMAND_STOP,
     FORGE_AUDIO_COMMAND_FADE_STOP,
     FORGE_AUDIO_COMMAND_EXIT_LOOP,
-    FORGE_AUDIO_COMMAND_SET_FREQUENCY_RATIO
+    FORGE_AUDIO_COMMAND_SET_FREQUENCY_RATIO,
+    FORGE_AUDIO_COMMAND_RAMP_FREQUENCY_RATIO
 } ForgeAudioCommandType;
 
 struct ForgeAudioCommand {
@@ -138,6 +139,10 @@ struct ForgeAudioCommand {
         struct {
             float ratio;
         } SetFrequencyRatio;
+        struct {
+            float ratio;
+            uint32_t duration_frames;
+        } RampFrequencyRatio;
     } Data;
 
     ForgeAudioCommand *next;
@@ -270,7 +275,12 @@ static inline void execute_command(ForgeAudioCommand *op) {
         break;
 
     case FORGE_AUDIO_COMMAND_SET_FREQUENCY_RATIO:
-        forge_source_voice_set_rate(op->voice, op->Data.SetFrequencyRatio.ratio, FORGE_AUDIO_BATCH_IMMEDIATE);
+        fa_source_voice_install_set_rate(op->voice, op->Data.SetFrequencyRatio.ratio);
+        break;
+
+    case FORGE_AUDIO_COMMAND_RAMP_FREQUENCY_RATIO:
+        fa_source_voice_install_ramp_rate(op->voice, op->Data.RampFrequencyRatio.ratio,
+                                          op->Data.RampFrequencyRatio.duration_frames);
         break;
 
     default:
@@ -769,6 +779,22 @@ void fa_batch_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio, Fo
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
 }
 
+void fa_batch_queue_ramp_frequency_ratio(ForgeSourceVoice *voice, float ratio, uint32_t duration_frames,
+                                         ForgeAudioBatchId batch_id) {
+    ForgeAudioCommand *op;
+
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    op = queue_automation_command(voice, FORGE_AUDIO_COMMAND_RAMP_FREQUENCY_RATIO, batch_id);
+
+    op->Data.RampFrequencyRatio.ratio = ratio;
+    op->Data.RampFrequencyRatio.duration_frames = duration_frames;
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
 /* Called when releasing the engine */
 
 static inline void destroy_command_list(ForgeAudioCommand **list, ForgeFreeFunc free_func) {
@@ -908,6 +934,16 @@ void fa_batch_clear_ready_output_filter_automation(ForgeVoice *voice, ForgeVoice
     LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
 
     remove_ready_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_OUTPUT_FILTER, destination_voice);
+
+    fa_platform_unlock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)
+}
+
+void fa_batch_clear_ready_rate_automation(ForgeSourceVoice *voice) {
+    fa_platform_lock_mutex(voice->audio->batchLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->audio->batchLock)
+
+    remove_ready_automation_commands(voice, FORGE_AUDIO_COMMAND_RAMP_FREQUENCY_RATIO, NULL);
 
     fa_platform_unlock_mutex(voice->audio->batchLock);
     LOG_MUTEX_UNLOCK(voice->audio, voice->audio->batchLock)

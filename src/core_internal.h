@@ -201,6 +201,12 @@ struct ForgeVoice {
             /* Dynamic */
             uint8_t active;
             float freqRatio;
+            struct {
+                uint8_t active;
+                float target;
+                float step;
+                uint32_t remainingFrames;
+            } rateAutomation;
             uint64_t totalSamples;
             struct queued_buffer *queued_buffers;
             size_t queued_buffer_count, queued_buffers_capacity;

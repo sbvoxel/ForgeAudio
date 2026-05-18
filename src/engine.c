@@ -697,17 +697,101 @@ static void resize_resample_cache(ForgeAudioEngine *audio, uint32_t samples) {
     LOG_FUNC_EXIT(audio)
 }
 
+static uint32_t source_output_rate_locked(ForgeSourceVoice *voice) {
+    ForgeVoice *out = (voice->sends.send_count == 0) ? voice->audio->master : voice->sends.sends->send.output_voice;
+
+    return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
+}
+
+static uint64_t source_resample_step_for_rate(ForgeSourceVoice *voice, uint32_t output_rate, float ratio) {
+    double stepd = (double)ratio * (double)voice->src.format->sample_rate / (double)output_rate;
+
+    return DOUBLE_TO_FIXED(stepd);
+}
+
+static void refresh_source_resample_step_locked(ForgeSourceVoice *voice, uint32_t output_rate) {
+    voice->src.resampleStep = source_resample_step_for_rate(voice, output_rate, voice->src.freqRatio);
+    voice->src.resampleFreq = voice->src.freqRatio * voice->src.format->sample_rate;
+}
+
+static uint8_t advance_source_rate_one_frame_locked(ForgeSourceVoice *voice, uint32_t output_rate) {
+    if (!voice->src.rateAutomation.active) {
+        return 0;
+    }
+
+    voice->src.rateAutomation.remainingFrames -= 1;
+    if (voice->src.rateAutomation.remainingFrames == 0) {
+        voice->src.freqRatio = voice->src.rateAutomation.target;
+        voice->src.rateAutomation.active = 0;
+    } else {
+        voice->src.freqRatio += voice->src.rateAutomation.step;
+    }
+    refresh_source_resample_step_locked(voice, output_rate);
+    return 1;
+}
+
+static void advance_source_rate_locked(ForgeSourceVoice *voice, uint32_t frames) {
+    uint32_t output_rate;
+
+    if (!voice->src.rateAutomation.active) {
+        return;
+    }
+
+    output_rate = source_output_rate_locked(voice);
+    while (frames > 0 && voice->src.rateAutomation.active) {
+        advance_source_rate_one_frame_locked(voice, output_rate);
+        frames -= 1;
+    }
+}
+
+static uint64_t source_decode_resample_step_locked(ForgeSourceVoice *voice, uint32_t output_rate) {
+    float ratio = voice->src.freqRatio;
+
+    if (voice->src.rateAutomation.active) {
+        ratio = forge_max(ratio, voice->src.rateAutomation.target);
+    }
+
+    return source_resample_step_for_rate(voice, output_rate, ratio);
+}
+
+static uint64_t resample_source_variable_rate_locked(ForgeSourceVoice *voice, uint64_t to_resample,
+                                                     uint8_t channels, uint32_t output_rate) {
+    float *decode = voice->audio->decodeCache;
+    float *resample = voice->audio->resampleCache;
+    uint64_t cur = voice->src.resampleOffset & FIXED_FRACTION_MASK;
+    uint64_t frame;
+
+    for (frame = 0; frame < to_resample; frame += 1) {
+        for (uint32_t channel = 0; channel < channels; channel += 1) {
+            resample[channel] =
+                (float)(decode[channel] + (decode[channel + channels] - decode[channel]) * FIXED_TO_DOUBLE(cur));
+        }
+
+        voice->src.resampleOffset += voice->src.resampleStep;
+        cur += voice->src.resampleStep;
+        decode += (cur >> FIXED_PRECISION) * channels;
+        cur &= FIXED_FRACTION_MASK;
+        resample += channels;
+
+        advance_source_rate_one_frame_locked(voice, output_rate);
+    }
+
+    return frame;
+}
+
 static void mix_source(ForgeSourceVoice *voice) {
     /* Decode/Resample variables */
     uint64_t toDecode;
+    uint64_t decodeStep;
     uint64_t toResample;
+    uint64_t resampleOffsetBefore;
+    uint8_t variableRateResample = 0;
     /* Output mix variables */
     float *stream;
     uint32_t mixed;
     uint32_t oChan;
     ForgeVoice *out;
     uint32_t outputRate;
-    double stepd;
     float *finalSamples;
 
     LOG_FUNC_ENTER(voice->audio)
@@ -715,14 +799,11 @@ static void mix_source(ForgeSourceVoice *voice) {
     fa_platform_lock_mutex(voice->sendLock);
     LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
 
+    outputRate = source_output_rate_locked(voice);
+
     /* Calculate the resample stepping value */
     if (voice->src.resampleFreq != voice->src.freqRatio * voice->src.format->sample_rate) {
-        out = (voice->sends.send_count == 0) ? voice->audio->master : /* Barf */
-                  voice->sends.sends->send.output_voice;
-        outputRate = (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
-        stepd = (voice->src.freqRatio * (double)voice->src.format->sample_rate / (double)outputRate);
-        voice->src.resampleStep = DOUBLE_TO_FIXED(stepd);
-        voice->src.resampleFreq = voice->src.freqRatio * voice->src.format->sample_rate;
+        refresh_source_resample_step_locked(voice, outputRate);
     }
 
     if (voice->src.active == 2) {
@@ -731,11 +812,13 @@ static void mix_source(ForgeSourceVoice *voice) {
         mixed = voice->src.resampleSamples;
         forge_zero(voice->audio->resampleCache, mixed * voice->src.format->channels * sizeof(float));
         finalSamples = voice->audio->resampleCache;
+        advance_source_rate_locked(voice, mixed);
         goto sendwork;
     }
 
     /* Base decode size, int to fixed... */
-    toDecode = voice->src.resampleSamples * voice->src.resampleStep;
+    decodeStep = source_decode_resample_step_locked(voice, outputRate);
+    toDecode = voice->src.resampleSamples * decodeStep;
     /* ... rounded up based on current offset... */
     toDecode += voice->src.curBufferOffsetDec + FIXED_FRACTION_MASK;
     /* ... fixed to int, truncating extra fraction from rounding. */
@@ -773,6 +856,7 @@ static void mix_source(ForgeSourceVoice *voice) {
             mixed = voice->src.resampleSamples;
             forge_zero(voice->audio->resampleCache, mixed * voice->src.format->channels * sizeof(float));
             finalSamples = voice->audio->resampleCache;
+            advance_source_rate_locked(voice, mixed);
             goto sendwork;
         }
 
@@ -838,20 +922,31 @@ static void mix_source(ForgeSourceVoice *voice) {
     toResample = forge_min(toResample, voice->src.resampleSamples);
 
     /* Resample... */
-    if (voice->src.resampleStep == FIXED_ONE) {
+    if (voice->src.resampleStep == FIXED_ONE && !voice->src.rateAutomation.active) {
         /* Actually, just use the existing buffer... */
         finalSamples = voice->audio->decodeCache;
     } else {
+        variableRateResample = voice->src.rateAutomation.active;
+        resampleOffsetBefore = voice->src.resampleOffset;
         resize_resample_cache(voice->audio, voice->src.resampleSamples * voice->src.format->channels);
-        voice->src.resample(voice->audio->decodeCache, voice->audio->resampleCache, &voice->src.resampleOffset,
-                            voice->src.resampleStep, toResample, (uint8_t)voice->src.format->channels);
+        if (variableRateResample) {
+            resample_source_variable_rate_locked(voice, toResample, (uint8_t)voice->src.format->channels,
+                                                 outputRate);
+        } else {
+            voice->src.resample(voice->audio->decodeCache, voice->audio->resampleCache, &voice->src.resampleOffset,
+                                voice->src.resampleStep, toResample, (uint8_t)voice->src.format->channels);
+        }
         finalSamples = voice->audio->resampleCache;
     }
 
     /* Update buffer offsets */
     if (voice->src.queued_buffer_count != 0) {
         /* Increment fixed offset by resample size, int to fixed... */
-        voice->src.curBufferOffsetDec += toResample * voice->src.resampleStep;
+        if (variableRateResample) {
+            voice->src.curBufferOffsetDec += voice->src.resampleOffset - resampleOffsetBefore;
+        } else {
+            voice->src.curBufferOffsetDec += toResample * voice->src.resampleStep;
+        }
         /* ... chop off any ints we got from the above increment */
         voice->src.curBufferOffsetDec &= FIXED_FRACTION_MASK;
 
@@ -1233,6 +1328,7 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
             LOG_MUTEX_UNLOCK(audio, audio->processingSource->volumeLock)
             fa_platform_lock_mutex(audio->processingSource->sendLock);
             LOG_MUTEX_LOCK(audio, audio->processingSource->sendLock)
+            advance_source_rate_locked(audio->processingSource, sourceTimelineFrames);
             advance_output_filters_locked(audio->processingSource, sourceTimelineFrames);
             fa_platform_unlock_mutex(audio->processingSource->sendLock);
             LOG_MUTEX_UNLOCK(audio, audio->processingSource->sendLock)

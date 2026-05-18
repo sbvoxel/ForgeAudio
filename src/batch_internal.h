@@ -30,6 +30,7 @@ FORGE_INTERNAL_API void fa_batch_clear_ready_output_matrix_automation(ForgeVoice
 FORGE_INTERNAL_API void fa_batch_clear_ready_filter_automation(ForgeVoice *voice);
 FORGE_INTERNAL_API void fa_batch_clear_ready_output_filter_automation(ForgeVoice *voice,
                                                                       ForgeVoice *destination_voice);
+FORGE_INTERNAL_API void fa_batch_clear_ready_rate_automation(ForgeSourceVoice *voice);
 
 FORGE_INTERNAL_API ForgeResult fa_voice_install_set_filter_parameters(ForgeVoice *voice,
                                                                       const ForgeFilterParameters *parameters);
@@ -73,6 +74,9 @@ FORGE_INTERNAL_API ForgeResult fa_voice_install_ramp_output_matrix(ForgeVoice *v
                                                                    const float *level_matrix,
                                                                    uint32_t duration_frames);
 FORGE_INTERNAL_API ForgeResult fa_source_voice_install_fade_stop(ForgeSourceVoice *voice, float volume,
+                                                                 uint32_t duration_frames);
+FORGE_INTERNAL_API ForgeResult fa_source_voice_install_set_rate(ForgeSourceVoice *voice, float ratio);
+FORGE_INTERNAL_API ForgeResult fa_source_voice_install_ramp_rate(ForgeSourceVoice *voice, float ratio,
                                                                  uint32_t duration_frames);
 
 FORGE_INTERNAL_API void fa_batch_queue_enable_effect(ForgeVoice *voice, uint32_t effect_index,
@@ -126,5 +130,8 @@ FORGE_INTERNAL_API void fa_batch_queue_fade_stop(ForgeSourceVoice *voice, float 
 FORGE_INTERNAL_API void fa_batch_queue_exit_loop(ForgeSourceVoice *voice, ForgeAudioBatchId batch_id);
 FORGE_INTERNAL_API void fa_batch_queue_set_frequency_ratio(ForgeSourceVoice *voice, float ratio,
                                                            ForgeAudioBatchId batch_id);
+FORGE_INTERNAL_API void fa_batch_queue_ramp_frequency_ratio(ForgeSourceVoice *voice, float ratio,
+                                                            uint32_t duration_frames,
+                                                            ForgeAudioBatchId batch_id);
 
 #endif /* FORGE_BATCH_INTERNAL_H */

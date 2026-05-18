@@ -1058,6 +1058,14 @@ FORGE_AUDIO_API void forge_source_voice_get_state(ForgeSourceVoice *voice, Forge
  */
 FORGE_AUDIO_API ForgeResult forge_source_voice_set_rate(ForgeSourceVoice *voice, float ratio,
                                                         ForgeAudioBatchId batch_id);
+FORGE_AUDIO_API ForgeResult forge_source_voice_set_rate_target(ForgeSourceVoice *voice, float ratio,
+                                                               ForgeAudioBatchId batch_id);
+FORGE_AUDIO_API ForgeResult forge_source_voice_ramp_rate_frames(ForgeSourceVoice *voice, float ratio,
+                                                                uint32_t duration_frames,
+                                                                ForgeAudioBatchId batch_id);
+FORGE_AUDIO_API ForgeResult forge_source_voice_ramp_rate_ms(ForgeSourceVoice *voice, float ratio,
+                                                            double duration_ms,
+                                                            ForgeAudioBatchId batch_id);
 
 /* Requests the frequency ratio (fancy phrase for pitch) of this source.
  *
