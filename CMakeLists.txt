@@ -157,7 +157,11 @@ if(BUILD_TESTS)
     forge_audio_enable_asan(source_resampler_test)
     add_test(NAME source_resampler COMMAND source_resampler_test)
 
-    add_executable(engine_render_test tests/engine_render.c)
+    add_executable(engine_render_test
+        tests/audio_render_harness.c
+        tests/audio_render_harness.h
+        tests/engine_render.c
+    )
     target_compile_definitions(engine_render_test PRIVATE FORGE_AUDIO_TESTING)
     target_include_directories(engine_render_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(engine_render_test PRIVATE ForgeAudio)
