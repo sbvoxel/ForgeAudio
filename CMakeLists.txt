@@ -161,6 +161,14 @@ if(BUILD_TESTS)
         tests/audio_render_harness.c
         tests/audio_render_harness.h
         tests/engine_render.c
+        tests/engine_render_channel.c
+        tests/engine_render_common.c
+        tests/engine_render_core.c
+        tests/engine_render_fade_stop.c
+        tests/engine_render_gain.c
+        tests/engine_render_output_matrix.c
+        tests/engine_render_tests.h
+        tests/engine_render_volume.c
     )
     target_compile_definitions(engine_render_test PRIVATE FORGE_AUDIO_TESTING)
     target_include_directories(engine_render_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
