@@ -1034,7 +1034,9 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     (*source_voice)->src.decodeSamples =
         source_decode_frame_count((*source_voice)->src.resampleSamples, max_frequency_ratio,
                                            (*source_voice)->src.format->sample_rate, outputRate);
-    if (!fa_audio_resize_decode_cache(audio, ((*source_voice)->src.decodeSamples + EXTRA_DECODE_PADDING) *
+    if (!fa_audio_resize_decode_cache(audio,
+                                      ((*source_voice)->src.decodeSamples + EXTRA_DECODE_PADDING +
+                                       SOURCE_CUBIC_DECODE_PREFIX_FRAMES) *
                                                  (*source_voice)->src.format->channels)) {
         cleanup_failed_unlinked_voice(source_voice);
         LOG_API_EXIT(audio)
@@ -1637,7 +1639,9 @@ ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const ForgeSendList *send
         sourceDecodeSamples = source_decode_frame_count(sourceResampleSamples, voice->src.maxFreqRatio,
                                                                  voice->src.format->sample_rate, outputRate);
         if (!fa_audio_resize_decode_cache(voice->audio,
-                                          (sourceDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels)) {
+                                          (sourceDecodeSamples + EXTRA_DECODE_PADDING +
+                                           SOURCE_CUBIC_DECODE_PREFIX_FRAMES) *
+                                              voice->src.format->channels)) {
             LOG_API_EXIT(voice->audio)
             return ForgeResultOutOfMemory;
         }
@@ -3984,6 +3988,7 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
 
     if (voice->src.queued_buffer_count == 1) {
         voice->src.curBufferOffset = entry->buffer.play_begin;
+        voice->src.resampleLoopWrapped = 0;
     }
 
     LOG_INFO(voice->audio, "%p: appended buffer %p", (void *)voice, (void *)&entry->buffer)
@@ -4010,6 +4015,7 @@ ForgeResult forge_source_voice_flush_buffers(ForgeSourceVoice *voice) {
         offset = 1;
     } else {
         voice->src.curBufferOffset = 0;
+        voice->src.resampleLoopWrapped = 0;
     }
 
     if (voice->src.queued_buffer_count > offset) {
@@ -4269,7 +4275,9 @@ ForgeResult forge_source_voice_set_sample_rate(ForgeSourceVoice *voice, uint32_t
     newDecodeSamples = source_decode_frame_count(newResampleSamples, voice->src.maxFreqRatio,
                                                           new_source_sample_rate, outSampleRate);
     if (!fa_audio_resize_decode_cache(voice->audio,
-                                      (newDecodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels)) {
+                                      (newDecodeSamples + EXTRA_DECODE_PADDING +
+                                       SOURCE_CUBIC_DECODE_PREFIX_FRAMES) *
+                                          voice->src.format->channels)) {
         LOG_API_EXIT(voice->audio)
         return ForgeResultOutOfMemory;
     }

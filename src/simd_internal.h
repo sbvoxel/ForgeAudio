@@ -28,6 +28,9 @@ FORGE_INTERNAL_API extern ForgeAudioResampleCallback fa_resample_stereo;
 FORGE_INTERNAL_API extern void fa_resample_generic(float *restrict d_cache, float *restrict resample_cache,
                                                    uint64_t *resample_offset, uint64_t resample_step,
                                                    uint64_t to_resample, uint8_t channels);
+FORGE_INTERNAL_API extern void fa_resample_cubic(float *restrict d_cache, float *restrict resample_cache,
+                                                 uint64_t *resample_offset, uint64_t resample_step,
+                                                 uint64_t to_resample, uint8_t channels);
 
 FORGE_INTERNAL_API extern void (*fa_mix_amplify)(float *output, uint32_t total_samples, float volume);
 
