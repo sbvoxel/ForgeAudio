@@ -639,9 +639,9 @@ static inline void compute_inner_radius_diffusion_factors(float radial_distance,
 #define DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS 4e-7f
     float actual_inner_radius = forge_max(inner_radius, DIFFUSION_DISTANCE_MINIMUM_INNER_RADIUS);
     float normalized_radial_dist;
+    float diffusion_radial_distance;
+    float diffusion_inner_radius;
     float a, ms, os;
-
-    normalized_radial_dist = radial_distance / actual_inner_radius;
 
 /* Do another check for small radial distances before applying any inner_radius-like
  * behaviour. This is the constant that determines the threshold: below this distance we simply
@@ -651,31 +651,37 @@ static inline void compute_inner_radius_diffusion_factors(float radial_distance,
         a = 1.0f;
         ms = 0.0f;
         os = 0.0f;
-    } else if (normalized_radial_dist <= 0.5f) {
-        /* Determined experimentally that this is indeed a linear law,
-         * with 100% confidence.
-         * -Adrien
-         */
-        a = 1.0f - 2.0f * normalized_radial_dist;
-
-        /* Empirical approximation for inner-radius diffusion between equal
-         * and matching speaker energy.
-         */
-        ms = LERP(2.0f * normalized_radial_dist, 0.0f, DIFFUSION_LERP_MIDPOINT_VALUE);
-        os = 1.0f - a - ms;
-    } else if (normalized_radial_dist <= 1.0f) {
-        a = 0.0f;
-
-        /* Similarly, this is a lerp based on the midpoint value; the
-         * real, high-accuracy curve also looks like a quadratic.
-         * -Adrien
-         */
-        ms = LERP(2.0f * (normalized_radial_dist - 0.5f), DIFFUSION_LERP_MIDPOINT_VALUE, 1.0f);
-        os = 1.0f - a - ms;
     } else {
-        a = 0.0f;
-        ms = 1.0f;
-        os = 0.0f;
+        diffusion_radial_distance = radial_distance - DIFFUSION_DISTANCE_EQUAL_ENERGY;
+        diffusion_inner_radius = actual_inner_radius - DIFFUSION_DISTANCE_EQUAL_ENERGY;
+        normalized_radial_dist = diffusion_radial_distance / diffusion_inner_radius;
+
+        if (normalized_radial_dist <= 0.5f) {
+            /* Determined experimentally that this is indeed a linear law,
+             * with 100% confidence.
+             * -Adrien
+             */
+            a = 1.0f - 2.0f * normalized_radial_dist;
+
+            /* Empirical approximation for inner-radius diffusion between equal
+             * and matching speaker energy.
+             */
+            ms = LERP(2.0f * normalized_radial_dist, 0.0f, DIFFUSION_LERP_MIDPOINT_VALUE);
+            os = 1.0f - a - ms;
+        } else if (normalized_radial_dist <= 1.0f) {
+            a = 0.0f;
+
+            /* Similarly, this is a lerp based on the midpoint value; the
+             * real, high-accuracy curve also looks like a quadratic.
+             * -Adrien
+             */
+            ms = LERP(2.0f * (normalized_radial_dist - 0.5f), DIFFUSION_LERP_MIDPOINT_VALUE, 1.0f);
+            os = 1.0f - a - ms;
+        } else {
+            a = 0.0f;
+            ms = 1.0f;
+            os = 0.0f;
+        }
     }
     diffusion_factors[DIFFUSION_SPEAKERS_ALL] = a;
     diffusion_factors[DIFFUSION_SPEAKERS_MATCHING] = ms;
