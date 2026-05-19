@@ -153,21 +153,39 @@ static uint32_t decode_padding(ForgeSourceVoice *voice, float *dst, uint32_t pad
     return decoded;
 }
 
-static uint32_t source_resampler_prefix_frames(const ForgeSourceVoice *voice) {
+static uint8_t source_resampler_is_sinc8(const ForgeSourceVoice *voice) {
+    return voice->src.resamplerQuality == FA_AUDIO_SOURCE_RESAMPLER_SINC8;
+}
+
+static uint32_t source_resampler_left_padding_frames(const ForgeSourceVoice *voice) {
+    if (source_resampler_is_sinc8(voice)) {
+        return SOURCE_SINC8_LEFT_PADDING_FRAMES;
+    }
     return voice->src.resamplerQuality == FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC ? SOURCE_CUBIC_DECODE_PREFIX_FRAMES : 0;
 }
 
-static uint32_t source_decode_cache_padding_frames(const ForgeSourceVoice *voice) {
-    return EXTRA_DECODE_PADDING + source_resampler_prefix_frames(voice);
+static uint32_t source_resampler_right_padding_frames(const ForgeSourceVoice *voice) {
+    if (source_resampler_is_sinc8(voice)) {
+        /* Sinc8 has four right-side taps. The source decode cache keeps one
+         * extra padded current frame so end-of-stream output positions whose
+         * floor lands just past real input can still read those four taps.
+         */
+        return SOURCE_SINC8_DECODE_PADDING_FRAMES;
+    }
+    return EXTRA_DECODE_PADDING;
 }
 
-static bool decode_previous_frame(ForgeSourceVoice *voice, float *dst) {
+static uint32_t source_decode_cache_padding_frames(const ForgeSourceVoice *voice) {
+    return source_resampler_left_padding_frames(voice) + source_resampler_right_padding_frames(voice);
+}
+
+static bool decode_previous_frame_at_distance(ForgeSourceVoice *voice, uint32_t distance, float *dst) {
     const uint32_t block_size = voice->src.format->block_align;
     struct queued_buffer *buffer;
     uint32_t offset;
     uint32_t previous_offset;
 
-    if (voice->src.queued_buffer_count == 0) {
+    if (voice->src.queued_buffer_count == 0 || distance == 0) {
         return false;
     }
 
@@ -176,19 +194,100 @@ static bool decode_previous_frame(ForgeSourceVoice *voice, float *dst) {
 
     if (voice->src.resampleLoopWrapped && buffer->loop_bytes != 0 && offset == buffer->buffer.loop_begin) {
         uint32_t loop_frames = buffer->loop_bytes / block_size;
+        uint32_t loop_distance;
 
         if (loop_frames == 0) {
             return false;
         }
-        previous_offset = buffer->buffer.loop_begin + loop_frames - 1;
-    } else if (offset > buffer->buffer.play_begin) {
-        previous_offset = offset - 1;
+        loop_distance = (distance - 1) % loop_frames;
+        previous_offset = buffer->buffer.loop_begin + loop_frames - 1 - loop_distance;
+    } else if (offset >= buffer->buffer.play_begin + distance) {
+        previous_offset = offset - distance;
     } else {
         return false;
     }
 
     voice->src.decode(voice, buffer->buffer.audio_data + (previous_offset * block_size), dst, 1);
     return true;
+}
+
+static void decode_current_frame_or_zero(ForgeSourceVoice *voice, float *dst) {
+    const uint32_t block_size = voice->src.format->block_align;
+    struct queued_buffer *buffer;
+    uint32_t offset;
+
+    if (voice->src.queued_buffer_count == 0) {
+        forge_zero(dst, sizeof(float) * voice->src.format->channels);
+        return;
+    }
+
+    buffer = &voice->src.queued_buffers[0];
+    offset = voice->src.curBufferOffset;
+    if (offset < buffer_get_end(voice, buffer)) {
+        voice->src.decode(voice, buffer->buffer.audio_data + (offset * block_size), dst, 1);
+    } else {
+        forge_zero(dst, sizeof(float) * voice->src.format->channels);
+    }
+}
+
+static void decode_previous_frames_with_start_hold(ForgeSourceVoice *voice, float *dst, uint32_t frames) {
+    uint32_t channels = voice->src.format->channels;
+    uint32_t firstValid = frames;
+
+    if (frames == 0) {
+        return;
+    }
+
+    for (uint32_t i = frames; i > 0; i -= 1) {
+        uint32_t frame = i - 1;
+        uint32_t distance = frames - frame;
+
+        if (decode_previous_frame_at_distance(voice, distance, dst + (frame * channels))) {
+            firstValid = frame;
+        } else if (source_resampler_is_sinc8(voice) && distance <= voice->src.resampleHistoryFrames) {
+            uint32_t historyFrame = voice->src.resampleHistoryFrames - distance;
+            forge_memcpy(dst + (frame * channels), voice->src.resampleHistory + (historyFrame * channels),
+                         sizeof(float) * channels);
+            firstValid = frame;
+        } else if (frame + 1 < frames) {
+            forge_memcpy(dst + (frame * channels), dst + ((frame + 1) * channels), sizeof(float) * channels);
+        }
+    }
+
+    if (firstValid == frames) {
+        decode_current_frame_or_zero(voice, dst + ((frames - 1) * channels));
+        for (uint32_t frame = frames - 1; frame > 0; frame -= 1) {
+            forge_memcpy(dst + ((frame - 1) * channels), dst + (frame * channels), sizeof(float) * channels);
+        }
+    }
+}
+
+static void update_source_resample_history(ForgeSourceVoice *voice, uint32_t prefix_frames,
+                                           uint64_t next_current_frame) {
+    uint32_t channels = voice->src.format->channels;
+    uint32_t historyFrames;
+    uint64_t firstHistoryFrame;
+    float *base = voice->audio->decodeCache;
+
+    if (!source_resampler_is_sinc8(voice) || voice->src.resampleHistory == NULL ||
+        voice->src.resampleHistoryCapacity == 0) {
+        return;
+    }
+
+    historyFrames = (uint32_t)forge_min((uint64_t)voice->src.resampleHistoryCapacity, next_current_frame);
+    if (historyFrames == 0) {
+        voice->src.resampleHistoryFrames = 0;
+        return;
+    }
+
+    firstHistoryFrame = next_current_frame - historyFrames;
+    forge_memcpy(voice->src.resampleHistory, base + ((prefix_frames + firstHistoryFrame) * channels),
+                 sizeof(float) * historyFrames * channels);
+    voice->src.resampleHistoryFrames = historyFrames;
+}
+
+static void clear_source_resample_history(ForgeSourceVoice *voice) {
+    voice->src.resampleHistoryFrames = 0;
 }
 
 /* Source callbacks must run without the mixer/source lock stack held. */
@@ -249,6 +348,7 @@ static void end_buffer(ForgeSourceVoice *voice) {
         voice->src.curBufferOffsetDec = 0;
         voice->src.totalSamples = 0;
         voice->src.resampleLoopWrapped = 0;
+        clear_source_resample_history(voice);
     }
 
     LOG_INFO(voice->audio, "Voice %p, finished with buffer %p", (void *)voice, (void *)buffer)
@@ -281,7 +381,6 @@ static void decode_buffers_with_prefix(ForgeSourceVoice *voice, uint64_t *toDeco
     const uint32_t channels = voice->src.format->channels;
     float *decode_cache = voice->audio->decodeCache + (prefix_frames * channels);
     uint32_t decoded = 0;
-    bool has_prefix = false;
 
     LOG_FUNC_ENTER(voice->audio)
 
@@ -289,8 +388,7 @@ static void decode_buffers_with_prefix(ForgeSourceVoice *voice, uint64_t *toDeco
     forge_assert(*toDecode <= voice->src.decodeSamples);
 
     if (prefix_frames != 0) {
-        forge_assert(prefix_frames == 1);
-        has_prefix = decode_previous_frame(voice, voice->audio->decodeCache);
+        decode_previous_frames_with_start_hold(voice, voice->audio->decodeCache, prefix_frames);
     }
 
     while (decoded < *toDecode && voice->src.queued_buffer_count != 0) {
@@ -332,7 +430,7 @@ static void decode_buffers_with_prefix(ForgeSourceVoice *voice, uint64_t *toDeco
         struct queued_buffer first_buffer = voice->src.queued_buffers[0];
 #endif
 
-        decode_count = decode_padding(voice, dst, EXTRA_DECODE_PADDING);
+        decode_count = decode_padding(voice, dst, source_resampler_right_padding_frames(voice));
 
 #ifdef FORGE_AUDIO_TESTING
         forge_assert(queued_buffer_count == voice->src.queued_buffer_count);
@@ -342,20 +440,13 @@ static void decode_buffers_with_prefix(ForgeSourceVoice *voice, uint64_t *toDeco
         }
 #endif
 
-        if (decode_count < EXTRA_DECODE_PADDING) {
+        if (decode_count < source_resampler_right_padding_frames(voice)) {
             forge_zero(decode_cache + ((decoded + decode_count) * channels),
-                       sizeof(float) * ((EXTRA_DECODE_PADDING - decode_count) * channels));
+                       sizeof(float) * ((source_resampler_right_padding_frames(voice) - decode_count) * channels));
         }
     } else {
-        forge_zero(decode_cache + (decoded * channels), sizeof(float) * (EXTRA_DECODE_PADDING * channels));
-    }
-
-    if (prefix_frames != 0 && !has_prefix) {
-        if (decoded > 0) {
-            forge_memcpy(voice->audio->decodeCache, decode_cache, sizeof(float) * channels);
-        } else {
-            forge_zero(voice->audio->decodeCache, sizeof(float) * channels);
-        }
+        forge_zero(decode_cache + (decoded * channels),
+                   sizeof(float) * (source_resampler_right_padding_frames(voice) * channels));
     }
 
     *toDecode = decoded;
@@ -1128,7 +1219,8 @@ static uint32_t source_decode_frame_capacity(uint32_t resample_samples, float ma
 static uint64_t resample_source_variable_rate_locked(ForgeSourceVoice *voice, uint64_t to_resample,
                                                      uint8_t channels, uint32_t output_rate) {
     uint8_t cubic = voice->src.resamplerQuality == FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC;
-    float *decode = voice->audio->decodeCache + (source_resampler_prefix_frames(voice) * channels);
+    uint8_t sinc8 = source_resampler_is_sinc8(voice);
+    float *decode = voice->audio->decodeCache + (source_resampler_left_padding_frames(voice) * channels);
     float *resample = voice->audio->resampleCache;
     uint64_t cur = voice->src.resampleOffset & FIXED_FRACTION_MASK;
     uint64_t frame;
@@ -1142,6 +1234,8 @@ static uint64_t resample_source_variable_rate_locked(ForgeSourceVoice *voice, ui
 
                 resample[channel] =
                     fa_audio_catmull_rom(current[-channels], current[0], current[channels], current[2 * channels], t);
+            } else if (sinc8) {
+                resample[channel] = fa_resample_sinc8_sample(decode, cur, channels, channel);
             } else {
                 resample[channel] = (float)(decode[channel] + (decode[channel + channels] - decode[channel]) * t);
             }
@@ -1165,6 +1259,7 @@ static void mix_source(ForgeSourceVoice *voice) {
     uint64_t requestedDecode;
     uint64_t toResample;
     uint64_t resampleOffsetBefore;
+    uint64_t nextCurrentFrame;
     uint32_t resamplePrefixFrames;
     uint8_t variableRateResample = 0;
     uint8_t exactIdentityResample;
@@ -1204,6 +1299,14 @@ static void mix_source(ForgeSourceVoice *voice) {
             voice->src.decodeSamples = decodeSamples;
         }
     }
+    if (!resize_decode_cache_unlocked(voice->audio,
+                                      (voice->src.decodeSamples + source_decode_cache_padding_frames(voice)) *
+                                          voice->src.format->channels)) {
+        fa_platform_unlock_mutex(voice->sendLock);
+        LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+        LOG_FUNC_EXIT(voice->audio)
+        return;
+    }
 
     if (voice->src.active == 2) {
         /* We're just playing tails, skip all buffer stuff */
@@ -1219,10 +1322,7 @@ static void mix_source(ForgeSourceVoice *voice) {
     toDecode = requestedDecode;
     exactIdentityResample = voice->src.resampleStep == FIXED_ONE && !voice->src.rateAutomation.active &&
                             (voice->src.resampleOffset & FIXED_FRACTION_MASK) == 0;
-    resamplePrefixFrames = (voice->src.resamplerQuality == FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC &&
-                            !exactIdentityResample)
-                               ? source_resampler_prefix_frames(voice)
-                               : 0;
+    resamplePrefixFrames = !exactIdentityResample ? source_resampler_left_padding_frames(voice) : 0;
 
     /* First voice callback */
     if (voice->src.callback != NULL && voice->src.callback->on_voice_processing_pass_start != NULL) {
@@ -1315,10 +1415,10 @@ static void mix_source(ForgeSourceVoice *voice) {
         toResample += FIXED_FRACTION_MASK;
         /* ... undo step size, fixed to int. */
         toResample /= voice->src.resampleStep;
-        /* EXTRA_DECODE_PADDING keeps one decoded frame available for interpolation.
+        /* Right padding keeps decoded frames available for interpolation.
          * Covered by source_resampler padding and split-vs-contiguous tests.
          */
-        toResample += EXTRA_DECODE_PADDING;
+        toResample += source_resampler_right_padding_frames(voice);
         /* Clamp to the per-pass resample cache capacity. Source resampler tests verify
          * decode sizing leaves interpolation padding available.
          */
@@ -1338,6 +1438,10 @@ static void mix_source(ForgeSourceVoice *voice) {
                                                  outputRate);
         } else if (voice->src.resamplerQuality == FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC) {
             fa_resample_cubic(voice->audio->decodeCache + (resamplePrefixFrames * voice->src.format->channels),
+                              voice->audio->resampleCache, &voice->src.resampleOffset, voice->src.resampleStep,
+                              toResample, (uint8_t)voice->src.format->channels);
+        } else if (source_resampler_is_sinc8(voice)) {
+            fa_resample_sinc8(voice->audio->decodeCache + (resamplePrefixFrames * voice->src.format->channels),
                               voice->audio->resampleCache, &voice->src.resampleOffset, voice->src.resampleStep,
                               toResample, (uint8_t)voice->src.format->channels);
         } else {
@@ -1365,10 +1469,13 @@ static void mix_source(ForgeSourceVoice *voice) {
         if (voice->src.curBufferOffsetDec > 0 && voice->src.curBufferOffset > 0) {
             voice->src.curBufferOffset -= 1;
         }
+        nextCurrentFrame = toDecode - (voice->src.curBufferOffsetDec > 0 && toDecode > 0 ? 1 : 0);
+        update_source_resample_history(voice, resamplePrefixFrames, nextCurrentFrame);
     } else {
         voice->src.curBufferOffsetDec = 0;
         voice->src.curBufferOffset = 0;
         voice->src.resampleLoopWrapped = 0;
+        clear_source_resample_history(voice);
     }
 
     /* Done with buffers, finally. */
@@ -1511,7 +1618,10 @@ ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(Forge
     float *finalSamples;
     uint64_t toDecode;
     uint64_t toResample;
+    uint64_t resampleOffsetBefore;
+    uint64_t nextCurrentFrame;
     uint32_t resamplePrefixFrames;
+    uint8_t variableRateResample = 0;
     uint8_t exactIdentityResample;
 
     LOG_FUNC_ENTER(voice->audio)
@@ -1523,16 +1633,17 @@ ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(Forge
         voice->src.resample = fa_resample_generic;
     }
 
-    toDecode = voice->src.resampleSamples * voice->src.resampleStep;
-    toDecode += voice->src.curBufferOffsetDec + FIXED_FRACTION_MASK;
-    toDecode >>= FIXED_PRECISION;
+    if (voice->src.rateAutomation.active) {
+        toDecode = source_decode_frame_request_locked(voice, voice->src.format->sample_rate, voice->src.resampleSamples);
+    } else {
+        toDecode = voice->src.resampleSamples * voice->src.resampleStep;
+        toDecode += voice->src.curBufferOffsetDec + FIXED_FRACTION_MASK;
+        toDecode >>= FIXED_PRECISION;
+    }
     result.requested_decode_frames = (uint32_t)toDecode;
-    exactIdentityResample =
-        voice->src.resampleStep == FIXED_ONE && (voice->src.resampleOffset & FIXED_FRACTION_MASK) == 0;
-    resamplePrefixFrames =
-        (voice->src.resamplerQuality == FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC && !exactIdentityResample)
-            ? source_resampler_prefix_frames(voice)
-            : 0;
+    exactIdentityResample = voice->src.resampleStep == FIXED_ONE && !voice->src.rateAutomation.active &&
+                            (voice->src.resampleOffset & FIXED_FRACTION_MASK) == 0;
+    resamplePrefixFrames = !exactIdentityResample ? source_resampler_left_padding_frames(voice) : 0;
 
     decode_buffers_with_prefix(voice, &toDecode, resamplePrefixFrames);
     result.decoded_frames = (uint32_t)toDecode;
@@ -1549,11 +1660,15 @@ ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(Forge
         return result;
     }
 
-    toResample = toDecode << FIXED_PRECISION;
-    toResample -= voice->src.curBufferOffsetDec;
-    toResample += FIXED_FRACTION_MASK;
-    toResample /= voice->src.resampleStep;
-    toResample += EXTRA_DECODE_PADDING;
+    if (voice->src.rateAutomation.active && toDecode == result.requested_decode_frames) {
+        toResample = voice->src.resampleSamples;
+    } else {
+        toResample = toDecode << FIXED_PRECISION;
+        toResample -= voice->src.curBufferOffsetDec;
+        toResample += FIXED_FRACTION_MASK;
+        toResample /= voice->src.resampleStep;
+        toResample += source_resampler_right_padding_frames(voice);
+    }
     result.unclamped_resample_frames = toResample;
     toResample = forge_min(toResample, voice->src.resampleSamples);
 
@@ -1561,8 +1676,17 @@ ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(Forge
         finalSamples = voice->audio->decodeCache + (resamplePrefixFrames * voice->src.format->channels);
     } else {
         resize_resample_cache(voice->audio, voice->src.resampleSamples * voice->src.format->channels);
-        if (voice->src.resamplerQuality == FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC) {
+        variableRateResample = voice->src.rateAutomation.active;
+        resampleOffsetBefore = voice->src.resampleOffset;
+        if (variableRateResample) {
+            resample_source_variable_rate_locked(voice, toResample, (uint8_t)voice->src.format->channels,
+                                                 voice->src.format->sample_rate);
+        } else if (voice->src.resamplerQuality == FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC) {
             fa_resample_cubic(voice->audio->decodeCache + (resamplePrefixFrames * voice->src.format->channels),
+                              voice->audio->resampleCache, &voice->src.resampleOffset, voice->src.resampleStep,
+                              toResample, (uint8_t)voice->src.format->channels);
+        } else if (source_resampler_is_sinc8(voice)) {
+            fa_resample_sinc8(voice->audio->decodeCache + (resamplePrefixFrames * voice->src.format->channels),
                               voice->audio->resampleCache, &voice->src.resampleOffset, voice->src.resampleStep,
                               toResample, (uint8_t)voice->src.format->channels);
         } else {
@@ -1573,15 +1697,22 @@ ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(Forge
     }
 
     if (voice->src.queued_buffer_count != 0) {
-        voice->src.curBufferOffsetDec += toResample * voice->src.resampleStep;
+        if (variableRateResample) {
+            voice->src.curBufferOffsetDec += voice->src.resampleOffset - resampleOffsetBefore;
+        } else {
+            voice->src.curBufferOffsetDec += toResample * voice->src.resampleStep;
+        }
         voice->src.curBufferOffsetDec &= FIXED_FRACTION_MASK;
         if (voice->src.curBufferOffsetDec > 0 && voice->src.curBufferOffset > 0) {
             voice->src.curBufferOffset -= 1;
         }
+        nextCurrentFrame = toDecode - (voice->src.curBufferOffsetDec > 0 && toDecode > 0 ? 1 : 0);
+        update_source_resample_history(voice, resamplePrefixFrames, nextCurrentFrame);
     } else {
         voice->src.curBufferOffsetDec = 0;
         voice->src.curBufferOffset = 0;
         voice->src.resampleLoopWrapped = 0;
+        clear_source_resample_history(voice);
     }
 
     result.resampled_frames = (uint32_t)toResample;

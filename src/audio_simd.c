@@ -415,6 +415,98 @@ void fa_resample_cubic(float *restrict dCache, float *restrict resampleCache, ui
     }
 }
 
+/* SECTION 2.5: Scalar Sinc8 resampler
+ *
+ * The Sinc8 convention is centered on floor(source_position). For phase t in
+ * [0, 1), tap 3 reads the current source frame, taps 0..2 read the three
+ * previous frames, and taps 4..7 read the next four frames:
+ *
+ *     output(t) = sum tap[k] * input[current + k - 3]
+ *
+ * The fractional phase indexes a 128-entry table using floor(t * 128).
+ * Coefficients are Lanczos-windowed sinc taps normalized per phase for unity
+ * DC gain. The table is static storage and initialized deterministically on
+ * first use so tests that bypass platform initialization still work.
+ */
+
+static float fa_sinc8_table[FA_RESAMPLE_SINC8_PHASES][FA_RESAMPLE_SINC8_TAPS];
+static uint8_t fa_sinc8_table_initialized = 0;
+
+static double fa_resample_sinc(double x) {
+    const double pi = 3.14159265358979323846264338327950288;
+    double pix;
+
+    if (x > -0.00000001 && x < 0.00000001) {
+        return 1.0;
+    }
+
+    pix = pi * x;
+    return forge_sin(pix) / pix;
+}
+
+static void fa_resample_sinc8_init_table(void) {
+    if (fa_sinc8_table_initialized) {
+        return;
+    }
+
+    for (uint32_t phase = 0; phase < FA_RESAMPLE_SINC8_PHASES; phase += 1) {
+        double t = (double)phase / (double)FA_RESAMPLE_SINC8_PHASES;
+        double sum = 0.0;
+
+        for (uint32_t tap = 0; tap < FA_RESAMPLE_SINC8_TAPS; tap += 1) {
+            double x = (double)tap - (double)FA_RESAMPLE_SINC8_LEFT_TAPS - t;
+            double coeff = fa_resample_sinc(x) * fa_resample_sinc(x / 4.0);
+            fa_sinc8_table[phase][tap] = (float)coeff;
+            sum += coeff;
+        }
+
+        if (sum != 0.0) {
+            for (uint32_t tap = 0; tap < FA_RESAMPLE_SINC8_TAPS; tap += 1) {
+                fa_sinc8_table[phase][tap] = (float)((double)fa_sinc8_table[phase][tap] / sum);
+            }
+        }
+    }
+
+    fa_sinc8_table_initialized = 1;
+}
+
+static uint32_t fa_resample_sinc8_phase(uint64_t fraction) {
+    return (uint32_t)(((fraction & FIXED_FRACTION_MASK) * FA_RESAMPLE_SINC8_PHASES) >> FIXED_PRECISION);
+}
+
+float fa_resample_sinc8_sample(const float *current, uint64_t fraction, uint8_t channels, uint32_t channel) {
+    uint32_t phase = fa_resample_sinc8_phase(fraction);
+    const float *coefficients;
+    float result = 0.0f;
+
+    fa_resample_sinc8_init_table();
+    coefficients = fa_sinc8_table[phase];
+
+    for (uint32_t tap = 0; tap < FA_RESAMPLE_SINC8_TAPS; tap += 1) {
+        int32_t frame = (int32_t)tap - (int32_t)FA_RESAMPLE_SINC8_LEFT_TAPS;
+        int32_t sample = (frame * (int32_t)channels) + (int32_t)channel;
+        result += current[sample] * coefficients[tap];
+    }
+
+    return result;
+}
+
+void fa_resample_sinc8(float *restrict dCache, float *restrict resampleCache, uint64_t *resampleOffset,
+                       uint64_t resampleStep, uint64_t toResample, uint8_t channels) {
+    uint64_t cur = *resampleOffset & FIXED_FRACTION_MASK;
+
+    for (uint32_t i = 0; i < toResample; i += 1) {
+        for (uint32_t channel = 0; channel < channels; channel += 1) {
+            *resampleCache++ = fa_resample_sinc8_sample(dCache, cur, channels, channel);
+        }
+
+        *resampleOffset += resampleStep;
+        cur += resampleStep;
+        dCache += (cur >> FIXED_PRECISION) * channels;
+        cur &= FIXED_FRACTION_MASK;
+    }
+}
+
 #if NEED_SCALAR_CONVERTER_FALLBACKS
 static void fa_audio_resample_mono_scalar(float *restrict dCache, float *restrict resampleCache,
                                           uint64_t *resampleOffset, uint64_t resampleStep, uint64_t toResample,
@@ -1211,6 +1303,8 @@ void (*fa_mix_amplify)(float *output, uint32_t totalSamples, float volume);
 ForgeAudioMixCallback fa_mix_generic;
 
 void fa_simd_init_functions(uint8_t hasSSE2, uint8_t hasNEON) {
+    fa_resample_sinc8_init_table();
+
 #if HAVE_SSE2_INTRINSICS
     if (hasSSE2) {
         fa_convert_u8_to_f32 = fa_audio_convert_u8_to_f32_sse2;

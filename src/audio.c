@@ -540,6 +540,7 @@ static void cleanup_failed_unlinked_voice(ForgeVoice **failed_voice) {
     if (voice->type == FORGE_AUDIO_VOICE_SOURCE) {
         voice->audio->free_func(voice->src.queued_buffers);
         voice->audio->free_func(voice->src.flush_buffers);
+        voice->audio->free_func(voice->src.resampleHistory);
         if (voice->src.format != NULL) {
             voice->audio->free_func(voice->src.format);
         }
@@ -995,6 +996,18 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     }
 
     (*source_voice)->src.curBufferOffset = 0;
+    (*source_voice)->src.resampleHistoryCapacity = SOURCE_SINC8_LEFT_PADDING_FRAMES;
+    (*source_voice)->src.resampleHistory =
+        (float *)audio->malloc_func(sizeof(float) * (*source_voice)->src.resampleHistoryCapacity *
+                                    (*source_voice)->src.format->channels);
+    if ((*source_voice)->src.resampleHistory == NULL) {
+        cleanup_failed_unlinked_voice(source_voice);
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
+    forge_zero((*source_voice)->src.resampleHistory,
+               sizeof(float) * (*source_voice)->src.resampleHistoryCapacity *
+                   (*source_voice)->src.format->channels);
 
     /* Sends/Effects */
     outputRate = send_list_output_rate(audio, send_list);
@@ -3677,6 +3690,7 @@ static void destroy_voice(ForgeVoice *voice) {
 
         voice->audio->free_func(voice->src.queued_buffers);
         voice->audio->free_func(voice->src.flush_buffers);
+        voice->audio->free_func(voice->src.resampleHistory);
         voice->audio->free_func(voice->src.format);
         LOG_MUTEX_DESTROY(voice->audio, voice->src.bufferLock)
         fa_platform_destroy_mutex(voice->src.bufferLock);
@@ -3995,6 +4009,7 @@ ForgeResult forge_source_voice_submit_buffer(ForgeSourceVoice *voice, const Forg
     if (voice->src.queued_buffer_count == 1) {
         voice->src.curBufferOffset = entry->buffer.play_begin;
         voice->src.resampleLoopWrapped = 0;
+        voice->src.resampleHistoryFrames = 0;
     }
 
     LOG_INFO(voice->audio, "%p: appended buffer %p", (void *)voice, (void *)&entry->buffer)
@@ -4022,6 +4037,7 @@ ForgeResult forge_source_voice_flush_buffers(ForgeSourceVoice *voice) {
     } else {
         voice->src.curBufferOffset = 0;
         voice->src.resampleLoopWrapped = 0;
+        voice->src.resampleHistoryFrames = 0;
     }
 
     if (voice->src.queued_buffer_count > offset) {

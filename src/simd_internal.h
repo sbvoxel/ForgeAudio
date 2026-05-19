@@ -31,6 +31,11 @@ FORGE_INTERNAL_API extern void fa_resample_generic(float *restrict d_cache, floa
 FORGE_INTERNAL_API extern void fa_resample_cubic(float *restrict d_cache, float *restrict resample_cache,
                                                  uint64_t *resample_offset, uint64_t resample_step,
                                                  uint64_t to_resample, uint8_t channels);
+FORGE_INTERNAL_API extern void fa_resample_sinc8(float *restrict d_cache, float *restrict resample_cache,
+                                                 uint64_t *resample_offset, uint64_t resample_step,
+                                                 uint64_t to_resample, uint8_t channels);
+FORGE_INTERNAL_API extern float fa_resample_sinc8_sample(const float *current, uint64_t fraction, uint8_t channels,
+                                                         uint32_t channel);
 
 FORGE_INTERNAL_API extern void (*fa_mix_amplify)(float *output, uint32_t total_samples, float volume);
 
@@ -77,6 +82,11 @@ DECODE_FUNC(pcm32f)
     ((float)(fxd >> FIXED_PRECISION) +                  /* Integer part */                                             \
      ((fxd & FIXED_FRACTION_MASK) * (1.0f / FIXED_ONE)) /* Fraction part */                                            \
     )
+
+#define FA_RESAMPLE_SINC8_PHASES 128
+#define FA_RESAMPLE_SINC8_TAPS 8
+#define FA_RESAMPLE_SINC8_LEFT_TAPS SOURCE_SINC8_LEFT_PADDING_FRAMES
+#define FA_RESAMPLE_SINC8_RIGHT_TAPS SOURCE_SINC8_RIGHT_PADDING_FRAMES
 
 static inline float fa_audio_catmull_rom(float p0, float p1, float p2, float p3, double t) {
     double tt = t * t;
