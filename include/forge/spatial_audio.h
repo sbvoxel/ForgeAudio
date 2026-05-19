@@ -120,6 +120,11 @@ typedef struct ForgeSpatialDistanceCurve {
     uint32_t point_count;
 } ForgeSpatialDistanceCurve;
 
+/* TODO: Decide whether cone LPF/reverb fields should be implemented or removed.
+ * forge_spatializer_calculate currently applies cone inner/outer volume to
+ * matrix attenuation only; LPF direct, LPF reverb, and reverb levels are
+ * calculated from the emitter's distance curves.
+ */
 typedef struct ForgeSpatialCone {
     float inner_angle;
     float outer_angle;
