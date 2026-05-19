@@ -57,6 +57,116 @@ static void fill_channel_ramps(float *samples, uint32_t frames, uint32_t channel
     }
 }
 
+static float cubic_reference_catmull_rom(float p0, float p1, float p2, float p3, double t) {
+    double tt = t * t;
+    double ttt = tt * t;
+
+    return (float)(0.5 * ((2.0 * p1) + ((-p0 + p2) * t) +
+                          (((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3) * tt) +
+                          ((-p0 + (3.0 * p1) - (3.0 * p2) + p3) * ttt)));
+}
+
+static void submix_cubic_reference_render(const float *source, uint32_t source_frames, uint32_t channels,
+                                          uint32_t output_frames_per_pass, uint32_t pass_count,
+                                          uint64_t resample_step, float *output) {
+    float history[SUBMIX_RESAMPLE_HISTORY_FRAMES * 8] = {0};
+    uint32_t historyFrames = 0;
+    uint64_t historyFrame = 0;
+    uint64_t resampleOffset = 0;
+    uint64_t inputFrameCursor = 0;
+    uint32_t sourceCursor = 0;
+
+    forge_assert(channels <= 8);
+
+    for (uint32_t pass = 0; pass < pass_count; pass += 1) {
+        uint64_t passEndOffset = resampleOffset + (uint64_t)output_frames_per_pass * resample_step;
+        uint64_t scheduledEndFrame = (passEndOffset + FIXED_FRACTION_MASK) >> FIXED_PRECISION;
+        uint32_t scheduledInputFrames =
+            scheduledEndFrame > inputFrameCursor ? (uint32_t)(scheduledEndFrame - inputFrameCursor) : 0;
+        uint32_t remainingSourceFrames = sourceCursor < source_frames ? source_frames - sourceCursor : 0;
+        uint32_t currentInputFrames = forge_min(scheduledInputFrames, remainingSourceFrames);
+        uint32_t stagedFrames = historyFrames + scheduledInputFrames + SUBMIX_RESAMPLE_EDGE_FRAMES;
+        float stage[(SUBMIX_RESAMPLE_HISTORY_FRAMES + 32 + SUBMIX_RESAMPLE_EDGE_FRAMES) * 8];
+        uint64_t baseFrame = historyFrames > 0 ? historyFrame : inputFrameCursor;
+        uint64_t localOffset = resampleOffset - (baseFrame << FIXED_PRECISION);
+
+        forge_assert(scheduledInputFrames <= 32);
+        forge_zero(stage, sizeof(stage));
+        if (historyFrames > 0) {
+            forge_memcpy(stage, history, sizeof(float) * historyFrames * channels);
+        }
+        if (currentInputFrames > 0) {
+            forge_memcpy(stage + (historyFrames * channels), source + (sourceCursor * channels),
+                         sizeof(float) * currentInputFrames * channels);
+        }
+        if (currentInputFrames >= scheduledInputFrames && scheduledInputFrames > 0) {
+            for (uint32_t edgeFrame = 0; edgeFrame < SUBMIX_RESAMPLE_EDGE_FRAMES; edgeFrame += 1) {
+                forge_memcpy(stage + ((historyFrames + scheduledInputFrames + edgeFrame) * channels),
+                             stage + ((historyFrames + scheduledInputFrames - 1) * channels),
+                             sizeof(float) * channels);
+            }
+        }
+
+        for (uint32_t outFrame = 0; outFrame < output_frames_per_pass; outFrame += 1) {
+            uint64_t p1Frame = localOffset >> FIXED_PRECISION;
+            uint64_t p0Frame;
+            uint64_t p2Frame;
+            uint64_t p3Frame;
+            double t = FIXED_TO_DOUBLE(localOffset & FIXED_FRACTION_MASK);
+
+            if (p1Frame >= stagedFrames) {
+                p1Frame = stagedFrames - 1;
+                t = 0.0;
+            }
+            p0Frame = p1Frame == 0 ? 0 : p1Frame - 1;
+            p2Frame = p1Frame + 1;
+            p3Frame = p1Frame + 2;
+            if (p2Frame >= stagedFrames) {
+                p2Frame = stagedFrames - 1;
+            }
+            if (p3Frame >= stagedFrames) {
+                p3Frame = stagedFrames - 1;
+            }
+
+            for (uint32_t channel = 0; channel < channels; channel += 1) {
+                output[((pass * output_frames_per_pass + outFrame) * channels) + channel] =
+                    cubic_reference_catmull_rom(stage[p0Frame * channels + channel],
+                                                stage[p1Frame * channels + channel],
+                                                stage[p2Frame * channels + channel],
+                                                stage[p3Frame * channels + channel], t);
+            }
+
+            localOffset += resample_step;
+        }
+
+        resampleOffset = passEndOffset;
+        inputFrameCursor += scheduledInputFrames;
+        sourceCursor += currentInputFrames;
+
+        {
+            uint64_t nextFrame = resampleOffset >> FIXED_PRECISION;
+            uint64_t currentEndFrame = inputFrameCursor;
+            uint64_t retainedFrames = 0;
+
+            if (scheduledInputFrames != 0 && nextFrame < currentEndFrame) {
+                if (nextFrame < baseFrame) {
+                    nextFrame = baseFrame;
+                }
+                retainedFrames = currentEndFrame - nextFrame;
+                if (retainedFrames > SUBMIX_RESAMPLE_HISTORY_FRAMES) {
+                    nextFrame = currentEndFrame - SUBMIX_RESAMPLE_HISTORY_FRAMES;
+                    retainedFrames = SUBMIX_RESAMPLE_HISTORY_FRAMES;
+                }
+                forge_memcpy(history, stage + ((nextFrame - baseFrame) * channels),
+                             sizeof(float) * retainedFrames * channels);
+            }
+
+            historyFrame = retainedFrames > 0 ? nextFrame : currentEndFrame;
+            historyFrames = (uint32_t)retainedFrames;
+        }
+    }
+}
+
 static void FORGE_AUDIO_CALL frame_limit_effect_destroy(void *effect_ptr) {
     (void)effect_ptr;
 }
@@ -127,9 +237,10 @@ static void init_frame_limit_effect(FrameLimitEffect *effect) {
     effect->effect.calc_output_frames = frame_limit_effect_calc_frames;
 }
 
-static int render_source_to_submix(uint32_t channels, uint32_t master_rate, uint32_t submix_rate, uint32_t quantum,
-                                   const float *source, uint32_t source_frames, float *output,
-                                   uint32_t output_frames, SubmixRenderInfo *info) {
+static int render_source_to_submix_quality(uint32_t channels, uint32_t master_rate, uint32_t submix_rate,
+                                           uint32_t quantum, const float *source, uint32_t source_frames,
+                                           ForgeAudioResamplerQuality quality, float *output, uint32_t output_frames,
+                                           SubmixRenderInfo *info) {
     AudioRenderHarness harness;
     ForgeSubmixVoice *submix = NULL;
     ForgeSourceVoice *voice = NULL;
@@ -141,6 +252,9 @@ static int render_source_to_submix(uint32_t channels, uint32_t master_rate, uint
     failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
     if (!failed) {
         failed = forge_audio_create_submix_voice(harness.audio, &submix, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        submix->mix.resamplerQuality = quality;
     }
     if (!failed) {
         format = audio_test_float_format(channels, submix_rate);
@@ -168,6 +282,13 @@ static int render_source_to_submix(uint32_t channels, uint32_t master_rate, uint
 
     audio_render_harness_destroy(&harness);
     return failed;
+}
+
+static int render_source_to_submix(uint32_t channels, uint32_t master_rate, uint32_t submix_rate, uint32_t quantum,
+                                   const float *source, uint32_t source_frames, float *output,
+                                   uint32_t output_frames, SubmixRenderInfo *info) {
+    return render_source_to_submix_quality(channels, master_rate, submix_rate, quantum, source, source_frames,
+                                           FORGE_AUDIO_RESAMPLER_LINEAR, output, output_frames, info);
 }
 
 static int render_submix_history_long_run(const char *name, uint32_t master_rate, uint32_t submix_rate,
@@ -272,6 +393,26 @@ static int render_submix_schedule_pattern(const char *name, uint32_t master_rate
     return failed;
 }
 
+static int render_empty_submix_quality(uint32_t channels, uint32_t master_rate, uint32_t submix_rate,
+                                       uint32_t quantum, ForgeAudioResamplerQuality quality, float *output,
+                                       uint32_t output_frames) {
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *submix = NULL;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &submix, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        submix->mix.resamplerQuality = quality;
+        failed = audio_render_harness_render(&harness, output, output_frames);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 static int test_submix_stereo_identity_preserves_channel_order(void) {
     enum {
         channels = 2,
@@ -291,6 +432,205 @@ static int test_submix_stereo_identity_preserves_channel_order(void) {
                                      NULL);
     if (!failed) {
         failed = check_values("submix_stereo_identity", output, source, quantum * channels);
+    }
+
+    return failed;
+}
+
+static int test_submix_mono_cubic_interpolation_matches_reference(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        submix_rate = 24000,
+        quantum = 8,
+        source_frames = 4
+    };
+    static const float source[] = {0.0f, 10.0f, 25.0f, 45.0f};
+    float expected[quantum] = {0};
+    float output[quantum] = {0};
+    int failed = 0;
+
+    submix_cubic_reference_render(source, source_frames, channels, quantum, 1, DOUBLE_TO_FIXED(0.5), expected);
+    failed = render_source_to_submix_quality(channels, master_rate, submix_rate, quantum, source, source_frames,
+                                             FORGE_AUDIO_RESAMPLER_CUBIC, output, quantum, NULL);
+    if (!failed) {
+        failed = check_values("submix_mono_cubic_reference", output, expected, quantum);
+    }
+
+    return failed;
+}
+
+static int test_submix_stereo_cubic_channel_order_matches_reference(void) {
+    enum {
+        channels = 2,
+        master_rate = 48000,
+        submix_rate = 24000,
+        quantum = 8,
+        source_frames = 4
+    };
+    float source[source_frames * channels];
+    float expected[quantum * channels] = {0};
+    float output[quantum * channels] = {0};
+    int failed = 0;
+
+    fill_channel_ramps(source, source_frames, channels);
+    submix_cubic_reference_render(source, source_frames, channels, quantum, 1, DOUBLE_TO_FIXED(0.5), expected);
+    failed = render_source_to_submix_quality(channels, master_rate, submix_rate, quantum, source, source_frames,
+                                             FORGE_AUDIO_RESAMPLER_CUBIC, output, quantum, NULL);
+    if (!failed) {
+        failed = check_values("submix_stereo_cubic_channel_order", output, expected, quantum * channels);
+    }
+
+    return failed;
+}
+
+static int test_submix_three_channel_cubic_channel_order_matches_reference(void) {
+    enum {
+        channels = 3,
+        master_rate = 3000,
+        submix_rate = 2000,
+        quantum = 4,
+        source_frames = 3
+    };
+    float source[source_frames * channels];
+    float expected[quantum * channels] = {0};
+    float output[quantum * channels] = {0};
+    int failed = 0;
+
+    fill_channel_ramps(source, source_frames, channels);
+    submix_cubic_reference_render(source, source_frames, channels, quantum, 1, DOUBLE_TO_FIXED(2.0 / 3.0), expected);
+    failed = render_source_to_submix_quality(channels, master_rate, submix_rate, quantum, source, source_frames,
+                                             FORGE_AUDIO_RESAMPLER_CUBIC, output, quantum, NULL);
+    if (!failed) {
+        failed = check_values("submix_three_channel_cubic_channel_order", output, expected, quantum * channels);
+    }
+
+    return failed;
+}
+
+static int test_submix_cubic_phase_continues_many_passes(void) {
+    enum {
+        channels = 1,
+        master_rate = 3000,
+        submix_rate = 2000,
+        quantum = 4,
+        pass_count = 5,
+        source_frames = 15,
+        output_frames = quantum * pass_count
+    };
+    float source[source_frames];
+    float expected[output_frames] = {0};
+    float output[output_frames] = {0};
+    int failed = 0;
+
+    fill_mono_ramp(source, source_frames);
+    submix_cubic_reference_render(source, source_frames, channels, quantum, pass_count, DOUBLE_TO_FIXED(2.0 / 3.0),
+                                  expected);
+    failed = render_source_to_submix_quality(channels, master_rate, submix_rate, quantum, source, source_frames,
+                                             FORGE_AUDIO_RESAMPLER_CUBIC, output, output_frames, NULL);
+    if (!failed) {
+        failed = check_values("submix_cubic_many_pass_phase", output, expected, output_frames);
+    }
+
+    return failed;
+}
+
+static int test_submix_cubic_block_edge_holds_last_input_frame(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        submix_rate = 24000,
+        quantum = 8,
+        source_frames = 4
+    };
+    float source[source_frames];
+    float expected[quantum] = {0};
+    float output[quantum] = {0};
+    int failed = 0;
+
+    fill_mono_ramp(source, source_frames);
+    submix_cubic_reference_render(source, source_frames, channels, quantum, 1, DOUBLE_TO_FIXED(0.5), expected);
+    failed = render_source_to_submix_quality(channels, master_rate, submix_rate, quantum, source, source_frames,
+                                             FORGE_AUDIO_RESAMPLER_CUBIC, output, quantum, NULL);
+    if (!failed) {
+        failed = check_values("submix_cubic_block_edge_hold", output, expected, quantum);
+    }
+    if (!failed && output[quantum - 1] == 0.0f) {
+        fprintf(stderr, "submix cubic edge hold read zero padding at block edge\n");
+        failed = 1;
+    }
+
+    return failed;
+}
+
+static int test_submix_cubic_true_no_input_is_silence(void) {
+    enum {
+        channels = 1,
+        master_rate = 3000,
+        submix_rate = 2000,
+        quantum = 4,
+        output_frames = quantum * 2
+    };
+    float output[output_frames] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+    int failed = 0;
+
+    failed = render_empty_submix_quality(channels, master_rate, submix_rate, quantum, FORGE_AUDIO_RESAMPLER_CUBIC,
+                                         output, output_frames);
+    if (!failed) {
+        failed = audio_test_check_constant("submix_cubic_no_input_silence", output, output_frames, channels, 0.0f,
+                                           0.000001f);
+    }
+
+    return failed;
+}
+
+static int test_submix_cubic_no_input_drains_history_to_silence(void) {
+    enum {
+        channels = 1,
+        master_rate = 3000,
+        submix_rate = 2000,
+        quantum = 4,
+        pass_count = 2,
+        source_frames = 3,
+        output_frames = quantum * pass_count
+    };
+    float source[source_frames];
+    float expected[output_frames] = {0};
+    float output[output_frames] = {0};
+    int failed = 0;
+
+    fill_mono_ramp(source, source_frames);
+    submix_cubic_reference_render(source, source_frames, channels, quantum, pass_count, DOUBLE_TO_FIXED(2.0 / 3.0),
+                                  expected);
+    failed = render_source_to_submix_quality(channels, master_rate, submix_rate, quantum, source, source_frames,
+                                             FORGE_AUDIO_RESAMPLER_CUBIC, output, output_frames, NULL);
+    if (!failed) {
+        failed = check_values("submix_cubic_no_input_drain", output, expected, output_frames);
+    }
+
+    return failed;
+}
+
+static int test_submix_cubic_identity_bypass_remains_exact(void) {
+    enum {
+        channels = 2,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    static const float source[] = {
+        1.0f, 2.0f,
+        16777216.0f, -5.5f,
+        0.25f, -0.75f,
+        9.0f, -11.0f
+    };
+    float output[quantum * channels] = {0};
+    int failed = 0;
+
+    failed = render_source_to_submix_quality(channels, sample_rate, sample_rate, quantum, source, quantum,
+                                             FORGE_AUDIO_RESAMPLER_CUBIC, output, quantum, NULL);
+    if (!failed && forge_memcmp(output, source, sizeof(source)) != 0) {
+        fprintf(stderr, "submix cubic identity bypass did not preserve exact sample bytes\n");
+        failed = 1;
     }
 
     return failed;
@@ -1239,6 +1579,21 @@ int main(void) {
 
     failures += run_test("submix_stereo_identity_preserves_channel_order",
                          test_submix_stereo_identity_preserves_channel_order);
+    failures += run_test("submix_mono_cubic_interpolation_matches_reference",
+                         test_submix_mono_cubic_interpolation_matches_reference);
+    failures += run_test("submix_stereo_cubic_channel_order_matches_reference",
+                         test_submix_stereo_cubic_channel_order_matches_reference);
+    failures += run_test("submix_three_channel_cubic_channel_order_matches_reference",
+                         test_submix_three_channel_cubic_channel_order_matches_reference);
+    failures += run_test("submix_cubic_phase_continues_many_passes",
+                         test_submix_cubic_phase_continues_many_passes);
+    failures += run_test("submix_cubic_block_edge_holds_last_input_frame",
+                         test_submix_cubic_block_edge_holds_last_input_frame);
+    failures += run_test("submix_cubic_true_no_input_is_silence", test_submix_cubic_true_no_input_is_silence);
+    failures += run_test("submix_cubic_no_input_drains_history_to_silence",
+                         test_submix_cubic_no_input_drains_history_to_silence);
+    failures += run_test("submix_cubic_identity_bypass_remains_exact",
+                         test_submix_cubic_identity_bypass_remains_exact);
     failures += run_test("submix_mono_upsample_linear_interpolation",
                          test_submix_mono_upsample_linear_interpolation);
     failures += run_test("submix_mono_downsample_linear_interpolation_and_sizing",

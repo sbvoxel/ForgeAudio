@@ -390,21 +390,6 @@ void fa_resample_generic(float *restrict dCache, float *restrict resampleCache, 
     }
 }
 
-static float cubic_catmull_rom(float p0, float p1, float p2, float p3, double t) {
-    double tt = t * t;
-    double ttt = tt * t;
-
-    /* Catmull-Rom spline through p1/p2:
-     * 0.5 * ((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t^2
-     *        + (-p0+3*p1-3*p2+p3)*t^3)
-     *
-     * This is a modest 4-point interpolator, not a bandlimited anti-aliasing filter.
-     */
-    return (float)(0.5 * ((2.0 * p1) + ((-p0 + p2) * t) +
-                          (((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3) * tt) +
-                          ((-p0 + (3.0 * p1) - (3.0 * p2) + p3) * ttt)));
-}
-
 void fa_resample_cubic(float *restrict dCache, float *restrict resampleCache, uint64_t *resampleOffset,
                        uint64_t resampleStep, uint64_t toResample, uint8_t channels) {
     uint32_t i, j;
@@ -420,7 +405,7 @@ void fa_resample_cubic(float *restrict dCache, float *restrict resampleCache, ui
             float p2 = current[channels];
             float p3 = current[2 * channels];
 
-            *resampleCache++ = cubic_catmull_rom(p0, p1, p2, p3, t);
+            *resampleCache++ = fa_audio_catmull_rom(p0, p1, p2, p3, t);
         }
 
         *resampleOffset += resampleStep;

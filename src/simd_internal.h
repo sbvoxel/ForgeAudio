@@ -78,4 +78,19 @@ DECODE_FUNC(pcm32f)
      ((fxd & FIXED_FRACTION_MASK) * (1.0f / FIXED_ONE)) /* Fraction part */                                            \
     )
 
+static inline float fa_audio_catmull_rom(float p0, float p1, float p2, float p3, double t) {
+    double tt = t * t;
+    double ttt = tt * t;
+
+    /* Catmull-Rom spline through p1/p2:
+     * 0.5 * ((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t^2
+     *        + (-p0+3*p1-3*p2+p3)*t^3)
+     *
+     * This is a modest 4-point interpolator, not a bandlimited anti-aliasing filter.
+     */
+    return (float)(0.5 * ((2.0 * p1) + ((-p0 + p2) * t) +
+                          (((2.0 * p0) - (5.0 * p1) + (4.0 * p2) - p3) * tt) +
+                          ((-p0 + (3.0 * p1) - (3.0 * p2) + p3) * ttt)));
+}
+
 #endif /* FORGE_SIMD_INTERNAL_H */

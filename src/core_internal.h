@@ -26,10 +26,13 @@ typedef enum ForgeAudioVoiceType {
     FORGE_AUDIO_VOICE_MASTER
 } ForgeAudioVoiceType;
 
-typedef enum ForgeAudioSourceResamplerQuality {
-    FORGE_AUDIO_SOURCE_RESAMPLER_LINEAR,
-    FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC
-} ForgeAudioSourceResamplerQuality;
+typedef enum ForgeAudioResamplerQuality {
+    FORGE_AUDIO_RESAMPLER_LINEAR,
+    FORGE_AUDIO_RESAMPLER_CUBIC,
+    FORGE_AUDIO_SOURCE_RESAMPLER_LINEAR = FORGE_AUDIO_RESAMPLER_LINEAR,
+    FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC = FORGE_AUDIO_RESAMPLER_CUBIC
+} ForgeAudioResamplerQuality;
+typedef ForgeAudioResamplerQuality ForgeAudioSourceResamplerQuality;
 
 struct queued_buffer {
     ForgeBuffer buffer;
@@ -127,7 +130,7 @@ struct ForgeAudioEngine {
 #define EXTRA_DECODE_PADDING 2
 #define SOURCE_CUBIC_DECODE_PREFIX_FRAMES 1
 #define SUBMIX_RESAMPLE_HISTORY_FRAMES 1
-#define SUBMIX_RESAMPLE_EDGE_FRAMES 1
+#define SUBMIX_RESAMPLE_EDGE_FRAMES 2
 #define SUBMIX_RESAMPLE_INPUT_PADDING_FRAMES (SUBMIX_RESAMPLE_HISTORY_FRAMES + SUBMIX_RESAMPLE_EDGE_FRAMES)
     uint32_t decodeSamples;
     uint32_t resampleSamples;
@@ -200,7 +203,7 @@ struct ForgeVoice {
             uint64_t curBufferOffsetDec;
             uint32_t curBufferOffset;
             uint8_t resampleLoopWrapped;
-            ForgeAudioSourceResamplerQuality resamplerQuality;
+            ForgeAudioResamplerQuality resamplerQuality;
 
             /* Read-only */
             float maxFreqRatio;
@@ -245,6 +248,7 @@ struct ForgeVoice {
             uint32_t scheduledOutputFrames;
             uint32_t currentPassInputFrames;
             uint8_t inputScheduleState;
+            ForgeAudioResamplerQuality resamplerQuality;
             ForgeAudioResampleCallback resample;
 
             /* Read-only */
