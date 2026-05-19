@@ -975,16 +975,19 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
         LOG_API_EXIT(audio)
         return ForgeResultOutOfMemory;
     }
-    (*submix_voice)->mix.resampleInputCache = (float *)audio->malloc_func(
-        sizeof(float) * ((*submix_voice)->mix.inputFrames + SUBMIX_RESAMPLE_HISTORY_FRAMES +
-                         SUBMIX_RESAMPLE_EDGE_FRAMES) *
-        input_channels);
+    (*submix_voice)->mix.resampleHistoryCapacity = (*submix_voice)->mix.inputFrames + SUBMIX_RESAMPLE_HISTORY_FRAMES;
+    (*submix_voice)->mix.resampleInputCapacity =
+        (*submix_voice)->mix.resampleHistoryCapacity + (*submix_voice)->mix.inputFrames +
+        SUBMIX_RESAMPLE_EDGE_FRAMES;
+    (*submix_voice)->mix.resampleInputCache =
+        (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->mix.resampleInputCapacity * input_channels);
     if ((*submix_voice)->mix.resampleInputCache == NULL) {
         cleanup_failed_unlinked_voice(submix_voice);
         LOG_API_EXIT(audio)
         return ForgeResultOutOfMemory;
     }
-    (*submix_voice)->mix.resampleHistory = (float *)audio->malloc_func(sizeof(float) * input_channels);
+    (*submix_voice)->mix.resampleHistory =
+        (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->mix.resampleHistoryCapacity * input_channels);
     if ((*submix_voice)->mix.resampleHistory == NULL) {
         cleanup_failed_unlinked_voice(submix_voice);
         LOG_API_EXIT(audio)
@@ -993,10 +996,9 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     forge_zero(/* Zero this now, for the first update */
                (*submix_voice)->mix.inputCache, sizeof(float) * (*submix_voice)->mix.inputSamples);
     forge_zero((*submix_voice)->mix.resampleInputCache,
-               sizeof(float) * ((*submix_voice)->mix.inputFrames + SUBMIX_RESAMPLE_HISTORY_FRAMES +
-                                SUBMIX_RESAMPLE_EDGE_FRAMES) *
-                   input_channels);
-    forge_zero((*submix_voice)->mix.resampleHistory, sizeof(float) * input_channels);
+               sizeof(float) * (*submix_voice)->mix.resampleInputCapacity * input_channels);
+    forge_zero((*submix_voice)->mix.resampleHistory,
+               sizeof(float) * (*submix_voice)->mix.resampleHistoryCapacity * input_channels);
 
     /* Sends/Effects */
     outputRate = send_list_output_rate(audio, send_list);

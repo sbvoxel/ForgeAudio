@@ -190,6 +190,38 @@ static int test_submix_resample_phase_continues_each_mix_pass(void) {
     return failed;
 }
 
+static int test_submix_resample_phase_continues_many_passes(void) {
+    enum {
+        channels = 1,
+        master_rate = 3000,
+        submix_rate = 2000,
+        quantum = 4,
+        pass_count = 5,
+        source_frames = 15,
+        output_frames = quantum * pass_count
+    };
+    static const float expected[] = {
+        0.0f, 6.6666665f, 13.3333330f, 20.0f,
+        26.6666660f, 33.3333320f, 40.0f, 46.6666680f,
+        53.3333320f, 60.0f, 66.6666640f, 73.3333360f,
+        80.0f, 86.6666640f, 93.3333360f, 100.0f,
+        106.6666640f, 113.3333360f, 120.0f, 126.6666640f
+    };
+    float source[source_frames];
+    float output[output_frames] = {0};
+    int failed = 0;
+
+    fill_mono_ramp(source, source_frames);
+
+    failed = render_source_to_submix(channels, master_rate, submix_rate, quantum, source, source_frames, output,
+                                     output_frames, NULL);
+    if (!failed) {
+        failed = check_values("submix_many_pass_phase", output, expected, output_frames);
+    }
+
+    return failed;
+}
+
 static int test_submix_true_no_input_drains_history_to_silence(void) {
     enum {
         channels = 1,
@@ -307,6 +339,8 @@ int main(void) {
                          test_submix_mono_downsample_linear_interpolation_and_sizing);
     failures += run_test("submix_resample_phase_continues_each_mix_pass",
                          test_submix_resample_phase_continues_each_mix_pass);
+    failures += run_test("submix_resample_phase_continues_many_passes",
+                         test_submix_resample_phase_continues_many_passes);
     failures += run_test("submix_downsample_output_size_stays_within_initialized_input",
                          test_submix_downsample_output_size_stays_within_initialized_input);
     failures += run_test("submix_true_no_input_drains_history_to_silence",

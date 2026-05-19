@@ -226,11 +226,14 @@ struct ForgeVoice {
             float *inputCache;
             float *resampleInputCache;
             float *resampleHistory;
+            uint32_t resampleInputCapacity;
+            uint32_t resampleHistoryCapacity;
+            uint32_t resampleHistoryFrames;
             uint64_t resampleStep;
             uint64_t resampleOffset;
             uint64_t inputFrameCursor;
+            uint64_t resampleHistoryFrame;
             uint32_t currentPassInputFrames;
-            uint8_t resampleHistoryValid;
             ForgeAudioResampleCallback resample;
 
             /* Read-only */
