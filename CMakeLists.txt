@@ -179,6 +179,13 @@ if(BUILD_TESTS)
     forge_audio_enable_asan(source_format_test)
     add_test(NAME source_format COMMAND source_format_test)
 
+    add_executable(spatial_audio_test tests/spatial_audio.c)
+    target_compile_definitions(spatial_audio_test PRIVATE FORGE_AUDIO_TESTING)
+    target_include_directories(spatial_audio_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_link_libraries(spatial_audio_test PRIVATE ForgeAudio)
+    forge_audio_enable_asan(spatial_audio_test)
+    add_test(NAME spatial_audio COMMAND spatial_audio_test)
+
     add_executable(engine_render_test
         tests/audio_render_harness.c
         tests/audio_render_harness.h
