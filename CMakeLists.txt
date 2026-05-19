@@ -66,6 +66,7 @@ endif()
 add_library(ForgeAudio
     # Public Headers
     include/forge/spatial_audio.h
+    include/forge/result.h
     include/forge/effect.h
     include/forge/effects.h
     include/forge/audio.h

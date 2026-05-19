@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <forge/result.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,6 +95,8 @@ extern "C" {
 #define FORGE_SPATIAL_CALCULATE_EMITTER_ANGLE 0x00000040
 #define FORGE_SPATIAL_CALCULATE_ZERO_CENTER 0x00010000
 #define FORGE_SPATIAL_CALCULATE_REDIRECT_TO_LFE 0x00020000
+
+#define FORGE_NATIVE_SPATIAL_CALCULATE_DOPPLER 0x00000001u
 
 /* Structures */
 
@@ -184,10 +187,81 @@ typedef struct ForgeSpatialDspSettings {
     float listener_velocity_component;
 } ForgeSpatialDspSettings;
 
+typedef struct ForgeNativeSpatializer {
+    uint32_t speaker_channel_mask;
+    uint32_t speaker_count;
+    uint32_t non_lfe_speaker_count;
+    uint32_t low_frequency_channel_index;
+    float speed_of_sound_m_per_sec;
+} ForgeNativeSpatializer;
+
+typedef struct ForgeNativeSpatialDistanceCurvePoint {
+    float distance_m;
+    float dsp_setting;
+} ForgeNativeSpatialDistanceCurvePoint;
+
+typedef struct ForgeNativeSpatialDistanceCurve {
+    const ForgeNativeSpatialDistanceCurvePoint *points;
+    uint32_t point_count;
+} ForgeNativeSpatialDistanceCurve;
+
+typedef struct ForgeNativeSpatialCone {
+    float inner_angle_rad;
+    float outer_angle_rad;
+    float inner_direct_gain;
+    float outer_direct_gain;
+    float inner_lowpass_cutoff_hz;
+    float outer_lowpass_cutoff_hz;
+    float inner_reverb_send_gain;
+    float outer_reverb_send_gain;
+} ForgeNativeSpatialCone;
+
+typedef struct ForgeNativeSpatialListener {
+    ForgeVector3 orient_front;
+    ForgeVector3 orient_top;
+    ForgeVector3 position_m;
+    ForgeVector3 velocity_m_per_sec;
+} ForgeNativeSpatialListener;
+
+typedef struct ForgeNativeSpatialEmitter {
+    ForgeVector3 orient_front;
+    ForgeVector3 position_m;
+    ForgeVector3 velocity_m_per_sec;
+    float radius_m;
+    float reference_distance_m;
+    float doppler_scale;
+    const ForgeNativeSpatialCone *cone;
+    const ForgeNativeSpatialDistanceCurve *direct_gain_curve;
+    const ForgeNativeSpatialDistanceCurve *direct_lowpass_curve;
+    const ForgeNativeSpatialDistanceCurve *reverb_send_curve;
+    float direct_occlusion;
+    float reverb_occlusion;
+    float occluded_lowpass_cutoff_hz;
+} ForgeNativeSpatialEmitter;
+
+typedef struct ForgeNativeSpatialDspSettings {
+    float *matrix_coefficients;
+    uint32_t src_channel_count;
+    uint32_t dst_channel_count;
+    float direct_gain;
+    float doppler_rate_scalar;
+    float direct_lowpass_cutoff_hz;
+    float reverb_send_gain;
+    float distance_m;
+    float azimuth_rad;
+    float elevation_rad;
+    float emitter_velocity_component_m_per_sec;
+    float listener_velocity_component_m_per_sec;
+} ForgeNativeSpatialDspSettings;
+
 #pragma pack(pop)
 
 /* Functions */
 
+/* Legacy/inherited X3DAudio/FAudio-style spatial behavior. The newer
+ * Forge-native calculator path is forge_native_spatializer_init and
+ * forge_native_spatializer_calculate.
+ */
 FORGE_SPATIAL_API bool forge_spatializer_init(uint32_t speaker_channel_mask, float speed_of_sound,
                                               ForgeSpatializer *spatializer);
 
@@ -195,6 +269,16 @@ FORGE_SPATIAL_API void forge_spatializer_calculate(const ForgeSpatializer *spati
                                                    const ForgeSpatialListener *listener,
                                                    const ForgeSpatialEmitter *emitter, uint32_t flags,
                                                    ForgeSpatialDspSettings *dsp_settings);
+
+FORGE_SPATIAL_API ForgeResult forge_native_spatializer_init(uint32_t speaker_channel_mask,
+                                                            float speed_of_sound_m_per_sec,
+                                                            ForgeNativeSpatializer *spatializer);
+
+FORGE_SPATIAL_API ForgeResult forge_native_spatializer_calculate(const ForgeNativeSpatializer *spatializer,
+                                                                 const ForgeNativeSpatialListener *listener,
+                                                                 const ForgeNativeSpatialEmitter *emitter,
+                                                                 uint32_t flags,
+                                                                 ForgeNativeSpatialDspSettings *dsp_settings);
 
 #ifdef __cplusplus
 }

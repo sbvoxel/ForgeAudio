@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <forge/result.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -228,20 +229,6 @@ typedef struct ForgeDebugConfiguration {
 } ForgeDebugConfiguration;
 
 #pragma pack(pop)
-
-/* Results */
-
-typedef enum ForgeResult {
-    ForgeResultSuccess = 0,
-    ForgeResultFormatSuggested = 1,
-    ForgeResultFailed = -2147467259,
-    ForgeResultOutOfMemory = -2147024882,
-    ForgeResultInvalidArgument = -2147024809,
-    ForgeResultUnsupportedFormat = -2004287480,
-    ForgeResultInvalidCall = -2003435519,
-    ForgeResultDeviceInvalidated = -2003435516,
-    ForgeResultEffectFormatUnsupported = -2003369983
-} ForgeResult;
 
 /* Constants */
 
