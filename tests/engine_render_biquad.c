@@ -546,11 +546,11 @@ int test_biquad_deferred_zero_duration_and_blob_cancel(void) {
     ForgeBiquadParameters blob = biquad_params(ForgeBiquadLowPass, 200.0f, 2.0f, 3.0f, 0.25f);
     ForgeBiquadTarget target = biquad_target(FORGE_BIQUAD_TARGET_WET_DRY_MIX, 0.0f, 0.0f, 0.0f, 1.0f);
     ForgeBiquadParameters got;
-    float source[quantum * 2];
+    float source[quantum * 3];
     float output[quantum];
     int failed = 0;
 
-    for (uint32_t i = 0; i < quantum * 2; i += 1) {
+    for (uint32_t i = 0; i < quantum * 3; i += 1) {
         source[i] = 0.25f;
     }
 

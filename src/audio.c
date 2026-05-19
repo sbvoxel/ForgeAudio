@@ -514,6 +514,9 @@ static void release_failed_create_effect_chain(ForgeVoice *voice) {
 
     for (uint32_t i = 0; i < voice->effects.count; i += 1) {
         voice->effects.desc[i].effect->unlock_for_process(voice->effects.desc[i].effect);
+        if (voice->effects.parameters != NULL) {
+            voice->audio->free_func(voice->effects.parameters[i]);
+        }
     }
 
     voice->audio->free_func(voice->effects.desc);
@@ -2056,13 +2059,14 @@ ForgeResult fa_voice_install_set_effect_parameters(ForgeVoice *voice, uint32_t e
 
     if (voice->effects.parameters[effect_index] == NULL ||
         voice->effects.parameterSizes[effect_index] < parameters_byte_size) {
-        voice->effects.parameters[effect_index] =
+        void *new_parameters =
             voice->audio->realloc_func(voice->effects.parameters[effect_index], parameters_byte_size);
-        if (voice->effects.parameters[effect_index] == NULL) {
+        if (new_parameters == NULL) {
             fa_platform_unlock_mutex(voice->effectLock);
             LOG_MUTEX_UNLOCK(voice->audio, voice->effectLock)
             return ForgeResultOutOfMemory;
         }
+        voice->effects.parameters[effect_index] = new_parameters;
     }
 
     voice->effects.parameterSizes[effect_index] = parameters_byte_size;

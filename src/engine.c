@@ -2222,6 +2222,9 @@ void fa_audio_free_effect_chain(ForgeVoice *voice) {
     for (uint32_t i = 0; i < voice->effects.count; i += 1) {
         voice->effects.desc[i].effect->unlock_for_process(voice->effects.desc[i].effect);
         forge_effect_destroy(voice->effects.desc[i].effect);
+        if (voice->effects.parameters != NULL) {
+            voice->audio->free_func(voice->effects.parameters[i]);
+        }
     }
 
     voice->audio->free_func(voice->effects.desc);
