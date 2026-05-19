@@ -462,6 +462,20 @@ static int test_resampler_quality_public_api(void) {
         }
     }
     if (!failed) {
+        result = forge_voice_set_resampler_quality(source, ForgeAudioResamplerSinc8);
+        if (result != ForgeResultSuccess) {
+            fprintf(stderr, "source public set sinc8 resampler quality: got %d\n", result);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_get_resampler_quality(source, &quality);
+        if (result != ForgeResultSuccess || quality != ForgeAudioResamplerSinc8) {
+            fprintf(stderr, "source public get sinc8 resampler quality: result=%d quality=%d\n", result, quality);
+            failed = 1;
+        }
+    }
+    if (!failed) {
         result = forge_voice_set_resampler_quality(submix, ForgeAudioResamplerLinear);
         if (result != ForgeResultSuccess) {
             fprintf(stderr, "submix public set linear resampler quality: got %d\n", result);
@@ -472,6 +486,14 @@ static int test_resampler_quality_public_api(void) {
         result = forge_voice_get_resampler_quality(submix, &quality);
         if (result != ForgeResultSuccess || quality != ForgeAudioResamplerLinear) {
             fprintf(stderr, "submix public get linear resampler quality: result=%d quality=%d\n", result, quality);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_set_resampler_quality(submix, ForgeAudioResamplerSinc8);
+        if (result != ForgeResultInvalidArgument) {
+            fprintf(stderr, "submix sinc8 resampler quality: expected %d, got %d\n", ForgeResultInvalidArgument,
+                    result);
             failed = 1;
         }
     }

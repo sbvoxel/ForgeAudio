@@ -73,10 +73,13 @@ typedef enum ForgeFilterType {
 typedef enum ForgeAudioResamplerQuality {
     ForgeAudioResamplerLinear = 0,
     ForgeAudioResamplerCubic = 1,
+    ForgeAudioResamplerSinc8 = 2,
     FORGE_AUDIO_RESAMPLER_LINEAR = ForgeAudioResamplerLinear,
     FORGE_AUDIO_RESAMPLER_CUBIC = ForgeAudioResamplerCubic,
+    FORGE_AUDIO_RESAMPLER_SINC8 = ForgeAudioResamplerSinc8,
     FORGE_AUDIO_SOURCE_RESAMPLER_LINEAR = ForgeAudioResamplerLinear,
-    FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC = ForgeAudioResamplerCubic
+    FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC = ForgeAudioResamplerCubic,
+    FORGE_AUDIO_SOURCE_RESAMPLER_SINC8 = ForgeAudioResamplerSinc8
 } ForgeAudioResamplerQuality;
 typedef ForgeAudioResamplerQuality ForgeAudioSourceResamplerQuality;
 
@@ -592,6 +595,9 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, cons
  * ForgeAudioResamplerCubic is the default. It is Catmull-Rom interpolation:
  * smoother than linear, but not a bandlimited anti-aliasing sample-rate converter.
  * ForgeAudioResamplerLinear is available as a lower-CPU fast path.
+ * ForgeAudioResamplerSinc8 is an 8-tap tabled windowed-sinc source resampler
+ * intended as an opt-in higher-quality mode. It is not currently supported for
+ * submix voices.
  *
  * The change applies immediately and may slightly change the rendered waveform
  * if the voice is already active.

@@ -1565,6 +1565,11 @@ sendwork:
 }
 
 static uint8_t is_valid_resampler_quality(ForgeAudioResamplerQuality quality) {
+    return quality == ForgeAudioResamplerLinear || quality == ForgeAudioResamplerCubic ||
+           quality == ForgeAudioResamplerSinc8;
+}
+
+static uint8_t is_valid_submix_resampler_quality(ForgeAudioResamplerQuality quality) {
     return quality == ForgeAudioResamplerLinear || quality == ForgeAudioResamplerCubic;
 }
 
@@ -1580,6 +1585,8 @@ ForgeResult forge_voice_set_resampler_quality(ForgeVoice *voice, ForgeAudioResam
         uint32_t padding = EXTRA_DECODE_PADDING;
         if (quality == ForgeAudioResamplerCubic) {
             padding += SOURCE_CUBIC_DECODE_PREFIX_FRAMES;
+        } else if (quality == ForgeAudioResamplerSinc8) {
+            padding = SOURCE_SINC8_LEFT_PADDING_FRAMES + SOURCE_SINC8_DECODE_PADDING_FRAMES;
         }
         if (!fa_audio_resize_decode_cache(voice->audio, (voice->src.decodeSamples + padding) *
                                                             voice->src.format->channels)) {
@@ -1591,6 +1598,9 @@ ForgeResult forge_voice_set_resampler_quality(ForgeVoice *voice, ForgeAudioResam
         fa_platform_unlock_mutex(voice->sendLock);
         LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
     } else {
+        if (!is_valid_submix_resampler_quality(quality)) {
+            return ForgeResultInvalidArgument;
+        }
         fa_platform_lock_mutex(voice->sendLock);
         LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
         voice->mix.resamplerQuality = quality;
