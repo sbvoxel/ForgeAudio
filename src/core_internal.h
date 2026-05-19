@@ -264,6 +264,8 @@ FORGE_INTERNAL_API void fa_audio_update_engine(ForgeAudioEngine *audio, float *o
 FORGE_INTERNAL_API bool fa_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t size);
 FORGE_INTERNAL_API ForgeResult fa_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain);
 FORGE_INTERNAL_API void fa_audio_free_effect_chain(ForgeVoice *voice);
+FORGE_INTERNAL_API ForgeResult fa_audio_voice_output_frequency_preflight(ForgeVoice *voice,
+                                                                         const ForgeSendList *send_list);
 FORGE_INTERNAL_API ForgeResult fa_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendList *send_list);
 
 #ifdef FORGE_AUDIO_TESTING

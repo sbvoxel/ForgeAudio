@@ -26,6 +26,12 @@ typedef struct SubmixHistoryRunInfo {
     uint64_t consumed_input_frames;
 } SubmixHistoryRunInfo;
 
+typedef struct FrameLimitEffect {
+    ForgeEffect effect;
+    uint32_t locked_max_frames;
+    uint32_t max_processed_frames;
+} FrameLimitEffect;
+
 static int check_values(const char *name, const float *actual, const float *expected, uint32_t count) {
     for (uint32_t i = 0; i < count; i += 1) {
         if (audio_test_absf(actual[i] - expected[i]) > 0.000001f) {
@@ -49,6 +55,76 @@ static void fill_channel_ramps(float *samples, uint32_t frames, uint32_t channel
             samples[frame * channels + channel] = (float)(frame * 10 + channel * 1000);
         }
     }
+}
+
+static void FORGE_AUDIO_CALL frame_limit_effect_destroy(void *effect_ptr) {
+    (void)effect_ptr;
+}
+
+static void FORGE_AUDIO_CALL frame_limit_effect_get_info(void *effect_ptr, ForgeEffectInfo *effect_info) {
+    (void)effect_ptr;
+
+    effect_info->flags = FORGE_EFFECT_FLAG_IN_PLACE_SUPPORTED;
+    effect_info->min_input_buffer_count = 1;
+    effect_info->max_input_buffer_count = 1;
+    effect_info->min_output_buffer_count = 1;
+    effect_info->max_output_buffer_count = 1;
+}
+
+static ForgeResult FORGE_AUDIO_CALL frame_limit_effect_lock(
+    void *effect_ptr, uint32_t input_locked_parameter_count, const ForgeEffectLockBuffer *input_locked_parameters,
+    uint32_t output_locked_parameter_count, const ForgeEffectLockBuffer *output_locked_parameters) {
+    FrameLimitEffect *effect = (FrameLimitEffect *)effect_ptr;
+
+    (void)input_locked_parameter_count;
+    (void)output_locked_parameter_count;
+    (void)output_locked_parameters;
+
+    effect->locked_max_frames = input_locked_parameters->max_frame_count;
+    return ForgeResultSuccess;
+}
+
+static void FORGE_AUDIO_CALL frame_limit_effect_unlock(void *effect_ptr) {
+    (void)effect_ptr;
+}
+
+static void FORGE_AUDIO_CALL frame_limit_effect_process(void *effect_ptr, uint32_t input_buffer_count,
+                                                        const ForgeEffectProcessBuffer *input_buffers,
+                                                        uint32_t output_buffer_count,
+                                                        ForgeEffectProcessBuffer *output_buffers,
+                                                        int32_t is_enabled) {
+    FrameLimitEffect *effect = (FrameLimitEffect *)effect_ptr;
+    uint32_t frames = input_buffers->valid_frame_count;
+
+    (void)input_buffer_count;
+    (void)output_buffer_count;
+    (void)is_enabled;
+
+    if (frames > effect->max_processed_frames) {
+        effect->max_processed_frames = frames;
+    }
+    if (output_buffers->buffer != input_buffers->buffer) {
+        forge_memcpy(output_buffers->buffer, input_buffers->buffer, sizeof(float) * frames);
+    }
+    output_buffers->valid_frame_count = frames;
+    output_buffers->buffer_flags = input_buffers->buffer_flags;
+}
+
+static uint32_t FORGE_AUDIO_CALL frame_limit_effect_calc_frames(void *effect_ptr, uint32_t frame_count) {
+    (void)effect_ptr;
+
+    return frame_count;
+}
+
+static void init_frame_limit_effect(FrameLimitEffect *effect) {
+    forge_zero(effect, sizeof(*effect));
+    effect->effect.destroy = frame_limit_effect_destroy;
+    effect->effect.get_info = frame_limit_effect_get_info;
+    effect->effect.lock_for_process = frame_limit_effect_lock;
+    effect->effect.unlock_for_process = frame_limit_effect_unlock;
+    effect->effect.process = frame_limit_effect_process;
+    effect->effect.calc_input_frames = frame_limit_effect_calc_frames;
+    effect->effect.calc_output_frames = frame_limit_effect_calc_frames;
 }
 
 static int render_source_to_submix(uint32_t channels, uint32_t master_rate, uint32_t submix_rate, uint32_t quantum,
@@ -513,6 +589,639 @@ static int test_submix_scheduled_input_frames_vary_for_fractional_ratios(void) {
     return failed;
 }
 
+static int test_submix_set_outputs_resizes_input_schedule_capacity(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        routed_rate = 48000,
+        downstream_rate = 3000,
+        quantum = 4,
+        expected_scheduled_frames = 16
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    float source[expected_scheduled_frames * 2];
+    float output[quantum] = {0};
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &routed, channels, routed_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &downstream, channels, downstream_rate, 0, 1, NULL,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        send.flags = 0;
+        send.output_voice = downstream;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_voice_set_outputs(routed, &send_list) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, routed_rate);
+        send.flags = 0;
+        send.output_voice = routed;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        fill_mono_ramp(source, expected_scheduled_frames * 2);
+        failed = audio_render_harness_submit_float_buffer(voice, source, expected_scheduled_frames * 2, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed && routed->mix.inputFrames < expected_scheduled_frames) {
+        fprintf(stderr, "submix reroute inputFrames: expected at least %u, got %u\n", expected_scheduled_frames,
+                routed->mix.inputFrames);
+        failed = 1;
+    }
+    if (!failed && routed->mix.scheduledInputFrames != expected_scheduled_frames) {
+        fprintf(stderr, "submix reroute scheduledInputFrames: expected %u, got %u\n", expected_scheduled_frames,
+                routed->mix.scheduledInputFrames);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_source_effect_lock_covers_scheduled_submix_input(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        routed_rate = 48000,
+        downstream_rate = 3000,
+        quantum = 4,
+        expected_scheduled_frames = 16
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    FrameLimitEffect effect;
+    ForgeEffectDesc effect_desc;
+    ForgeEffectChain chain;
+    float source[expected_scheduled_frames * 2];
+    float output[quantum] = {0};
+    int failed = 0;
+
+    init_frame_limit_effect(&effect);
+    effect_desc.effect = &effect.effect;
+    effect_desc.initial_state = 1;
+    effect_desc.output_channels = channels;
+    chain.effect_count = 1;
+    chain.effects = &effect_desc;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &routed, channels, routed_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &downstream, channels, downstream_rate, 0, 1, NULL,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        send.flags = 0;
+        send.output_voice = downstream;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_voice_set_outputs(routed, &send_list) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, routed_rate);
+        send.flags = 0;
+        send.output_voice = routed;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, &chain) != 0;
+    }
+    if (!failed) {
+        fill_mono_ramp(source, expected_scheduled_frames * 2);
+        failed = audio_render_harness_submit_float_buffer(voice, source, expected_scheduled_frames * 2, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed && effect.locked_max_frames < expected_scheduled_frames) {
+        fprintf(stderr, "source effect lock max: expected at least %u, got %u\n", expected_scheduled_frames,
+                effect.locked_max_frames);
+        failed = 1;
+    }
+    if (!failed && effect.max_processed_frames > effect.locked_max_frames) {
+        fprintf(stderr, "source effect processed %u frames with lock max %u\n", effect.max_processed_frames,
+                effect.locked_max_frames);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_submix_set_outputs_rejects_growth_past_attached_source_effect_lock(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        routed_rate = 48000,
+        downstream_rate = 3000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    FrameLimitEffect effect;
+    ForgeEffectDesc effect_desc;
+    ForgeEffectChain chain;
+    ForgeResult result;
+    uint32_t old_input_frames;
+    int failed = 0;
+
+    init_frame_limit_effect(&effect);
+    effect_desc.effect = &effect.effect;
+    effect_desc.initial_state = 1;
+    effect_desc.output_channels = channels;
+    chain.effect_count = 1;
+    chain.effects = &effect_desc;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &routed, channels, routed_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &downstream, channels, downstream_rate, 0, 1, NULL,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, routed_rate);
+        send.flags = 0;
+        send.output_voice = routed;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, &chain) != 0;
+    }
+    if (!failed) {
+        old_input_frames = routed->mix.inputFrames;
+        send.flags = 0;
+        send.output_voice = downstream;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        result = forge_voice_set_outputs(routed, &send_list);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "submix reroute with attached source effect: got %d, expected %d\n", result,
+                    ForgeResultInvalidCall);
+            failed = 1;
+        }
+        if (routed->mix.inputFrames != old_input_frames) {
+            fprintf(stderr, "submix reroute with attached source effect changed inputFrames from %u to %u\n",
+                    old_input_frames, routed->mix.inputFrames);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_source_effect_attached_after_submix_growth_uses_grown_lock(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        routed_rate = 48000,
+        downstream_rate = 3000,
+        quantum = 4,
+        expected_scheduled_frames = 16
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    FrameLimitEffect effect;
+    ForgeEffectDesc effect_desc;
+    ForgeEffectChain chain;
+    float source[expected_scheduled_frames * 2];
+    float output[quantum] = {0};
+    int failed = 0;
+
+    init_frame_limit_effect(&effect);
+    effect_desc.effect = &effect.effect;
+    effect_desc.initial_state = 1;
+    effect_desc.output_channels = channels;
+    chain.effect_count = 1;
+    chain.effects = &effect_desc;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &routed, channels, routed_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &downstream, channels, downstream_rate, 0, 1, NULL,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, routed_rate);
+        send.flags = 0;
+        send.output_voice = routed;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        send.flags = 0;
+        send.output_voice = downstream;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_voice_set_outputs(routed, &send_list) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_set_effect_chain(voice, &chain) != ForgeResultSuccess;
+    }
+    if (!failed) {
+        fill_mono_ramp(source, expected_scheduled_frames * 2);
+        failed = audio_render_harness_submit_float_buffer(voice, source, expected_scheduled_frames * 2, channels);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed && effect.locked_max_frames < expected_scheduled_frames) {
+        fprintf(stderr, "source effect late lock max: expected at least %u, got %u\n", expected_scheduled_frames,
+                effect.locked_max_frames);
+        failed = 1;
+    }
+    if (!failed && effect.max_processed_frames > effect.locked_max_frames) {
+        fprintf(stderr, "source effect late processed %u frames with lock max %u\n", effect.max_processed_frames,
+                effect.locked_max_frames);
+        failed = 1;
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_source_multi_send_rejects_mismatched_scheduled_frame_counts(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        routed_rate = 48000,
+        downstream_rate = 3000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &routed, channels, routed_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &downstream, channels, downstream_rate, 0, 1, NULL,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        sends[0].flags = 0;
+        sends[0].output_voice = downstream;
+        send_list.send_count = 1;
+        send_list.sends = sends;
+        failed = forge_voice_set_outputs(routed, &send_list) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, routed_rate);
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        sends[0].flags = 0;
+        sends[0].output_voice = harness.master;
+        sends[1].flags = 0;
+        sends[1].output_voice = routed;
+        send_list.send_count = 2;
+        send_list.sends = sends;
+        result = forge_voice_set_outputs(voice, &send_list);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "source multi-send master-first: got %d, expected %d\n", result, ForgeResultInvalidCall);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        sends[0].output_voice = routed;
+        sends[1].output_voice = harness.master;
+        result = forge_voice_set_outputs(voice, &send_list);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "source multi-send submix-first: got %d, expected %d\n", result, ForgeResultInvalidCall);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_submix_growth_rejects_existing_multi_send_frame_mismatch(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        routed_rate = 48000,
+        downstream_rate = 3000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    uint32_t old_input_frames;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &routed, channels, routed_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &downstream, channels, downstream_rate, 0, 1, NULL,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, routed_rate);
+        sends[0].flags = 0;
+        sends[0].output_voice = harness.master;
+        sends[1].flags = 0;
+        sends[1].output_voice = routed;
+        send_list.send_count = 2;
+        send_list.sends = sends;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        old_input_frames = routed->mix.inputFrames;
+        sends[0].flags = 0;
+        sends[0].output_voice = downstream;
+        send_list.send_count = 1;
+        send_list.sends = sends;
+        result = forge_voice_set_outputs(routed, &send_list);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "submix growth with existing multi-send source: got %d, expected %d\n", result,
+                    ForgeResultInvalidCall);
+            failed = 1;
+        }
+        if (routed->mix.inputFrames != old_input_frames) {
+            fprintf(stderr, "submix growth with existing multi-send source changed inputFrames from %u to %u\n",
+                    old_input_frames, routed->mix.inputFrames);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_source_multi_send_rejects_divergent_submix_schedule_phase(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        submix_rate = 44100,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *advanced = NULL;
+    ForgeSubmixVoice *fresh = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    float output[quantum] = {0};
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &advanced, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    for (uint32_t pass = 0; !failed && pass < 3; pass += 1) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &fresh, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, submix_rate);
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        sends[0].flags = 0;
+        sends[0].output_voice = advanced;
+        sends[1].flags = 0;
+        sends[1].output_voice = fresh;
+        send_list.send_count = 2;
+        send_list.sends = sends;
+        result = forge_voice_set_outputs(voice, &send_list);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "source multi-send divergent submix phase: got %d, expected %d\n", result,
+                    ForgeResultInvalidCall);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_source_multi_send_rejects_variable_submix_schedules(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        submix_rate = 44100,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *rerouted = NULL;
+    ForgeSubmixVoice *peer = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &rerouted, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &peer, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, submix_rate);
+        sends[0].flags = 0;
+        sends[0].output_voice = rerouted;
+        sends[1].flags = 0;
+        sends[1].output_voice = peer;
+        send_list.send_count = 2;
+        send_list.sends = sends;
+        result = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, NULL);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "source multi-send variable submix setup: got %d, expected %d\n", result,
+                    ForgeResultInvalidCall);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_source_multi_send_rejects_offset_submix_schedule_phase(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        submix_rate = 44100,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *advanced = NULL;
+    ForgeSubmixVoice *fresh = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    float output[quantum] = {0};
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &advanced, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &fresh, channels, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(channels, submix_rate);
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        sends[0].flags = 0;
+        sends[0].output_voice = advanced;
+        sends[1].flags = 0;
+        sends[1].output_voice = fresh;
+        send_list.send_count = 2;
+        send_list.sends = sends;
+        result = forge_voice_set_outputs(voice, &send_list);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "source multi-send offset submix phase: got %d, expected %d\n", result,
+                    ForgeResultInvalidCall);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_submix_growth_rejects_existing_upstream_submix_multi_send(void) {
+    enum {
+        channels = 1,
+        master_rate = 48000,
+        fixed_rate = 48000,
+        downstream_rate = 3000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *upstream = NULL;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSend sends[2];
+    ForgeSendList send_list;
+    ForgeResult result;
+    uint32_t old_input_frames;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &routed, channels, fixed_rate, 0, 1, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        sends[0].flags = 0;
+        sends[0].output_voice = harness.master;
+        sends[1].flags = 0;
+        sends[1].output_voice = routed;
+        send_list.send_count = 2;
+        send_list.sends = sends;
+        failed = forge_audio_create_submix_voice(harness.audio, &upstream, channels, fixed_rate, 0, 0, &send_list,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &downstream, channels, downstream_rate, 0, 2, NULL,
+                                                NULL) != 0;
+    }
+    if (!failed) {
+        old_input_frames = routed->mix.inputFrames;
+        sends[0].flags = 0;
+        sends[0].output_voice = downstream;
+        send_list.send_count = 1;
+        send_list.sends = sends;
+        result = forge_voice_set_outputs(routed, &send_list);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "submix growth with upstream submix multi-send: got %d, expected %d\n", result,
+                    ForgeResultInvalidCall);
+            failed = 1;
+        }
+        if (routed->mix.inputFrames != old_input_frames) {
+            fprintf(stderr, "submix growth with upstream submix multi-send changed inputFrames from %u to %u\n",
+                    old_input_frames, routed->mix.inputFrames);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
 static int run_test(const char *name, int (*test_func)(void)) {
     int failed = test_func();
 
@@ -548,6 +1257,26 @@ int main(void) {
                          test_submix_retained_history_stays_bounded_long_run);
     failures += run_test("submix_scheduled_input_frames_vary_for_fractional_ratios",
                          test_submix_scheduled_input_frames_vary_for_fractional_ratios);
+    failures += run_test("submix_set_outputs_resizes_input_schedule_capacity",
+                         test_submix_set_outputs_resizes_input_schedule_capacity);
+    failures += run_test("source_effect_lock_covers_scheduled_submix_input",
+                         test_source_effect_lock_covers_scheduled_submix_input);
+    failures += run_test("submix_set_outputs_rejects_growth_past_attached_source_effect_lock",
+                         test_submix_set_outputs_rejects_growth_past_attached_source_effect_lock);
+    failures += run_test("source_effect_attached_after_submix_growth_uses_grown_lock",
+                         test_source_effect_attached_after_submix_growth_uses_grown_lock);
+    failures += run_test("source_multi_send_rejects_mismatched_scheduled_frame_counts",
+                         test_source_multi_send_rejects_mismatched_scheduled_frame_counts);
+    failures += run_test("submix_growth_rejects_existing_multi_send_frame_mismatch",
+                         test_submix_growth_rejects_existing_multi_send_frame_mismatch);
+    failures += run_test("source_multi_send_rejects_divergent_submix_schedule_phase",
+                         test_source_multi_send_rejects_divergent_submix_schedule_phase);
+    failures += run_test("source_multi_send_rejects_variable_submix_schedules",
+                         test_source_multi_send_rejects_variable_submix_schedules);
+    failures += run_test("source_multi_send_rejects_offset_submix_schedule_phase",
+                         test_source_multi_send_rejects_offset_submix_schedule_phase);
+    failures += run_test("submix_growth_rejects_existing_upstream_submix_multi_send",
+                         test_submix_growth_rejects_existing_upstream_submix_multi_send);
 
     return failures == 0 ? 0 : 1;
 }

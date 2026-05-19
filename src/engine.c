@@ -697,11 +697,82 @@ static void resize_resample_cache(ForgeAudioEngine *audio, uint32_t samples) {
     LOG_FUNC_EXIT(audio)
 }
 
+static bool resize_decode_cache_unlocked(ForgeAudioEngine *audio, uint32_t samples) {
+    if (samples > audio->decodeSamples) {
+        float *decodeCache = (float *)audio->realloc_func(audio->decodeCache, sizeof(float) * samples);
+        if (decodeCache == NULL) {
+            return false;
+        }
+        audio->decodeCache = decodeCache;
+        audio->decodeSamples = samples;
+    }
+    return true;
+}
+
 static void mark_submix_input_written(ForgeVoice *voice, uint32_t frames);
 static void prepare_submix_input_schedule(ForgeSubmixVoice *voice);
 
 static uint32_t fixed_ceil_to_frames(uint64_t value) {
     return (uint32_t)((value + FIXED_FRACTION_MASK) >> FIXED_PRECISION);
+}
+
+static ForgeResult ensure_submix_input_storage_for_output(ForgeSubmixVoice *voice) {
+    uint32_t channels = voice->mix.inputChannels;
+    uint32_t inputFrames = fixed_ceil_to_frames((uint64_t)voice->mix.outputSamples * voice->mix.resampleStep);
+    uint32_t inputSamples = (inputFrames + SUBMIX_RESAMPLE_INPUT_PADDING_FRAMES) * channels;
+    uint32_t historyCapacity = inputFrames + SUBMIX_RESAMPLE_HISTORY_FRAMES;
+    uint32_t resampleInputCapacity = historyCapacity + inputFrames + SUBMIX_RESAMPLE_EDGE_FRAMES;
+    float *newInputCache;
+    float *newResampleHistory;
+    float *newResampleInputCache;
+
+    if (inputFrames <= voice->mix.inputFrames) {
+        return ForgeResultSuccess;
+    }
+
+    if (voice->mix.inputCache != NULL) {
+        newInputCache = (float *)voice->audio->realloc_func(voice->mix.inputCache, sizeof(float) * inputSamples);
+        if (newInputCache == NULL) {
+            return ForgeResultOutOfMemory;
+        }
+        voice->mix.inputCache = newInputCache;
+        forge_zero(voice->mix.inputCache + voice->mix.inputSamples,
+                   sizeof(float) * (inputSamples - voice->mix.inputSamples));
+    }
+
+    if (voice->mix.resampleHistory != NULL && historyCapacity > voice->mix.resampleHistoryCapacity) {
+        newResampleHistory =
+            (float *)voice->audio->realloc_func(voice->mix.resampleHistory, sizeof(float) * historyCapacity * channels);
+        if (newResampleHistory == NULL) {
+            return ForgeResultOutOfMemory;
+        }
+        voice->mix.resampleHistory = newResampleHistory;
+        forge_zero(voice->mix.resampleHistory + (voice->mix.resampleHistoryCapacity * channels),
+                   sizeof(float) * (historyCapacity - voice->mix.resampleHistoryCapacity) * channels);
+        voice->mix.resampleHistoryCapacity = historyCapacity;
+    }
+
+    if (voice->mix.resampleInputCache != NULL && resampleInputCapacity > voice->mix.resampleInputCapacity) {
+        newResampleInputCache = (float *)voice->audio->realloc_func(
+            voice->mix.resampleInputCache, sizeof(float) * resampleInputCapacity * channels);
+        if (newResampleInputCache == NULL) {
+            return ForgeResultOutOfMemory;
+        }
+        voice->mix.resampleInputCache = newResampleInputCache;
+        forge_zero(voice->mix.resampleInputCache + (voice->mix.resampleInputCapacity * channels),
+                   sizeof(float) * (resampleInputCapacity - voice->mix.resampleInputCapacity) * channels);
+        voice->mix.resampleInputCapacity = resampleInputCapacity;
+    }
+
+    voice->mix.inputFrames = inputFrames;
+    voice->mix.inputSamples = inputSamples;
+    if (historyCapacity > voice->mix.resampleHistoryCapacity) {
+        voice->mix.resampleHistoryCapacity = historyCapacity;
+    }
+    if (resampleInputCapacity > voice->mix.resampleInputCapacity) {
+        voice->mix.resampleInputCapacity = resampleInputCapacity;
+    }
+    return ForgeResultSuccess;
 }
 
 static uint32_t source_output_rate_locked(ForgeSourceVoice *voice) {
@@ -723,6 +794,184 @@ static uint32_t source_output_frames_for_pass_locked(ForgeSourceVoice *voice) {
     }
 
     return voice->src.resampleSamples;
+}
+
+static uint8_t voice_sends_to_voice_locked(ForgeVoice *voice, ForgeVoice *destination) {
+    for (uint32_t i = 0; i < voice->sends.send_count; i += 1) {
+        if (voice->sends.sends[i].send.output_voice == destination) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static uint8_t submix_has_variable_schedule(ForgeSubmixVoice *voice) {
+    ForgeVoice *out;
+
+    if (voice->mix.resampleStep != FIXED_ONE) {
+        return 1;
+    }
+    if (voice->sends.send_count == 0) {
+        return 0;
+    }
+
+    out = voice->sends.sends[0].send.output_voice;
+    if (out->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        return submix_has_variable_schedule((ForgeSubmixVoice *)out);
+    }
+
+    return 0;
+}
+
+static uint32_t submix_next_output_frames_for_schedule(ForgeSubmixVoice *voice);
+
+static uint32_t submix_next_input_frames_for_schedule(ForgeSubmixVoice *voice) {
+    uint32_t outputFrames = submix_next_output_frames_for_schedule(voice);
+    uint64_t scheduledEndFrame = fixed_ceil_to_frames(voice->mix.resampleOffset +
+                                                      (uint64_t)outputFrames * voice->mix.resampleStep);
+
+    if (scheduledEndFrame <= voice->mix.inputFrameCursor) {
+        return 0;
+    }
+
+    return (uint32_t)(scheduledEndFrame - voice->mix.inputFrameCursor);
+}
+
+static uint32_t submix_next_output_frames_for_schedule(ForgeSubmixVoice *voice) {
+    ForgeVoice *out;
+    uint32_t outputFrames;
+
+    if (voice->sends.send_count == 0) {
+        return voice->mix.outputSamples;
+    }
+
+    out = voice->sends.sends[0].send.output_voice;
+    if (out->type != FORGE_AUDIO_VOICE_SUBMIX) {
+        return voice->mix.outputSamples;
+    }
+
+    outputFrames = submix_next_input_frames_for_schedule((ForgeSubmixVoice *)out);
+    return forge_min(outputFrames, voice->mix.outputSamples);
+}
+
+static uint32_t voice_send_next_frames_after_submix_change(ForgeVoice *voice, ForgeVoice *destination,
+                                                           ForgeSubmixVoice *changed_submix,
+                                                           uint32_t changed_next_input_frames) {
+    uint32_t outRate;
+    uint32_t frames;
+
+    if (destination == (ForgeVoice *)changed_submix) {
+        return changed_next_input_frames;
+    }
+
+    if (destination->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        return submix_next_input_frames_for_schedule((ForgeSubmixVoice *)destination);
+    }
+
+    if (voice->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        return voice->mix.outputSamples;
+    }
+
+    outRate = destination->master.inputSampleRate;
+    frames = (uint32_t)forge_ceil((double)voice->audio->updateSize * (double)outRate /
+                                  (double)voice->audio->master->master.inputSampleRate);
+
+    return frames;
+}
+
+static uint8_t voice_send_frames_mismatch_after_submix_change(ForgeVoice *voice,
+                                                              ForgeSubmixVoice *changed_submix,
+                                                              uint32_t changed_next_input_frames) {
+    uint32_t frames;
+
+    if (voice->sends.send_count <= 1) {
+        return 0;
+    }
+
+    frames = voice_send_next_frames_after_submix_change(
+        voice, voice->sends.sends[0].send.output_voice, changed_submix, changed_next_input_frames);
+    for (uint32_t i = 1; i < voice->sends.send_count; i += 1) {
+        uint32_t nextFrames = voice_send_next_frames_after_submix_change(
+            voice, voice->sends.sends[i].send.output_voice, changed_submix, changed_next_input_frames);
+
+        if (nextFrames != frames) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static uint8_t submix_output_change_conflicts_with_existing_senders(ForgeSubmixVoice *submix,
+                                                                    uint32_t required_input_frames,
+                                                                    uint32_t next_input_frames,
+                                                                    uint8_t updated_submix_variable_schedule) {
+    ForgeAudioEngine *audio = submix->audio;
+    ForgeLinkedList *list;
+    uint8_t conflicts = 0;
+
+    fa_platform_lock_mutex(audio->sourceLock);
+    LOG_MUTEX_LOCK(audio, audio->sourceLock)
+    list = audio->sources;
+    while (list != NULL && !conflicts) {
+        ForgeSourceVoice *source = (ForgeSourceVoice *)list->entry;
+        uint8_t sendsToChangedSubmix;
+
+        fa_platform_lock_mutex(source->sendLock);
+        LOG_MUTEX_LOCK(audio, source->sendLock)
+        sendsToChangedSubmix = voice_sends_to_voice_locked(source, submix);
+        if (sendsToChangedSubmix && source->sends.send_count > 1 && updated_submix_variable_schedule) {
+            conflicts = 1;
+        }
+        if (!conflicts && sendsToChangedSubmix &&
+            voice_send_frames_mismatch_after_submix_change(source, submix, next_input_frames)) {
+            conflicts = 1;
+        }
+        if (!conflicts && sendsToChangedSubmix && source->src.resampleSamples < required_input_frames) {
+            fa_platform_lock_mutex(source->effectLock);
+            LOG_MUTEX_LOCK(audio, source->effectLock)
+            conflicts = source->effects.count > 0;
+            fa_platform_unlock_mutex(source->effectLock);
+            LOG_MUTEX_UNLOCK(audio, source->effectLock)
+        }
+        fa_platform_unlock_mutex(source->sendLock);
+        LOG_MUTEX_UNLOCK(audio, source->sendLock)
+
+        list = list->next;
+    }
+    fa_platform_unlock_mutex(audio->sourceLock);
+    LOG_MUTEX_UNLOCK(audio, audio->sourceLock)
+
+    fa_platform_lock_mutex(audio->submixLock);
+    LOG_MUTEX_LOCK(audio, audio->submixLock)
+    list = audio->submixes;
+    while (list != NULL && !conflicts) {
+        ForgeSubmixVoice *upstream = (ForgeSubmixVoice *)list->entry;
+
+        if (upstream != submix) {
+            uint8_t sendsToChangedSubmix;
+
+            fa_platform_lock_mutex(upstream->sendLock);
+            LOG_MUTEX_LOCK(audio, upstream->sendLock)
+            sendsToChangedSubmix = voice_sends_to_voice_locked(upstream, submix);
+            if (sendsToChangedSubmix && upstream->sends.send_count > 1 && updated_submix_variable_schedule) {
+                conflicts = 1;
+            }
+            if (!conflicts && sendsToChangedSubmix &&
+                voice_send_frames_mismatch_after_submix_change(upstream, submix, next_input_frames)) {
+                conflicts = 1;
+            }
+            fa_platform_unlock_mutex(upstream->sendLock);
+            LOG_MUTEX_UNLOCK(audio, upstream->sendLock)
+        }
+
+        list = list->next;
+    }
+    fa_platform_unlock_mutex(audio->submixLock);
+    LOG_MUTEX_UNLOCK(audio, audio->submixLock)
+
+    return conflicts;
 }
 
 static uint64_t source_resample_step_for_rate(ForgeSourceVoice *voice, uint32_t output_rate, float ratio) {
@@ -801,6 +1050,22 @@ static uint64_t source_decode_frame_request_locked(ForgeSourceVoice *voice, uint
     return (voice->src.curBufferOffsetDec + source_advance + FIXED_FRACTION_MASK) >> FIXED_PRECISION;
 }
 
+static uint32_t source_decode_frame_capacity(uint32_t resample_samples, float max_frequency_ratio,
+                                             uint32_t source_sample_rate, uint32_t output_sample_rate) {
+    uint64_t maxStep;
+    uint64_t decodeSamples;
+
+    forge_assert(output_sample_rate != 0);
+
+    maxStep = DOUBLE_TO_FIXED((double)max_frequency_ratio * (double)source_sample_rate /
+                              (double)output_sample_rate);
+    decodeSamples =
+        (((uint64_t)resample_samples * maxStep) + FIXED_FRACTION_MASK + FIXED_FRACTION_MASK) >> FIXED_PRECISION;
+    forge_assert(decodeSamples <= UINT32_MAX);
+
+    return (uint32_t)decodeSamples;
+}
+
 static uint64_t resample_source_variable_rate_locked(ForgeSourceVoice *voice, uint64_t to_resample,
                                                      uint8_t channels, uint32_t output_rate) {
     float *decode = voice->audio->decodeCache;
@@ -853,6 +1118,20 @@ static void mix_source(ForgeSourceVoice *voice) {
     /* Calculate the resample stepping value */
     if (voice->src.resampleFreq != voice->src.freqRatio * voice->src.format->sample_rate) {
         refresh_source_resample_step_locked(voice, outputRate);
+    }
+    if (outputFrames > voice->src.resampleSamples) {
+        uint32_t decodeSamples = source_decode_frame_capacity(outputFrames, voice->src.maxFreqRatio,
+                                                              voice->src.format->sample_rate, outputRate);
+        if (decodeSamples > voice->src.decodeSamples) {
+            if (!resize_decode_cache_unlocked(voice->audio,
+                                              (decodeSamples + EXTRA_DECODE_PADDING) * voice->src.format->channels)) {
+                fa_platform_unlock_mutex(voice->sendLock);
+                LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+                LOG_FUNC_EXIT(voice->audio)
+                return;
+            }
+            voice->src.decodeSamples = decodeSamples;
+        }
     }
 
     if (voice->src.active == 2) {
@@ -1721,26 +2000,16 @@ ForgeResult forge_audio_test_render(ForgeAudioEngine *audio, float *output, uint
 #endif
 
 bool fa_audio_resize_decode_cache(ForgeAudioEngine *audio, uint32_t samples) {
+    bool result;
+
     LOG_FUNC_ENTER(audio)
     fa_platform_lock_mutex(audio->sourceLock);
     LOG_MUTEX_LOCK(audio, audio->sourceLock)
-    if (samples > audio->decodeSamples) {
-        float *decode_cache;
-
-        decode_cache = (float *)audio->realloc_func(audio->decodeCache, sizeof(float) * samples);
-        if (decode_cache == NULL) {
-            fa_platform_unlock_mutex(audio->sourceLock);
-            LOG_MUTEX_UNLOCK(audio, audio->sourceLock)
-            LOG_FUNC_EXIT(audio)
-            return false;
-        }
-        audio->decodeCache = decode_cache;
-        audio->decodeSamples = samples;
-    }
+    result = resize_decode_cache_unlocked(audio, samples);
     fa_platform_unlock_mutex(audio->sourceLock);
     LOG_MUTEX_UNLOCK(audio, audio->sourceLock)
     LOG_FUNC_EXIT(audio)
-    return true;
+    return result;
 }
 
 ForgeResult fa_audio_alloc_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain) {
@@ -1801,9 +2070,69 @@ void fa_audio_free_effect_chain(ForgeVoice *voice) {
     LOG_FUNC_EXIT(voice->audio)
 }
 
-ForgeResult fa_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendList *send_list) {
+ForgeResult fa_audio_voice_output_frequency_preflight(ForgeVoice *voice, const ForgeSendList *send_list) {
+    ForgeVoice *outVoice = NULL;
     uint32_t outSampleRate;
     uint32_t newResampleSamples;
+    uint64_t newResampleStep;
+    uint32_t requiredInputFrames;
+    uint32_t nextOutputFrames;
+    uint32_t nextInputFrames;
+    uint8_t variableSchedule;
+
+    LOG_FUNC_ENTER(voice->audio)
+
+    if (voice->type != FORGE_AUDIO_VOICE_SUBMIX) {
+        LOG_FUNC_EXIT(voice->audio)
+        return ForgeResultSuccess;
+    }
+
+    if ((send_list == NULL) || (send_list->send_count == 0)) {
+        outSampleRate = voice->audio->master->master.inputSampleRate;
+    } else {
+        outVoice = send_list->sends[0].output_voice;
+        outSampleRate = outVoice->type == FORGE_AUDIO_VOICE_MASTER ? outVoice->master.inputSampleRate
+                                                                   : outVoice->mix.inputSampleRate;
+    }
+    newResampleSamples = (uint32_t)forge_ceil(voice->audio->updateSize * (double)outSampleRate /
+                                              (double)voice->audio->master->master.inputSampleRate);
+
+    newResampleStep = DOUBLE_TO_FIXED(((double)voice->mix.inputSampleRate / (double)outSampleRate));
+    variableSchedule = newResampleStep != FIXED_ONE;
+    if (!variableSchedule && outVoice != NULL && outVoice->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        variableSchedule = submix_has_variable_schedule((ForgeSubmixVoice *)outVoice);
+    }
+    requiredInputFrames = fixed_ceil_to_frames((uint64_t)newResampleSamples * newResampleStep);
+    nextOutputFrames = newResampleSamples;
+    if (outVoice != NULL && outVoice->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        nextOutputFrames =
+            forge_min(submix_next_input_frames_for_schedule((ForgeSubmixVoice *)outVoice), newResampleSamples);
+    }
+    nextInputFrames = 0;
+    {
+        uint64_t scheduledEndFrame = fixed_ceil_to_frames(voice->mix.resampleOffset +
+                                                          (uint64_t)nextOutputFrames * newResampleStep);
+
+        if (scheduledEndFrame > voice->mix.inputFrameCursor) {
+            nextInputFrames = (uint32_t)(scheduledEndFrame - voice->mix.inputFrameCursor);
+        }
+    }
+
+    if (submix_output_change_conflicts_with_existing_senders((ForgeSubmixVoice *)voice, requiredInputFrames,
+                                                             nextInputFrames, variableSchedule)) {
+        LOG_FUNC_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    LOG_FUNC_EXIT(voice->audio)
+    return ForgeResultSuccess;
+}
+
+ForgeResult fa_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendList *send_list) {
+    ForgeVoice *outVoice = NULL;
+    uint32_t outSampleRate;
+    uint32_t newResampleSamples;
+    ForgeResult result;
 
     LOG_FUNC_ENTER(voice->audio)
 
@@ -1811,13 +2140,16 @@ ForgeResult fa_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendLi
         /* When we're deliberately given no sends, use master rate! */
         outSampleRate = voice->audio->master->master.inputSampleRate;
     } else {
-        outSampleRate = send_list->sends[0].output_voice->type == FORGE_AUDIO_VOICE_MASTER
-                            ? send_list->sends[0].output_voice->master.inputSampleRate
-                            : send_list->sends[0].output_voice->mix.inputSampleRate;
+        outVoice = send_list->sends[0].output_voice;
+        outSampleRate = outVoice->type == FORGE_AUDIO_VOICE_MASTER ? outVoice->master.inputSampleRate
+                                                                   : outVoice->mix.inputSampleRate;
     }
     newResampleSamples = (uint32_t)forge_ceil(voice->audio->updateSize * (double)outSampleRate /
                                               (double)voice->audio->master->master.inputSampleRate);
     if (voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+        if (outVoice != NULL && outVoice->type == FORGE_AUDIO_VOICE_SUBMIX) {
+            newResampleSamples = forge_max(newResampleSamples, outVoice->mix.inputFrames);
+        }
         if ((voice->src.resampleSamples != 0) && (newResampleSamples != voice->src.resampleSamples) &&
             (voice->effects.count > 0)) {
             LOG_FUNC_EXIT(voice->audio)
@@ -1826,19 +2158,31 @@ ForgeResult fa_audio_voice_output_frequency(ForgeVoice *voice, const ForgeSendLi
         voice->src.resampleSamples = newResampleSamples;
     } else /* (voice->type == FORGE_AUDIO_VOICE_SUBMIX) */
     {
+        uint32_t oldOutputSamples = voice->mix.outputSamples;
+        uint64_t oldResampleStep = voice->mix.resampleStep;
+        uint64_t newResampleStep;
+
         if ((voice->mix.outputSamples != 0) && (newResampleSamples != voice->mix.outputSamples) &&
             (voice->effects.count > 0)) {
             LOG_FUNC_EXIT(voice->audio)
             return ForgeResultInvalidCall;
         }
-        voice->mix.outputSamples = newResampleSamples;
 
-        voice->mix.resampleStep = DOUBLE_TO_FIXED(((double)voice->mix.inputSampleRate / (double)outSampleRate));
+        newResampleStep = DOUBLE_TO_FIXED(((double)voice->mix.inputSampleRate / (double)outSampleRate));
+        voice->mix.outputSamples = newResampleSamples;
+        voice->mix.resampleStep = newResampleStep;
 
         /* Continuous submix resampling keeps the downstream timeline frame count
          * stable. The staged input path supplies an explicit edge frame instead
          * of shortening a quantum when carried phase reaches the block edge.
          */
+        result = ensure_submix_input_storage_for_output((ForgeSubmixVoice *)voice);
+        if (result != ForgeResultSuccess) {
+            voice->mix.outputSamples = oldOutputSamples;
+            voice->mix.resampleStep = oldResampleStep;
+        }
+        LOG_FUNC_EXIT(voice->audio)
+        return result;
     }
 
     LOG_FUNC_EXIT(voice->audio)

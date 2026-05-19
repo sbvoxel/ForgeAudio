@@ -1149,6 +1149,63 @@ static int test_effect_chain_replacement_allocation_failure_preserves_old_chain(
     return failed;
 }
 
+static int test_submix_set_outputs_resize_failure_preserves_state(void) {
+    ForgeAudioEngine *audio = NULL;
+    ForgeMasterVoice *master = NULL;
+    ForgeSubmixVoice *routed = NULL;
+    ForgeSubmixVoice *downstream = NULL;
+    ForgeSend send;
+    ForgeSendList send_list;
+    FailingAllocator allocator;
+    ForgeResult result;
+    uint32_t old_output_samples;
+    uint64_t old_resample_step;
+    uint32_t old_input_frames;
+    uint32_t old_input_samples;
+    int failed = 0;
+
+    if (forge_audio_test_create_offline_engine(&audio) != ForgeResultSuccess) {
+        fprintf(stderr, "submix_set_outputs_resize_failure: forge_audio_test_create_offline_engine failed\n");
+        return 1;
+    }
+    if (forge_audio_test_create_virtual_master_voice(audio, &master, 1, 48000, 4, NULL) != ForgeResultSuccess ||
+        forge_audio_create_submix_voice(audio, &routed, 1, 48000, 0, 0, NULL, NULL) != ForgeResultSuccess ||
+        forge_audio_create_submix_voice(audio, &downstream, 1, 3000, 0, 1, NULL, NULL) != ForgeResultSuccess) {
+        fprintf(stderr, "submix_set_outputs_resize_failure: setup failed\n");
+        forge_audio_test_destroy_offline_engine(audio);
+        return 1;
+    }
+
+    old_output_samples = routed->mix.outputSamples;
+    old_resample_step = routed->mix.resampleStep;
+    old_input_frames = routed->mix.inputFrames;
+    old_input_samples = routed->mix.inputSamples;
+
+    send.flags = 0;
+    send.output_voice = downstream;
+    send_list.send_count = 1;
+    send_list.sends = &send;
+
+    use_failing_allocator(audio, &allocator, 1);
+    result = forge_voice_set_outputs(routed, &send_list);
+    failed |= expect_no_failing_allocations("submix_set_outputs_resize_failure", &allocator);
+    restore_failing_allocator(&allocator);
+
+    if (result != ForgeResultOutOfMemory) {
+        fprintf(stderr, "submix_set_outputs_resize_failure: got %d, expected %d\n", result,
+                ForgeResultOutOfMemory);
+        failed = 1;
+    }
+    if (routed->mix.outputSamples != old_output_samples || routed->mix.resampleStep != old_resample_step ||
+        routed->mix.inputFrames != old_input_frames || routed->mix.inputSamples != old_input_samples) {
+        fprintf(stderr, "submix_set_outputs_resize_failure: submix state changed after OOM\n");
+        failed = 1;
+    }
+
+    forge_audio_test_destroy_offline_engine(audio);
+    return failed;
+}
+
 int main(void) {
     int failed = 0;
 
@@ -1173,6 +1230,7 @@ int main(void) {
     failed |= test_lifecycle_allocation_failure_cleanup_paths();
     failed |= test_source_sample_rate_resize_failure_preserves_state();
     failed |= test_effect_chain_replacement_allocation_failure_preserves_old_chain();
+    failed |= test_submix_set_outputs_resize_failure_preserves_state();
 
     return failed;
 }
