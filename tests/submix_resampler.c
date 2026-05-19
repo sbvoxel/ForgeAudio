@@ -8,6 +8,7 @@
  */
 
 #include "audio_render_harness.h"
+#include "simd_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +22,8 @@ typedef struct SubmixHistoryRunInfo {
     uint32_t input_frames;
     uint32_t output_frames;
     uint32_t max_history_frames;
+    uint64_t total_scheduled_input_frames;
+    uint64_t consumed_input_frames;
 } SubmixHistoryRunInfo;
 
 static int check_values(const char *name, const float *actual, const float *expected, uint32_t count) {
@@ -137,6 +140,8 @@ static int render_submix_history_long_run(const char *name, uint32_t master_rate
         info->input_frames = submix->mix.inputFrames;
         info->output_frames = submix->mix.outputSamples;
         info->max_history_frames = 0;
+        info->total_scheduled_input_frames = 0;
+        info->consumed_input_frames = 0;
 
         for (uint32_t pass = 0; pass < pass_count; pass += 1) {
             failed = audio_render_harness_render(&harness, output, quantum);
@@ -144,13 +149,48 @@ static int render_submix_history_long_run(const char *name, uint32_t master_rate
                 break;
             }
 
+            info->total_scheduled_input_frames += submix->mix.scheduledInputFrames;
             if (submix->mix.resampleHistoryFrames > info->max_history_frames) {
                 info->max_history_frames = submix->mix.resampleHistoryFrames;
             }
         }
+        info->consumed_input_frames = (submix->mix.resampleOffset + FIXED_FRACTION_MASK) >> FIXED_PRECISION;
     }
 
     free(source);
+    free(output);
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int render_submix_schedule_pattern(const char *name, uint32_t master_rate, uint32_t submix_rate,
+                                          uint32_t quantum, uint32_t pass_count, uint32_t *scheduled_frames) {
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *submix = NULL;
+    float *output = NULL;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, 1, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &submix, 1, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        output = (float *)malloc(sizeof(float) * quantum);
+        if (output == NULL) {
+            fprintf(stderr, "%s: allocation failed\n", name);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        for (uint32_t pass = 0; pass < pass_count; pass += 1) {
+            failed = audio_render_harness_render(&harness, output, quantum);
+            if (failed) {
+                break;
+            }
+            scheduled_frames[pass] = submix->mix.scheduledInputFrames;
+        }
+    }
+
     free(output);
     audio_render_harness_destroy(&harness);
     return failed;
@@ -399,9 +439,9 @@ static int test_submix_retained_history_stays_bounded_long_run(void) {
         uint32_t submix_rate;
         uint32_t expected_max_history_frames;
     } cases[] = {
-        {"submix_history_44100_to_48000", 48000, 44100, 201},
-        {"submix_history_48000_to_44100", 44100, 48000, 443},
-        {"submix_history_3000_to_2000", 3000, 2000, 334}
+        {"submix_history_44100_to_48000", 48000, 44100, 1},
+        {"submix_history_48000_to_44100", 44100, 48000, 1},
+        {"submix_history_3000_to_2000", 3000, 2000, 1}
     };
     int failed = 0;
 
@@ -412,14 +452,61 @@ static int test_submix_retained_history_stays_bounded_long_run(void) {
         case_failed = render_submix_history_long_run(cases[i].name, cases[i].master_rate, cases[i].submix_rate,
                                                      quantum, pass_count, &info);
         if (!case_failed) {
-            printf("%s: input=%u output=%u max_history=%u\n", cases[i].name, info.input_frames,
-                   info.output_frames, info.max_history_frames);
+            printf("%s: input=%u output=%u scheduled=%llu consumed=%llu max_history=%u\n", cases[i].name,
+                   info.input_frames, info.output_frames, (unsigned long long)info.total_scheduled_input_frames,
+                   (unsigned long long)info.consumed_input_frames, info.max_history_frames);
             if (info.max_history_frames != cases[i].expected_max_history_frames) {
                 fprintf(stderr, "%s: expected max_history %u, got %u\n", cases[i].name,
                         cases[i].expected_max_history_frames, info.max_history_frames);
                 case_failed = 1;
             }
+            if (info.total_scheduled_input_frames != info.consumed_input_frames) {
+                fprintf(stderr, "%s: expected scheduled input %llu to match consumed input %llu\n", cases[i].name,
+                        (unsigned long long)info.total_scheduled_input_frames,
+                        (unsigned long long)info.consumed_input_frames);
+                case_failed = 1;
+            }
         }
+        failed |= case_failed;
+    }
+
+    return failed;
+}
+
+static int test_submix_scheduled_input_frames_vary_for_fractional_ratios(void) {
+    enum {
+        pass_count = 10
+    };
+    static const struct {
+        const char *name;
+        uint32_t master_rate;
+        uint32_t submix_rate;
+        uint32_t quantum;
+        uint32_t expected[pass_count];
+    } cases[] = {
+        {"submix_schedule_44100_to_48000", 48000, 44100, 4, {4, 4, 4, 3, 4, 4, 3, 4, 4, 3}},
+        {"submix_schedule_48000_to_44100", 44100, 48000, 4, {5, 4, 5, 4, 4, 5, 4, 4, 5, 4}},
+        {"submix_schedule_3000_to_2000", 3000, 2000, 4, {3, 3, 3, 2, 3, 3, 2, 3, 3, 2}}
+    };
+    int failed = 0;
+
+    for (uint32_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i += 1) {
+        uint32_t scheduled[pass_count] = {0};
+        int case_failed = render_submix_schedule_pattern(cases[i].name, cases[i].master_rate,
+                                                         cases[i].submix_rate, cases[i].quantum, pass_count,
+                                                         scheduled);
+
+        if (!case_failed) {
+            for (uint32_t pass = 0; pass < pass_count; pass += 1) {
+                if (scheduled[pass] != cases[i].expected[pass]) {
+                    fprintf(stderr, "%s pass %u: expected scheduled input %u, got %u\n", cases[i].name, pass,
+                            cases[i].expected[pass], scheduled[pass]);
+                    case_failed = 1;
+                    break;
+                }
+            }
+        }
+
         failed |= case_failed;
     }
 
@@ -459,6 +546,8 @@ int main(void) {
                          test_submix_three_channel_history_preserves_channel_order);
     failures += run_test("submix_retained_history_stays_bounded_long_run",
                          test_submix_retained_history_stays_bounded_long_run);
+    failures += run_test("submix_scheduled_input_frames_vary_for_fractional_ratios",
+                         test_submix_scheduled_input_frames_vary_for_fractional_ratios);
 
     return failures == 0 ? 0 : 1;
 }

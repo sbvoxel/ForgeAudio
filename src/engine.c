@@ -698,11 +698,31 @@ static void resize_resample_cache(ForgeAudioEngine *audio, uint32_t samples) {
 }
 
 static void mark_submix_input_written(ForgeVoice *voice, uint32_t frames);
+static void prepare_submix_input_schedule(ForgeSubmixVoice *voice);
+
+static uint32_t fixed_ceil_to_frames(uint64_t value) {
+    return (uint32_t)((value + FIXED_FRACTION_MASK) >> FIXED_PRECISION);
+}
 
 static uint32_t source_output_rate_locked(ForgeSourceVoice *voice) {
     ForgeVoice *out = (voice->sends.send_count == 0) ? voice->audio->master : voice->sends.sends->send.output_voice;
 
     return (out->type == FORGE_AUDIO_VOICE_MASTER) ? out->master.inputSampleRate : out->mix.inputSampleRate;
+}
+
+static uint32_t source_output_frames_for_pass_locked(ForgeSourceVoice *voice) {
+    ForgeVoice *out;
+
+    if (voice->sends.send_count == 0) {
+        return voice->src.resampleSamples;
+    }
+
+    out = voice->sends.sends[0].send.output_voice;
+    if (out->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        return ((ForgeSubmixVoice *)out)->mix.scheduledInputFrames;
+    }
+
+    return voice->src.resampleSamples;
 }
 
 static uint64_t source_resample_step_for_rate(ForgeSourceVoice *voice, uint32_t output_rate, float ratio) {
@@ -819,6 +839,7 @@ static void mix_source(ForgeSourceVoice *voice) {
     uint32_t oChan;
     ForgeVoice *out;
     uint32_t outputRate;
+    uint32_t outputFrames;
     float *finalSamples;
 
     LOG_FUNC_ENTER(voice->audio)
@@ -827,6 +848,7 @@ static void mix_source(ForgeSourceVoice *voice) {
     LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
 
     outputRate = source_output_rate_locked(voice);
+    outputFrames = source_output_frames_for_pass_locked(voice);
 
     /* Calculate the resample stepping value */
     if (voice->src.resampleFreq != voice->src.freqRatio * voice->src.format->sample_rate) {
@@ -835,15 +857,15 @@ static void mix_source(ForgeSourceVoice *voice) {
 
     if (voice->src.active == 2) {
         /* We're just playing tails, skip all buffer stuff */
-        resize_resample_cache(voice->audio, voice->src.resampleSamples * voice->src.format->channels);
-        mixed = voice->src.resampleSamples;
+        resize_resample_cache(voice->audio, outputFrames * voice->src.format->channels);
+        mixed = outputFrames;
         forge_zero(voice->audio->resampleCache, mixed * voice->src.format->channels * sizeof(float));
         finalSamples = voice->audio->resampleCache;
         advance_source_rate_locked(voice, mixed);
         goto sendwork;
     }
 
-    requestedDecode = source_decode_frame_request_locked(voice, outputRate, voice->src.resampleSamples);
+    requestedDecode = source_decode_frame_request_locked(voice, outputRate, outputFrames);
     toDecode = requestedDecode;
 
     /* First voice callback */
@@ -874,8 +896,8 @@ static void mix_source(ForgeSourceVoice *voice) {
 
         if (voice->effects.count > 0 && voice->effects.state != FORGE_EFFECT_BUFFER_SILENT) {
             /* do not stop while the effect chain generates a non-silent buffer */
-            resize_resample_cache(voice->audio, voice->src.resampleSamples * voice->src.format->channels);
-            mixed = voice->src.resampleSamples;
+            resize_resample_cache(voice->audio, outputFrames * voice->src.format->channels);
+            mixed = outputFrames;
             forge_zero(voice->audio->resampleCache, mixed * voice->src.format->channels * sizeof(float));
             finalSamples = voice->audio->resampleCache;
             advance_source_rate_locked(voice, mixed);
@@ -927,7 +949,7 @@ static void mix_source(ForgeSourceVoice *voice) {
     }
 
     if (voice->src.rateAutomation.active && toDecode == requestedDecode) {
-        toResample = voice->src.resampleSamples;
+        toResample = outputFrames;
     } else {
         /* int to fixed... */
         toResample = toDecode << FIXED_PRECISION;
@@ -944,7 +966,7 @@ static void mix_source(ForgeSourceVoice *voice) {
         /* Clamp to the per-pass resample cache capacity. Source resampler tests verify
          * decode sizing leaves interpolation padding available.
          */
-        toResample = forge_min(toResample, voice->src.resampleSamples);
+        toResample = forge_min(toResample, outputFrames);
     }
 
     /* Resample... */
@@ -955,7 +977,7 @@ static void mix_source(ForgeSourceVoice *voice) {
     } else {
         variableRateResample = voice->src.rateAutomation.active;
         resampleOffsetBefore = voice->src.resampleOffset;
-        resize_resample_cache(voice->audio, voice->src.resampleSamples * voice->src.format->channels);
+        resize_resample_cache(voice->audio, outputFrames * voice->src.format->channels);
         if (variableRateResample) {
             resample_source_variable_rate_locked(voice, toResample, (uint8_t)voice->src.format->channels,
                                                  outputRate);
@@ -1013,10 +1035,10 @@ sendwork:
         /* If we didn't get the full size of the update, we have to fill
          * it with silence so the effect can process a whole update
          */
-        if (mixed < voice->src.resampleSamples) {
+        if (mixed < outputFrames) {
             forge_zero(finalSamples + (mixed * voice->src.format->channels),
-                       (voice->src.resampleSamples - mixed) * voice->src.format->channels * sizeof(float));
-            mixed = voice->src.resampleSamples;
+                       (outputFrames - mixed) * voice->src.format->channels * sizeof(float));
+            mixed = outputFrames;
         }
         finalSamples = process_effect_chain(voice, finalSamples, &mixed);
     }
@@ -1152,10 +1174,87 @@ ForgeAudioTestSourceResampleResult forge_audio_test_decode_resample_source(Forge
 static void mark_submix_input_written(ForgeVoice *voice, uint32_t frames) {
     if (voice->type == FORGE_AUDIO_VOICE_SUBMIX && frames > voice->mix.currentPassInputFrames) {
         voice->mix.currentPassInputFrames = frames;
-        if (voice->mix.currentPassInputFrames > voice->mix.inputFrames) {
-            voice->mix.currentPassInputFrames = voice->mix.inputFrames;
+        if (voice->mix.currentPassInputFrames > voice->mix.scheduledInputFrames) {
+            voice->mix.currentPassInputFrames = voice->mix.scheduledInputFrames;
         }
     }
+}
+
+static void schedule_submix_input_frames(ForgeSubmixVoice *voice, uint32_t output_frames) {
+    uint64_t passEndOffset = voice->mix.resampleOffset + (uint64_t)output_frames * voice->mix.resampleStep;
+    uint64_t scheduledEndFrame = fixed_ceil_to_frames(passEndOffset);
+    uint64_t inputFrameCursor = voice->mix.inputFrameCursor;
+    uint64_t scheduledFrames = 0;
+
+    if (scheduledEndFrame > inputFrameCursor) {
+        scheduledFrames = scheduledEndFrame - inputFrameCursor;
+    }
+
+    if (scheduledFrames > voice->mix.inputFrames) {
+        /* Defensive guard for impossible fixed-point/capacity disagreement. */
+        scheduledFrames = voice->mix.inputFrames;
+    }
+
+    voice->mix.scheduledInputFrames = (uint32_t)scheduledFrames;
+    voice->mix.scheduledOutputFrames = output_frames;
+    voice->mix.currentPassInputFrames = 0;
+}
+
+static uint32_t submix_output_frames_for_schedule(ForgeSubmixVoice *voice) {
+    ForgeVoice *out;
+
+    if (voice->sends.send_count == 0) {
+        return voice->mix.outputSamples;
+    }
+
+    out = voice->sends.sends[0].send.output_voice;
+    if (out->type == FORGE_AUDIO_VOICE_SUBMIX) {
+        prepare_submix_input_schedule((ForgeSubmixVoice *)out);
+        return ((ForgeSubmixVoice *)out)->mix.scheduledInputFrames;
+    }
+
+    return voice->mix.outputSamples;
+}
+
+static void prepare_submix_input_schedule(ForgeSubmixVoice *voice) {
+    uint32_t outputFrames;
+
+    if (voice->mix.inputScheduleState == 2) {
+        return;
+    }
+
+    if (voice->mix.inputScheduleState == 1) {
+        schedule_submix_input_frames(voice, voice->mix.outputSamples);
+        voice->mix.inputScheduleState = 2;
+        return;
+    }
+
+    voice->mix.inputScheduleState = 1;
+    outputFrames = submix_output_frames_for_schedule(voice);
+    if (outputFrames > voice->mix.outputSamples) {
+        outputFrames = voice->mix.outputSamples;
+    }
+    schedule_submix_input_frames(voice, outputFrames);
+    voice->mix.inputScheduleState = 2;
+}
+
+static void prepare_submix_input_schedules(ForgeAudioEngine *audio) {
+    ForgeLinkedList *list;
+
+    fa_platform_lock_mutex(audio->submixLock);
+    LOG_MUTEX_LOCK(audio, audio->submixLock)
+    list = audio->submixes;
+    while (list != NULL) {
+        ((ForgeSubmixVoice *)list->entry)->mix.inputScheduleState = 0;
+        list = list->next;
+    }
+    list = audio->submixes;
+    while (list != NULL) {
+        prepare_submix_input_schedule((ForgeSubmixVoice *)list->entry);
+        list = list->next;
+    }
+    fa_platform_unlock_mutex(audio->submixLock);
+    LOG_MUTEX_UNLOCK(audio, audio->submixLock)
 }
 
 static void ensure_submix_resample_history_capacity(ForgeSubmixVoice *voice, uint32_t frames) {
@@ -1184,7 +1283,7 @@ static void ensure_submix_resample_input_capacity(ForgeSubmixVoice *voice, uint3
 
 static void update_submix_resample_history(ForgeSubmixVoice *voice, float *base, uint64_t base_frame) {
     uint32_t channels = voice->mix.inputChannels;
-    uint32_t inputFrames = voice->mix.inputFrames;
+    uint32_t inputFrames = voice->mix.scheduledInputFrames;
     uint64_t nextFrame = voice->mix.resampleOffset >> FIXED_PRECISION;
     uint64_t currentEndFrame = voice->mix.inputFrameCursor + inputFrames;
     uint64_t historyFrames;
@@ -1207,23 +1306,19 @@ static void update_submix_resample_history(ForgeSubmixVoice *voice, float *base,
     voice->mix.resampleHistoryFrames = (uint32_t)historyFrames;
 }
 
-static void advance_submix_resample_offset(ForgeSubmixVoice *voice) {
-    voice->mix.resampleOffset += (uint64_t)voice->mix.outputSamples * voice->mix.resampleStep;
+static void advance_submix_resample_offset(ForgeSubmixVoice *voice, uint32_t output_frames) {
+    voice->mix.resampleOffset += (uint64_t)output_frames * voice->mix.resampleStep;
 }
 
 static float *stage_submix_resample_input(ForgeSubmixVoice *voice, uint64_t *local_offset,
                                           uint32_t *available_frames, uint64_t *base_frame) {
     uint32_t channels = voice->mix.inputChannels;
-    uint32_t inputFrames = voice->mix.inputFrames;
+    uint32_t inputFrames = voice->mix.scheduledInputFrames;
     uint32_t historyFrames = voice->mix.resampleHistoryFrames;
     uint32_t stagedFrames = historyFrames + inputFrames + SUBMIX_RESAMPLE_EDGE_FRAMES;
     float *stage = voice->mix.resampleInputCache;
     uint64_t baseOffset;
 
-    /* TODO: Replace fixed-ceil submix input production with variable per-pass
-     * input scheduling. Until then, retained history can grow deterministically
-     * when each pass produces more input frames than SRC consumes.
-     */
     ensure_submix_resample_input_capacity(voice, stagedFrames);
     stage = voice->mix.resampleInputCache;
 
@@ -1256,7 +1351,7 @@ static float *stage_submix_resample_input(ForgeSubmixVoice *voice, uint64_t *loc
     return stage;
 }
 
-static float *resample_submix_continuous(ForgeSubmixVoice *voice) {
+static float *resample_submix_continuous(ForgeSubmixVoice *voice, uint32_t output_frames) {
     uint32_t channels = voice->mix.inputChannels;
     uint32_t availableFrames;
     uint64_t localOffset;
@@ -1266,14 +1361,14 @@ static float *resample_submix_continuous(ForgeSubmixVoice *voice) {
     base = stage_submix_resample_input(voice, &localOffset, &availableFrames, &baseFrame);
 
     if (availableFrames < 2) {
-        forge_zero(voice->audio->resampleCache, sizeof(float) * voice->mix.outputSamples * channels);
-        advance_submix_resample_offset(voice);
+        forge_zero(voice->audio->resampleCache, sizeof(float) * output_frames * channels);
+        advance_submix_resample_offset(voice, output_frames);
         update_submix_resample_history(voice, base, baseFrame);
-        voice->mix.inputFrameCursor += voice->mix.inputFrames;
+        voice->mix.inputFrameCursor += voice->mix.scheduledInputFrames;
         return voice->audio->resampleCache;
     }
 
-    for (uint32_t frame = 0; frame < voice->mix.outputSamples; frame += 1) {
+    for (uint32_t frame = 0; frame < output_frames; frame += 1) {
         uint64_t inputFrame = localOffset >> FIXED_PRECISION;
         uint64_t fraction = localOffset & FIXED_FRACTION_MASK;
         float *left;
@@ -1293,9 +1388,9 @@ static float *resample_submix_continuous(ForgeSubmixVoice *voice) {
         localOffset += voice->mix.resampleStep;
     }
 
-    advance_submix_resample_offset(voice);
+    advance_submix_resample_offset(voice, output_frames);
     update_submix_resample_history(voice, base, baseFrame);
-    voice->mix.inputFrameCursor += voice->mix.inputFrames;
+    voice->mix.inputFrameCursor += voice->mix.scheduledInputFrames;
     return voice->audio->resampleCache;
 }
 
@@ -1304,27 +1399,29 @@ static void mix_submix(ForgeSubmixVoice *voice) {
     uint32_t oChan;
     ForgeVoice *out;
     uint32_t resampled;
+    uint32_t outputFrames;
     float *finalSamples;
 
     LOG_FUNC_ENTER(voice->audio)
     fa_platform_lock_mutex(voice->sendLock);
     LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
 
+    outputFrames = voice->mix.scheduledOutputFrames;
+
     /* Resample */
     if (voice->mix.resampleStep == FIXED_ONE) {
         /* Actually, just use the existing buffer... */
         finalSamples = voice->mix.inputCache;
-        voice->mix.resampleOffset = (voice->mix.inputFrameCursor + voice->mix.inputFrames) << FIXED_PRECISION;
-        voice->mix.inputFrameCursor += voice->mix.inputFrames;
+        voice->mix.resampleOffset = (voice->mix.inputFrameCursor + voice->mix.scheduledInputFrames)
+                                    << FIXED_PRECISION;
+        voice->mix.inputFrameCursor += voice->mix.scheduledInputFrames;
         voice->mix.resampleHistoryFrames = 0;
         voice->mix.resampleHistoryFrame = voice->mix.inputFrameCursor;
     } else {
-        resize_resample_cache(voice->audio, voice->mix.outputSamples * voice->mix.inputChannels);
-        finalSamples = resample_submix_continuous(voice);
+        resize_resample_cache(voice->audio, outputFrames * voice->mix.inputChannels);
+        finalSamples = resample_submix_continuous(voice, outputFrames);
     }
-    resampled = voice->mix.outputSamples * voice->mix.inputChannels;
-
-    resampled /= voice->mix.inputChannels;
+    resampled = outputFrames;
 
     /* Submix volume is applied before effects/filters. */
     fa_platform_lock_mutex(voice->volumeLock);
@@ -1473,6 +1570,8 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
         audio->master->master.output = output;
     }
 
+    prepare_submix_input_schedules(audio);
+
     /* Mix sources */
     fa_platform_lock_mutex(audio->sourceLock);
     LOG_MUTEX_LOCK(audio, audio->sourceLock)
@@ -1485,7 +1584,13 @@ static void FORGE_AUDIO_CALL fa_audio_generate_output(ForgeAudioEngine *audio, f
             mix_source(audio->processingSource);
             flush_pending_buffers(audio->processingSource);
         } else {
-            uint32_t sourceTimelineFrames = audio->processingSource->src.resampleSamples;
+            uint32_t sourceTimelineFrames;
+
+            fa_platform_lock_mutex(audio->processingSource->sendLock);
+            LOG_MUTEX_LOCK(audio, audio->processingSource->sendLock)
+            sourceTimelineFrames = source_output_frames_for_pass_locked(audio->processingSource);
+            fa_platform_unlock_mutex(audio->processingSource->sendLock);
+            LOG_MUTEX_UNLOCK(audio, audio->processingSource->sendLock)
 
             if (audio->processingSource->flags & FORGE_AUDIO_VOICE_USEFILTER) {
                 fa_platform_lock_mutex(audio->processingSource->filterLock);

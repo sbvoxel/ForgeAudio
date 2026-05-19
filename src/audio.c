@@ -963,9 +963,20 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
         (*submix_voice)->mix.resample = fa_resample_generic;
     }
 
+    /* Output rate and fixed SRC step are needed before sizing input storage. */
+    outputRate = send_list_output_rate(audio, send_list);
+    result = fa_audio_voice_output_frequency(*submix_voice, send_list);
+    if (result != ForgeResultSuccess) {
+        cleanup_failed_unlinked_voice(submix_voice);
+        LOG_API_EXIT(audio)
+        return result;
+    }
+
     /* Sample Storage */
-    (*submix_voice)->mix.inputFrames = (uint32_t)forge_ceil(audio->updateSize * (double)input_sample_rate /
-                                                            (double)audio->master->master.inputSampleRate);
+    (*submix_voice)->mix.inputFrames =
+        (uint32_t)((((uint64_t)(*submix_voice)->mix.outputSamples * (*submix_voice)->mix.resampleStep) +
+                    FIXED_FRACTION_MASK) >>
+                   FIXED_PRECISION);
     (*submix_voice)->mix.inputSamples = ((*submix_voice)->mix.inputFrames +
                                          SUBMIX_RESAMPLE_INPUT_PADDING_FRAMES) *
                                         input_channels;
@@ -1001,8 +1012,6 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
                sizeof(float) * (*submix_voice)->mix.resampleHistoryCapacity * input_channels);
 
     /* Sends/Effects */
-    outputRate = send_list_output_rate(audio, send_list);
-    fa_audio_voice_output_frequency(*submix_voice, send_list);
     filter_runtime_init(&(*submix_voice)->filter, outputRate);
     result = voice_set_effect_chain_with_sample_rate(*submix_voice, effect_chain, outputRate);
     if (result != 0) {

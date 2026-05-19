@@ -233,7 +233,10 @@ struct ForgeVoice {
             uint64_t resampleOffset;
             uint64_t inputFrameCursor;
             uint64_t resampleHistoryFrame;
+            uint32_t scheduledInputFrames;
+            uint32_t scheduledOutputFrames;
             uint32_t currentPassInputFrames;
+            uint8_t inputScheduleState;
             ForgeAudioResampleCallback resample;
 
             /* Read-only */
