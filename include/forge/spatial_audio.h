@@ -254,6 +254,10 @@ typedef struct ForgeNativeSpatialDspSettings {
     float listener_velocity_component_m_per_sec;
 } ForgeNativeSpatialDspSettings;
 
+/* Native stereo and 2.1 use lateral left/right downmix panning. Surround
+ * layouts use the declared speaker geometry for adjacent-speaker VBAP.
+ */
+
 #pragma pack(pop)
 
 /* Functions */

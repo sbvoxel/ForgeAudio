@@ -804,6 +804,26 @@ static int test_native_mono_source_never_writes_destination_lfe(void) {
     return failures;
 }
 
+static int test_native_2point1_off_center_matches_stereo(void) {
+    ForgeNativeSpatialEmitter stereo_emitter = native_default_emitter(1.0f, 0.0f, 1.0f);
+    ForgeNativeSpatialEmitter point1_emitter = native_default_emitter(1.0f, 0.0f, 1.0f);
+    ForgeNativeSpatialDspSettings stereo_settings;
+    ForgeNativeSpatialDspSettings point1_settings;
+    float stereo_matrix[2] = {0.0f, 0.0f};
+    float point1_matrix[3] = {0.0f, 0.0f, -1.0f};
+    int failures = 0;
+
+    failures += native_calculate(FORGE_SPEAKER_STEREO, &stereo_emitter, 0, stereo_matrix, 2, &stereo_settings);
+    failures += native_calculate(FORGE_SPEAKER_2POINT1, &point1_emitter, 0, point1_matrix, 3, &point1_settings);
+    if (!failures) {
+        failures += check_close_tol("native 2.1 off-center left", point1_matrix[0], stereo_matrix[0], 0.00001f);
+        failures += check_close_tol("native 2.1 off-center right", point1_matrix[1], stereo_matrix[1], 0.00001f);
+        failures += check_close("native 2.1 off-center LFE", point1_matrix[2], 0.0f);
+    }
+
+    return failures;
+}
+
 static int test_native_rejects_multichannel_and_height_layouts(void) {
     ForgeNativeSpatializer spatializer;
     ForgeNativeSpatialListener listener = native_default_listener();
@@ -852,6 +872,7 @@ int main(void) {
     failures += test_native_cone_uses_unsigned_angles_for_gain_filter_reverb();
     failures += test_native_occlusion_direct_muffle_and_reverb_are_separate();
     failures += test_native_mono_source_never_writes_destination_lfe();
+    failures += test_native_2point1_off_center_matches_stereo();
     failures += test_native_rejects_multichannel_and_height_layouts();
 
     return failures;
