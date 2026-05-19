@@ -101,6 +101,7 @@ typedef enum ForgeEffectKind {
     ForgeEffectKindReverb7Point1,
     ForgeEffectKindVolumeMeter,
     ForgeEffectKindLimiter,
+    ForgeEffectKindCompressor,
     ForgeEffectKindDelay,
     ForgeEffectKindBiquad
 } ForgeEffectKind;

@@ -86,6 +86,7 @@ add_library(ForgeAudio
     src/effect_base.c
     src/audio.c
     src/biquad.c
+    src/compressor.c
     src/delay.c
     src/limiter.c
     src/reverb.c
@@ -174,6 +175,7 @@ if(BUILD_TESTS)
         tests/engine_render_biquad.c
         tests/engine_render_channel.c
         tests/engine_render_common.c
+        tests/engine_render_compressor.c
         tests/engine_render_core.c
         tests/engine_render_delay.c
         tests/engine_render_fade_stop.c

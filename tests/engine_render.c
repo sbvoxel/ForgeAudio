@@ -265,6 +265,28 @@ int main(void) {
     failures += run_test("limiter_tail_drains_delayed_samples", test_limiter_tail_drains_delayed_samples);
     failures += run_test("limiter_disabled_clears_delayed_samples",
                          test_limiter_disabled_clears_delayed_samples);
+    failures += run_test("compressor_creation_kind_and_destroy", test_compressor_creation_kind_and_destroy);
+    failures += run_test("compressor_parameter_clamping", test_compressor_parameter_clamping);
+    failures += run_test("compressor_format_validation_rejects_channel_change",
+                         test_compressor_format_validation_rejects_channel_change);
+    failures += run_test("compressor_below_threshold_passes_with_makeup_and_mix",
+                         test_compressor_below_threshold_passes_with_makeup_and_mix);
+    failures += run_test("compressor_above_threshold_reduces_signal", test_compressor_above_threshold_reduces_signal);
+    failures += run_test("compressor_ratio_one_is_no_compression", test_compressor_ratio_one_is_no_compression);
+    failures += run_test("compressor_higher_ratio_reduces_more", test_compressor_higher_ratio_reduces_more);
+    failures += run_test("compressor_soft_knee_transitions_gradually",
+                         test_compressor_soft_knee_transitions_gradually);
+    failures += run_test("compressor_attack_delays_full_gain_reduction",
+                         test_compressor_attack_delays_full_gain_reduction);
+    failures += run_test("compressor_release_recovers_gradually", test_compressor_release_recovers_gradually);
+    failures += run_test("compressor_linked_channels_reduce_all_channels",
+                         test_compressor_linked_channels_reduce_all_channels);
+    failures += run_test("compressor_makeup_gain_increases_compressed_output",
+                         test_compressor_makeup_gain_increases_compressed_output);
+    failures += run_test("compressor_wet_dry_mix_blends_compressed_and_dry",
+                         test_compressor_wet_dry_mix_blends_compressed_and_dry);
+    failures += run_test("compressor_blob_parameter_set_updates_render_behavior",
+                         test_compressor_blob_parameter_set_updates_render_behavior);
 
     return failures == 0 ? 0 : 1;
 }

@@ -56,6 +56,9 @@ compatibility with it or XAudio is not a design goal.
 - Device-backed rendering through platform backends.
 - Device-free deterministic render tests under `FORGE_AUDIO_TESTING`.
 
+Built-in effects currently include volume meter, limiter, compressor, delay,
+biquad, and reverb processors.
+
 ## Runtime Model
 
 ForgeAudio uses a practical voice graph. Source voices consume submitted audio

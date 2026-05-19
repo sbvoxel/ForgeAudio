@@ -182,5 +182,19 @@ int test_limiter_submix_lookahead_uses_render_sample_rate(void);
 int test_limiter_blob_parameter_set_updates_render(void);
 int test_limiter_tail_drains_delayed_samples(void);
 int test_limiter_disabled_clears_delayed_samples(void);
+int test_compressor_creation_kind_and_destroy(void);
+int test_compressor_parameter_clamping(void);
+int test_compressor_format_validation_rejects_channel_change(void);
+int test_compressor_below_threshold_passes_with_makeup_and_mix(void);
+int test_compressor_above_threshold_reduces_signal(void);
+int test_compressor_ratio_one_is_no_compression(void);
+int test_compressor_higher_ratio_reduces_more(void);
+int test_compressor_soft_knee_transitions_gradually(void);
+int test_compressor_attack_delays_full_gain_reduction(void);
+int test_compressor_release_recovers_gradually(void);
+int test_compressor_linked_channels_reduce_all_channels(void);
+int test_compressor_makeup_gain_increases_compressed_output(void);
+int test_compressor_wet_dry_mix_blends_compressed_and_dry(void);
+int test_compressor_blob_parameter_set_updates_render_behavior(void);
 
 #endif /* FORGE_ENGINE_RENDER_TESTS_H */

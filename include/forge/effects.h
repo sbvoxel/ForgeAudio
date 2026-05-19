@@ -36,6 +36,16 @@ typedef struct ForgeLimiterParameters {
     float release_ms;
 } ForgeLimiterParameters;
 
+typedef struct ForgeCompressorParameters {
+    float threshold_db;
+    float ratio;
+    float knee_db;
+    float attack_ms;
+    float release_ms;
+    float makeup_gain_db;
+    float wet_dry_mix;
+} ForgeCompressorParameters;
+
 typedef struct ForgeDelayParameters {
     float wet_dry_mix; /* Percent, [FORGE_DELAY_MIN_WET_DRY_MIX, FORGE_DELAY_MAX_WET_DRY_MIX] */
     float delay_ms;    /* Milliseconds. Hard-set in v1; changes may click or pitch-warp. */
@@ -172,6 +182,34 @@ typedef struct ForgeReverbI3DL2Parameters {
 #define FORGE_LIMITER_MIN_RELEASE_MS 1.0f
 #define FORGE_LIMITER_MAX_RELEASE_MS 1000.0f
 #define FORGE_LIMITER_DEFAULT_RELEASE_MS 50.0f
+
+#define FORGE_COMPRESSOR_MIN_THRESHOLD_DB -80.0f
+#define FORGE_COMPRESSOR_MAX_THRESHOLD_DB 0.0f
+#define FORGE_COMPRESSOR_DEFAULT_THRESHOLD_DB -18.0f
+
+#define FORGE_COMPRESSOR_MIN_RATIO 1.0f
+#define FORGE_COMPRESSOR_MAX_RATIO 40.0f
+#define FORGE_COMPRESSOR_DEFAULT_RATIO 4.0f
+
+#define FORGE_COMPRESSOR_MIN_KNEE_DB 0.0f
+#define FORGE_COMPRESSOR_MAX_KNEE_DB 40.0f
+#define FORGE_COMPRESSOR_DEFAULT_KNEE_DB 6.0f
+
+#define FORGE_COMPRESSOR_MIN_ATTACK_MS 0.0f
+#define FORGE_COMPRESSOR_MAX_ATTACK_MS 1000.0f
+#define FORGE_COMPRESSOR_DEFAULT_ATTACK_MS 10.0f
+
+#define FORGE_COMPRESSOR_MIN_RELEASE_MS 1.0f
+#define FORGE_COMPRESSOR_MAX_RELEASE_MS 5000.0f
+#define FORGE_COMPRESSOR_DEFAULT_RELEASE_MS 100.0f
+
+#define FORGE_COMPRESSOR_MIN_MAKEUP_GAIN_DB -24.0f
+#define FORGE_COMPRESSOR_MAX_MAKEUP_GAIN_DB 24.0f
+#define FORGE_COMPRESSOR_DEFAULT_MAKEUP_GAIN_DB 0.0f
+
+#define FORGE_COMPRESSOR_MIN_WET_DRY_MIX 0.0f
+#define FORGE_COMPRESSOR_MAX_WET_DRY_MIX 1.0f
+#define FORGE_COMPRESSOR_DEFAULT_WET_DRY_MIX 1.0f
 
 #define FORGE_DELAY_MIN_WET_DRY_MIX 0.0f
 #define FORGE_DELAY_MAX_WET_DRY_MIX 100.0f
@@ -366,6 +404,7 @@ typedef struct ForgeReverbI3DL2Parameters {
  */
 FORGE_AUDIO_API ForgeResult forge_create_volume_meter(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_limiter(ForgeEffect **effect, uint32_t flags);
+FORGE_AUDIO_API ForgeResult forge_create_compressor(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_delay(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_biquad(ForgeEffect **effect, uint32_t flags);
 FORGE_AUDIO_API ForgeResult forge_create_reverb(ForgeEffect **effect, uint32_t flags);
@@ -380,6 +419,10 @@ FORGE_AUDIO_API ForgeResult forge_create_limiter_with_allocator(ForgeEffect **ef
                                                                 ForgeMallocFunc custom_malloc,
                                                                 ForgeFreeFunc custom_free,
                                                                 ForgeReallocFunc custom_realloc);
+FORGE_AUDIO_API ForgeResult forge_create_compressor_with_allocator(ForgeEffect **effect, uint32_t flags,
+                                                                   ForgeMallocFunc custom_malloc,
+                                                                   ForgeFreeFunc custom_free,
+                                                                   ForgeReallocFunc custom_realloc);
 FORGE_AUDIO_API ForgeResult forge_create_delay_with_allocator(ForgeEffect **effect, uint32_t flags,
                                                               ForgeMallocFunc custom_malloc,
                                                               ForgeFreeFunc custom_free,
