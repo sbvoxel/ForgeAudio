@@ -911,11 +911,10 @@ static inline void calculate_matrix(uint32_t channel_mask, uint32_t flags, const
      * -Adrien
      */
     if (listener->cone) {
-        /* Negate the dot product because we need listener_to_emitter in
-         * this case
-         * -Adrien
-         */
-        const float angle = -forge_acosf(VECTOR_DOT(listener->orient_front, emitter_to_listener) / emitter_to_listener_distance);
+        const float cone_dp = forge_clamp(-VECTOR_DOT(listener->orient_front, emitter_to_listener) /
+                                              emitter_to_listener_distance,
+                                          -1.0f, 1.0f);
+        const float angle = forge_acosf(cone_dp);
 
         const float listener_cone_param =
             compute_cone_parameter(emitter_to_listener_distance, angle, listener->cone->inner_angle, listener->cone->outer_angle,
@@ -926,7 +925,10 @@ static inline void calculate_matrix(uint32_t channel_mask, uint32_t flags, const
 
     /* See note above. */
     if (emitter->cone && emitter->channel_count == 1) {
-        const float angle = forge_acosf(VECTOR_DOT(emitter->orient_front, emitter_to_listener) / emitter_to_listener_distance);
+        const float cone_dp = forge_clamp(VECTOR_DOT(emitter->orient_front, emitter_to_listener) /
+                                              emitter_to_listener_distance,
+                                          -1.0f, 1.0f);
+        const float angle = forge_acosf(cone_dp);
 
         const float emitter_cone_param =
             compute_cone_parameter(emitter_to_listener_distance, angle, emitter->cone->inner_angle, emitter->cone->outer_angle,
