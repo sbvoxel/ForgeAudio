@@ -25,7 +25,8 @@ static uint32_t ceil_to_u32(double value) {
     return ((double)whole < value) ? whole + 1 : whole;
 }
 
-static void init_harness(SourceHarness *harness, uint32_t decode_frames, uint32_t resample_frames) {
+static void init_harness_channels(SourceHarness *harness, uint32_t decode_frames, uint32_t resample_frames,
+                                  uint32_t channels) {
     forge_zero(harness, sizeof(*harness));
 
     harness->audio.malloc_func = malloc;
@@ -33,14 +34,14 @@ static void init_harness(SourceHarness *harness, uint32_t decode_frames, uint32_
     harness->audio.realloc_func = realloc;
     harness->audio.decodeSamples = (decode_frames + EXTRA_DECODE_PADDING);
     harness->audio.resampleSamples = resample_frames;
-    harness->audio.decodeCache = (float *)malloc(sizeof(float) * harness->audio.decodeSamples);
-    harness->audio.resampleCache = (float *)malloc(sizeof(float) * harness->audio.resampleSamples);
+    harness->audio.decodeCache = (float *)malloc(sizeof(float) * harness->audio.decodeSamples * channels);
+    harness->audio.resampleCache = (float *)malloc(sizeof(float) * harness->audio.resampleSamples * channels);
 
     harness->format.format_tag = FORGE_AUDIO_FORMAT_IEEE_FLOAT;
-    harness->format.channels = 1;
+    harness->format.channels = channels;
     harness->format.sample_rate = 36000;
     harness->format.bits_per_sample = 32;
-    harness->format.block_align = sizeof(float);
+    harness->format.block_align = (uint16_t)(sizeof(float) * channels);
     harness->format.average_bytes_per_second = harness->format.sample_rate * harness->format.block_align;
 
     harness->voice.audio = &harness->audio;
@@ -50,6 +51,10 @@ static void init_harness(SourceHarness *harness, uint32_t decode_frames, uint32_
     harness->voice.src.resampleSamples = resample_frames;
     harness->voice.src.resampleStep = DOUBLE_TO_FIXED(0.75);
     harness->voice.src.queued_buffers = harness->buffers;
+}
+
+static void init_harness(SourceHarness *harness, uint32_t decode_frames, uint32_t resample_frames) {
+    init_harness_channels(harness, decode_frames, resample_frames, 1);
 }
 
 static void destroy_harness(SourceHarness *harness) {
@@ -88,13 +93,42 @@ static ForgeAudioTestSourceResampleResult render_buffers(const float *first, uin
     return result;
 }
 
-static int render_buffer_passes(const char *name, const float *first, uint32_t first_frames, const float *second,
-                                uint32_t second_frames, uint64_t resample_step, uint32_t pass_frames,
-                                uint32_t pass_count, float *output) {
+static ForgeAudioTestSourceResampleResult render_buffers_channels(const float *first, uint32_t first_frames,
+                                                                  const float *second, uint32_t second_frames,
+                                                                  uint32_t channels, uint64_t resample_step,
+                                                                  float *output, uint32_t output_frames) {
+    SourceHarness harness;
+    ForgeAudioTestSourceResampleResult result;
+    uint32_t decode_frames = (uint32_t)(((uint64_t)output_frames * resample_step + FIXED_FRACTION_MASK) >>
+                                        FIXED_PRECISION);
+
+    init_harness_channels(&harness, decode_frames + 2, output_frames, channels);
+    harness.voice.src.resampleStep = resample_step;
+    set_buffer(&harness, 0, first, first_frames);
+    harness.voice.src.queued_buffer_count = 1;
+    harness.voice.src.queued_buffers_capacity = 1;
+
+    if (second != NULL) {
+        set_buffer(&harness, 1, second, second_frames);
+        harness.voice.src.queued_buffer_count = 2;
+        harness.voice.src.queued_buffers_capacity = 2;
+    }
+
+    result = forge_audio_test_decode_resample_source(&harness.voice, output);
+    destroy_harness(&harness);
+    return result;
+}
+
+static int render_buffer_passes_channels(const char *name, const float *first, uint32_t first_frames,
+                                         const float *second, uint32_t second_frames, uint32_t channels,
+                                         uint64_t resample_step, uint32_t pass_frames, uint32_t pass_count,
+                                         float *output) {
     SourceHarness harness;
     int failed = 0;
+    uint32_t decode_frames = (uint32_t)(((uint64_t)pass_frames * resample_step + FIXED_FRACTION_MASK) >>
+                                        FIXED_PRECISION);
 
-    init_harness(&harness, 16, pass_frames);
+    init_harness_channels(&harness, decode_frames + 2, pass_frames, channels);
     harness.voice.src.resampleStep = resample_step;
     set_buffer(&harness, 0, first, first_frames);
     harness.voice.src.queued_buffer_count = 1;
@@ -108,7 +142,7 @@ static int render_buffer_passes(const char *name, const float *first, uint32_t f
 
     for (uint32_t i = 0; i < pass_count; i += 1) {
         ForgeAudioTestSourceResampleResult result =
-            forge_audio_test_decode_resample_source(&harness.voice, output + (i * pass_frames));
+            forge_audio_test_decode_resample_source(&harness.voice, output + (i * pass_frames * channels));
 
         if (result.resampled_frames != pass_frames) {
             fprintf(stderr, "%s pass %u resampled_frames: expected %u, got %u\n", name, i, pass_frames,
@@ -122,9 +156,24 @@ static int render_buffer_passes(const char *name, const float *first, uint32_t f
     return failed;
 }
 
+static int render_buffer_passes(const char *name, const float *first, uint32_t first_frames, const float *second,
+                                uint32_t second_frames, uint64_t resample_step, uint32_t pass_frames,
+                                uint32_t pass_count, float *output) {
+    return render_buffer_passes_channels(name, first, first_frames, second, second_frames, 1, resample_step,
+                                         pass_frames, pass_count, output);
+}
+
 static void fill_ramp(float *samples, uint32_t count) {
     for (uint32_t i = 0; i < count; i += 1) {
         samples[i] = (float)i;
+    }
+}
+
+static void fill_channel_ramps(float *samples, uint32_t frames, uint32_t channels) {
+    for (uint32_t frame = 0; frame < frames; frame += 1) {
+        for (uint32_t channel = 0; channel < channels; channel += 1) {
+            samples[frame * channels + channel] = (float)(frame * 10 + channel * 1000);
+        }
     }
 }
 
@@ -181,6 +230,122 @@ static int test_split_source_rate_ratio_matches_contiguous_across_passes(void) {
     failed |= render_buffer_passes("rate-split", samples, 6, samples + 6, 26, resample_step, pass_frames, pass_count,
                                    split_out);
     failed |= check_values("rate_split_vs_contiguous", split_out, contiguous_out, pass_frames * pass_count);
+
+    return failed;
+}
+
+static int test_stereo_split_fractional_ratio_matches_contiguous_across_passes(void) {
+    enum {
+        channels = 2,
+        frames = 40,
+        pass_frames = 5,
+        pass_count = 4,
+        split = 9
+    };
+    float samples[frames * channels];
+    float contiguous_out[pass_frames * pass_count * channels] = {0};
+    float split_out[pass_frames * pass_count * channels] = {0};
+    const uint64_t resample_step = DOUBLE_TO_FIXED(1.25);
+    int failed = 0;
+
+    fill_channel_ramps(samples, frames, channels);
+
+    failed |= render_buffer_passes_channels("stereo-contiguous", samples, frames, NULL, 0, channels, resample_step,
+                                            pass_frames, pass_count, contiguous_out);
+    failed |= render_buffer_passes_channels("stereo-split", samples, split, samples + split * channels,
+                                            frames - split, channels, resample_step, pass_frames, pass_count,
+                                            split_out);
+    failed |= check_values("stereo_split_vs_contiguous", split_out, contiguous_out,
+                           pass_frames * pass_count * channels);
+
+    return failed;
+}
+
+static int test_three_channel_split_fractional_ratio_matches_contiguous_across_passes(void) {
+    enum {
+        channels = 3,
+        frames = 36,
+        pass_frames = 6,
+        pass_count = 5,
+        split = 7
+    };
+    float samples[frames * channels];
+    float contiguous_out[pass_frames * pass_count * channels] = {0};
+    float split_out[pass_frames * pass_count * channels] = {0};
+    const uint64_t resample_step = DOUBLE_TO_FIXED(0.6);
+    int failed = 0;
+
+    fill_channel_ramps(samples, frames, channels);
+
+    failed |= render_buffer_passes_channels("three-channel-contiguous", samples, frames, NULL, 0, channels,
+                                            resample_step, pass_frames, pass_count, contiguous_out);
+    failed |= render_buffer_passes_channels("three-channel-split", samples, split, samples + split * channels,
+                                            frames - split, channels, resample_step, pass_frames, pass_count,
+                                            split_out);
+    failed |= check_values("three_channel_split_vs_contiguous", split_out, contiguous_out,
+                           pass_frames * pass_count * channels);
+
+    return failed;
+}
+
+static int test_stereo_linear_interpolation_matches_expected(void) {
+    enum {
+        channels = 2,
+        output_frames = 5
+    };
+    static const float samples[] = {
+        0.0f, 100.0f,
+        10.0f, 110.0f,
+        20.0f, 120.0f,
+        30.0f, 130.0f
+    };
+    static const float expected[] = {
+        0.0f, 100.0f,
+        5.0f, 105.0f,
+        10.0f, 110.0f,
+        15.0f, 115.0f,
+        20.0f, 120.0f
+    };
+    float output[output_frames * channels] = {0};
+    ForgeAudioTestSourceResampleResult result =
+        render_buffers_channels(samples, 4, NULL, 0, channels, DOUBLE_TO_FIXED(0.5), output, output_frames);
+    int failed = 0;
+
+    if (result.resampled_frames != output_frames) {
+        fprintf(stderr, "stereo expected resampled_frames: expected %u, got %u\n", output_frames,
+                result.resampled_frames);
+        failed = 1;
+    }
+
+    failed |= check_values("stereo_linear_expected", output, expected, output_frames * channels);
+    return failed;
+}
+
+static int test_fractional_phase_continuity_matches_single_pass(void) {
+    enum {
+        frames = 64,
+        pass_frames = 4,
+        pass_count = 6,
+        output_frames = pass_frames * pass_count
+    };
+    float samples[frames];
+    float single_pass_out[output_frames] = {0};
+    float multi_pass_out[output_frames] = {0};
+    const uint64_t resample_step = DOUBLE_TO_FIXED(1.375);
+    ForgeAudioTestSourceResampleResult result;
+    int failed = 0;
+
+    fill_ramp(samples, frames);
+
+    result = render_buffers_channels(samples, frames, NULL, 0, 1, resample_step, single_pass_out, output_frames);
+    if (result.resampled_frames != output_frames) {
+        fprintf(stderr, "phase single pass resampled_frames: expected %u, got %u\n", output_frames,
+                result.resampled_frames);
+        failed = 1;
+    }
+    failed |= render_buffer_passes("phase-multi-pass", samples, frames, NULL, 0, resample_step, pass_frames,
+                                   pass_count, multi_pass_out);
+    failed |= check_values("phase_multi_vs_single", multi_pass_out, single_pass_out, output_frames);
 
     return failed;
 }
@@ -329,6 +494,14 @@ int main(void) {
                          test_split_fast_fractional_ratio_matches_contiguous_across_passes);
     failures += run_test("split_source_rate_ratio_matches_contiguous_across_passes",
                          test_split_source_rate_ratio_matches_contiguous_across_passes);
+    failures += run_test("stereo_split_fractional_ratio_matches_contiguous_across_passes",
+                         test_stereo_split_fractional_ratio_matches_contiguous_across_passes);
+    failures += run_test("three_channel_split_fractional_ratio_matches_contiguous_across_passes",
+                         test_three_channel_split_fractional_ratio_matches_contiguous_across_passes);
+    failures += run_test("stereo_linear_interpolation_matches_expected",
+                         test_stereo_linear_interpolation_matches_expected);
+    failures += run_test("fractional_phase_continuity_matches_single_pass",
+                         test_fractional_phase_continuity_matches_single_pass);
     failures += run_test("split_ramp_matches_contiguous", test_split_ramp_matches_contiguous);
     failures += run_test("one_padding_frame_is_preserved", test_one_padding_frame_is_preserved);
     failures += run_test("padding_peeks_across_loop_boundary", test_padding_peeks_across_loop_boundary);
