@@ -259,6 +259,22 @@ static void native_vbap_gains(const NativeConfigInfo *config, float azimuth_rad,
         return;
     }
 
+    /* Two-speaker output is a left/right endpoint, not a closed ring. Use a
+     * stable lateral equal-power pan and leave front/back cues to cones,
+     * filters, reverb sends, and caller policy.
+     */
+    if (config->speaker_count == 2) {
+        const float pan = forge_clamp(forge_sinf(azimuth), -1.0f, 1.0f);
+        *speaker_a = config->speakers[0].matrix_index;
+        *speaker_b = config->speakers[1].matrix_index;
+        *gain_a = forge_sqrtf(0.5f * (1.0f - pan));
+        *gain_b = forge_sqrtf(0.5f * (1.0f + pan));
+        return;
+    }
+
+    /* Layouts with three or more bed speakers have real adjacent speaker arcs,
+     * so they use closed-ring VBAP around the listener.
+     */
     while (azimuth < config->speakers[0].azimuth_rad) {
         azimuth += FORGE_SPATIAL_2PI;
     }

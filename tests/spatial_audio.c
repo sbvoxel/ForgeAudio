@@ -540,6 +540,90 @@ static int test_native_stereo_front_center_equal_power(void) {
     return failures;
 }
 
+static int test_native_stereo_rear_center_is_centered(void) {
+    ForgeNativeSpatialEmitter emitter = native_default_emitter(0.0f, 0.0f, -1.0f);
+    ForgeNativeSpatialDspSettings settings;
+    float matrix[2] = {0.0f, 0.0f};
+    int failures = 0;
+
+    failures += native_calculate(FORGE_SPEAKER_STEREO, &emitter, 0, matrix, 2, &settings);
+    if (!failures) {
+        failures += check_close_tol("native stereo rear center left", matrix[0], 0.7071068f, 0.00001f);
+        failures += check_close_tol("native stereo rear center right", matrix[1], 0.7071068f, 0.00001f);
+        failures += check_close_tol("native stereo rear center power", matrix_power(matrix, 2), 1.0f, 0.00001f);
+    }
+
+    return failures;
+}
+
+static int test_native_stereo_lateral_symmetry(void) {
+    ForgeNativeSpatialEmitter right = native_default_emitter(1.0f, 0.0f, 0.0f);
+    ForgeNativeSpatialEmitter left = native_default_emitter(-1.0f, 0.0f, 0.0f);
+    ForgeNativeSpatialDspSettings right_settings;
+    ForgeNativeSpatialDspSettings left_settings;
+    float right_matrix[2] = {0.0f, 0.0f};
+    float left_matrix[2] = {0.0f, 0.0f};
+    int failures = 0;
+
+    failures += native_calculate(FORGE_SPEAKER_STEREO, &right, 0, right_matrix, 2, &right_settings);
+    failures += native_calculate(FORGE_SPEAKER_STEREO, &left, 0, left_matrix, 2, &left_settings);
+    if (!failures) {
+        failures += check_close_tol("native stereo mirror left/right", right_matrix[0], left_matrix[1], 0.00001f);
+        failures += check_close_tol("native stereo mirror right/left", right_matrix[1], left_matrix[0], 0.00001f);
+        failures += check_close_tol("native stereo right power", matrix_power(right_matrix, 2), 1.0f, 0.00001f);
+        failures += check_close_tol("native stereo left power", matrix_power(left_matrix, 2), 1.0f, 0.00001f);
+    }
+
+    return failures;
+}
+
+static int test_native_stereo_front_back_lateral_pan_matches(void) {
+    ForgeNativeSpatialEmitter front_right = native_default_emitter(1.0f, 0.0f, 1.0f);
+    ForgeNativeSpatialEmitter rear_right = native_default_emitter(1.0f, 0.0f, -1.0f);
+    ForgeNativeSpatialDspSettings front_settings;
+    ForgeNativeSpatialDspSettings rear_settings;
+    float front_matrix[2] = {0.0f, 0.0f};
+    float rear_matrix[2] = {0.0f, 0.0f};
+    int failures = 0;
+
+    failures += native_calculate(FORGE_SPEAKER_STEREO, &front_right, 0, front_matrix, 2, &front_settings);
+    failures += native_calculate(FORGE_SPEAKER_STEREO, &rear_right, 0, rear_matrix, 2, &rear_settings);
+    if (!failures) {
+        failures += check_close_tol("native stereo front/rear left", front_matrix[0], rear_matrix[0], 0.00001f);
+        failures += check_close_tol("native stereo front/rear right", front_matrix[1], rear_matrix[1], 0.00001f);
+    }
+
+    return failures;
+}
+
+static int test_native_stereo_lateral_pan_is_monotonic(void) {
+    const float positions[5][3] = {
+        {0.0f, 0.0f, 1.0f},
+        {0.3826834f, 0.0f, 0.9238795f},
+        {0.7071068f, 0.0f, 0.7071068f},
+        {0.9238795f, 0.0f, 0.3826834f},
+        {1.0f, 0.0f, 0.0f},
+    };
+    float previous_right = -1.0f;
+    int failures = 0;
+
+    for (uint32_t i = 0; i < 5; i += 1) {
+        ForgeNativeSpatialEmitter emitter = native_default_emitter(positions[i][0], positions[i][1], positions[i][2]);
+        ForgeNativeSpatialDspSettings settings;
+        float matrix[2] = {0.0f, 0.0f};
+
+        failures += native_calculate(FORGE_SPEAKER_STEREO, &emitter, 0, matrix, 2, &settings);
+        if (matrix[1] + 0.00001f < previous_right) {
+            fprintf(stderr, "native stereo right gain was not monotonic: %.8f after %.8f\n", matrix[1],
+                    previous_right);
+            failures += 1;
+        }
+        previous_right = matrix[1];
+    }
+
+    return failures;
+}
+
 static int test_native_center_speaker_anchors_front_center(void) {
     ForgeNativeSpatialEmitter emitter = native_default_emitter(0.0f, 0.0f, 1.0f);
     ForgeNativeSpatialDspSettings settings;
@@ -712,6 +796,8 @@ static int test_native_mono_source_never_writes_destination_lfe(void) {
 
     failures += native_calculate(FORGE_SPEAKER_2POINT1, &emitter, 0, matrix, 3, &settings);
     if (!failures) {
+        failures += check_close_tol("native 2.1 stereo left", matrix[0], 0.7071068f, 0.00001f);
+        failures += check_close_tol("native 2.1 stereo right", matrix[1], 0.7071068f, 0.00001f);
         failures += check_close("native 2.1 LFE", matrix[2], 0.0f);
     }
 
@@ -754,6 +840,10 @@ int main(void) {
     failures += test_acos_inputs_resist_valid_vector_roundoff();
     failures += test_matrix_coefficients_are_finite_and_nonnegative();
     failures += test_native_stereo_front_center_equal_power();
+    failures += test_native_stereo_rear_center_is_centered();
+    failures += test_native_stereo_lateral_symmetry();
+    failures += test_native_stereo_front_back_lateral_pan_matches();
+    failures += test_native_stereo_lateral_pan_is_monotonic();
     failures += test_native_center_speaker_anchors_front_center();
     failures += test_native_vbap_preserves_power_across_pair_boundaries();
     failures += test_native_source_radius_spreads_and_preserves_power();
