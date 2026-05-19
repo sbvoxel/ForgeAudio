@@ -982,7 +982,9 @@ static inline void calculate_matrix(uint32_t channel_mask, uint32_t flags, const
                  * just do them separately.
                  */
                 if (emitter_channel_azimuth == FORGE_SPATIAL_2PI) {
-                    matrix_coefficients[cur_config->lf_speaker_idx * emitter->channel_count + i_ec] = lfe_attenuation;
+                    if (cur_config->lf_speaker_idx != -1) {
+                        matrix_coefficients[cur_config->lf_speaker_idx * emitter->channel_count + i_ec] = lfe_attenuation;
+                    }
                 } else {
                     /* First compute the emitter channel
                      * vector relative to the emitter base...

@@ -86,6 +86,55 @@ static int test_listener_cone_uses_listener_to_emitter_direction(void) {
     return failures;
 }
 
+static int test_multichannel_lfe_skips_destination_without_lfe(void) {
+    ForgeSpatializer spatializer;
+    ForgeSpatialListener listener;
+    ForgeSpatialEmitter emitter;
+    ForgeSpatialDspSettings dsp_settings;
+    float channel_azimuths[2] = {0.0f, FORGE_SPATIAL_2PI};
+    float guarded_matrix[5] = {-1234.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+    forge_spatializer_init(FORGE_SPEAKER_STEREO, 343.5f, &spatializer);
+
+    listener.orient_front = (ForgeVector3){0.0f, 0.0f, 1.0f};
+    listener.orient_top = (ForgeVector3){0.0f, 1.0f, 0.0f};
+    listener.position = (ForgeVector3){0.0f, 0.0f, 0.0f};
+    listener.velocity = (ForgeVector3){0.0f, 0.0f, 0.0f};
+    listener.cone = NULL;
+
+    emitter.cone = NULL;
+    emitter.orient_front = (ForgeVector3){0.0f, 0.0f, 1.0f};
+    emitter.orient_top = (ForgeVector3){0.0f, 1.0f, 0.0f};
+    emitter.position = (ForgeVector3){0.0f, 0.0f, 1.0f};
+    emitter.velocity = (ForgeVector3){0.0f, 0.0f, 0.0f};
+    emitter.inner_radius = 0.0f;
+    emitter.channel_count = 2;
+    emitter.channel_radius = 0.0f;
+    emitter.channel_azimuths = channel_azimuths;
+    emitter.volume_curve = NULL;
+    emitter.lfe_curve = NULL;
+    emitter.lpf_direct_curve = NULL;
+    emitter.lpf_reverb_curve = NULL;
+    emitter.reverb_curve = NULL;
+    emitter.curve_distance_scaler = 1.0f;
+    emitter.doppler_scaler = 0.0f;
+
+    dsp_settings.matrix_coefficients = &guarded_matrix[1];
+    dsp_settings.delay_times = NULL;
+    dsp_settings.src_channel_count = 2;
+    dsp_settings.dst_channel_count = 2;
+
+    forge_spatializer_calculate(&spatializer, &listener, &emitter, FORGE_SPATIAL_CALCULATE_MATRIX,
+                                &dsp_settings);
+
+    return check_close("matrix guard before stereo destination", guarded_matrix[0], -1234.0f);
+}
+
 int main(void) {
-    return test_listener_cone_uses_listener_to_emitter_direction();
+    int failures = 0;
+
+    failures += test_listener_cone_uses_listener_to_emitter_direction();
+    failures += test_multichannel_lfe_skips_destination_without_lfe();
+
+    return failures;
 }
