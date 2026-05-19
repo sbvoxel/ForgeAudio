@@ -50,6 +50,7 @@ static void init_harness_channels(SourceHarness *harness, uint32_t decode_frames
     harness->voice.src.decodeSamples = decode_frames;
     harness->voice.src.resampleSamples = resample_frames;
     harness->voice.src.resampleStep = DOUBLE_TO_FIXED(0.75);
+    harness->voice.src.resamplerQuality = ForgeAudioResamplerCubic;
     harness->voice.src.queued_buffers = harness->buffers;
 }
 
@@ -72,12 +73,15 @@ static void set_buffer(SourceHarness *harness, size_t index, const float *sample
     buffer->play_bytes = frames * harness->format.block_align;
 }
 
+static void set_resampler_quality(SourceHarness *harness, ForgeAudioSourceResamplerQuality quality);
+
 static ForgeAudioTestSourceResampleResult render_buffers(const float *first, uint32_t first_frames, const float *second,
                                                          uint32_t second_frames, float *output, uint32_t output_frames) {
     SourceHarness harness;
     ForgeAudioTestSourceResampleResult result;
 
     init_harness(&harness, 8, output_frames);
+    set_resampler_quality(&harness, FORGE_AUDIO_SOURCE_RESAMPLER_LINEAR);
     set_buffer(&harness, 0, first, first_frames);
     harness.voice.src.queued_buffer_count = 1;
     harness.voice.src.queued_buffers_capacity = 1;
@@ -94,9 +98,8 @@ static ForgeAudioTestSourceResampleResult render_buffers(const float *first, uin
 }
 
 static void set_resampler_quality(SourceHarness *harness, ForgeAudioSourceResamplerQuality quality) {
-    ForgeResult result = forge_audio_test_source_set_resampler_quality(&harness->voice, quality);
-
-    forge_assert(result == ForgeResultSuccess);
+    forge_assert(quality == ForgeAudioResamplerLinear || quality == ForgeAudioResamplerCubic);
+    harness->voice.src.resamplerQuality = quality;
 }
 
 static ForgeAudioTestSourceResampleResult render_buffers_channels_quality(
@@ -686,6 +689,7 @@ static int test_padding_peeks_across_loop_boundary(void) {
     int failed = 0;
 
     init_harness(&harness, 8, 4);
+    set_resampler_quality(&harness, FORGE_AUDIO_SOURCE_RESAMPLER_LINEAR);
     set_buffer(&harness, 0, samples, 5);
     harness.buffers[0].buffer.loop_begin = 1;
     harness.buffers[0].buffer.loop_length = 2;

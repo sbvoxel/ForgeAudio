@@ -965,6 +965,7 @@ ForgeResult forge_audio_create_source_voice(ForgeAudioEngine *audio, ForgeSource
     (*source_voice)->src.callback = callback;
     (*source_voice)->src.active = 0;
     (*source_voice)->src.freqRatio = 1.0f;
+    (*source_voice)->src.resamplerQuality = ForgeAudioResamplerCubic;
     (*source_voice)->src.totalSamples = 0;
     (*source_voice)->src.bufferLock = fa_platform_create_mutex();
     LOG_MUTEX_CREATE(audio, (*source_voice)->src.bufferLock)
@@ -1106,6 +1107,7 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     (*submix_voice)->mix.inputChannels = input_channels;
     (*submix_voice)->mix.inputSampleRate = input_sample_rate;
     (*submix_voice)->mix.processingStage = processing_stage;
+    (*submix_voice)->mix.resamplerQuality = ForgeAudioResamplerCubic;
 
     /* Resampler */
     if (input_channels == 1) {

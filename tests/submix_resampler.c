@@ -254,7 +254,7 @@ static int render_source_to_submix_quality(uint32_t channels, uint32_t master_ra
         failed = forge_audio_create_submix_voice(harness.audio, &submix, channels, submix_rate, 0, 0, NULL, NULL) != 0;
     }
     if (!failed) {
-        submix->mix.resamplerQuality = quality;
+        failed = forge_voice_set_resampler_quality(submix, quality) != ForgeResultSuccess;
     }
     if (!failed) {
         format = audio_test_float_format(channels, submix_rate);
@@ -405,8 +405,90 @@ static int render_empty_submix_quality(uint32_t channels, uint32_t master_rate, 
         failed = forge_audio_create_submix_voice(harness.audio, &submix, channels, submix_rate, 0, 0, NULL, NULL) != 0;
     }
     if (!failed) {
-        submix->mix.resamplerQuality = quality;
+        failed = forge_voice_set_resampler_quality(submix, quality) != ForgeResultSuccess;
+    }
+    if (!failed) {
         failed = audio_render_harness_render(&harness, output, output_frames);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int test_resampler_quality_public_api(void) {
+    enum {
+        channels = 1,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *source = NULL;
+    ForgeSubmixVoice *submix = NULL;
+    ForgeAudioFormat format;
+    ForgeAudioResamplerQuality quality = ForgeAudioResamplerLinear;
+    ForgeResult result;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, channels, sample_rate, quantum);
+    if (!failed) {
+        format = audio_test_float_format(channels, sample_rate);
+        failed = forge_audio_create_source_voice(harness.audio, &source, &format, 0, FORGE_AUDIO_DEFAULT_FREQ_RATIO,
+                                                 NULL, NULL, NULL) != ForgeResultSuccess;
+    }
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &submix, channels, sample_rate, 0, 0, NULL, NULL) !=
+                 ForgeResultSuccess;
+    }
+
+    if (!failed) {
+        result = forge_voice_get_resampler_quality(source, &quality);
+        if (result != ForgeResultSuccess || quality != ForgeAudioResamplerCubic) {
+            fprintf(stderr, "source public default resampler quality: result=%d quality=%d\n", result, quality);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_get_resampler_quality(submix, &quality);
+        if (result != ForgeResultSuccess || quality != ForgeAudioResamplerCubic) {
+            fprintf(stderr, "submix public default resampler quality: result=%d quality=%d\n", result, quality);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_set_resampler_quality(source, ForgeAudioResamplerLinear);
+        if (result != ForgeResultSuccess) {
+            fprintf(stderr, "source public set linear resampler quality: got %d\n", result);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_set_resampler_quality(submix, ForgeAudioResamplerLinear);
+        if (result != ForgeResultSuccess) {
+            fprintf(stderr, "submix public set linear resampler quality: got %d\n", result);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_get_resampler_quality(submix, &quality);
+        if (result != ForgeResultSuccess || quality != ForgeAudioResamplerLinear) {
+            fprintf(stderr, "submix public get linear resampler quality: result=%d quality=%d\n", result, quality);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_set_resampler_quality(submix, (ForgeAudioResamplerQuality)99);
+        if (result != ForgeResultInvalidArgument) {
+            fprintf(stderr, "submix invalid resampler quality: expected %d, got %d\n", ForgeResultInvalidArgument,
+                    result);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        result = forge_voice_get_resampler_quality(harness.master, &quality);
+        if (result != ForgeResultInvalidCall) {
+            fprintf(stderr, "master get resampler quality: expected %d, got %d\n", ForgeResultInvalidCall, result);
+            failed = 1;
+        }
     }
 
     audio_render_harness_destroy(&harness);
@@ -1577,6 +1659,7 @@ static int run_test(const char *name, int (*test_func)(void)) {
 int main(void) {
     int failures = 0;
 
+    failures += run_test("resampler_quality_public_api", test_resampler_quality_public_api);
     failures += run_test("submix_stereo_identity_preserves_channel_order",
                          test_submix_stereo_identity_preserves_channel_order);
     failures += run_test("submix_mono_cubic_interpolation_matches_reference",

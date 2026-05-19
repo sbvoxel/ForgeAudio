@@ -70,6 +70,16 @@ typedef enum ForgeFilterType {
     ForgeFilterNotch
 } ForgeFilterType;
 
+typedef enum ForgeAudioResamplerQuality {
+    ForgeAudioResamplerLinear = 0,
+    ForgeAudioResamplerCubic = 1,
+    FORGE_AUDIO_RESAMPLER_LINEAR = ForgeAudioResamplerLinear,
+    FORGE_AUDIO_RESAMPLER_CUBIC = ForgeAudioResamplerCubic,
+    FORGE_AUDIO_SOURCE_RESAMPLER_LINEAR = ForgeAudioResamplerLinear,
+    FORGE_AUDIO_SOURCE_RESAMPLER_CUBIC = ForgeAudioResamplerCubic
+} ForgeAudioResamplerQuality;
+typedef ForgeAudioResamplerQuality ForgeAudioSourceResamplerQuality;
+
 /* Structures */
 
 #pragma pack(push, 1)
@@ -575,6 +585,25 @@ FORGE_AUDIO_API ForgeResult forge_voice_set_outputs(ForgeVoice *voice, const For
  * Returns ForgeResultSuccess on success.
  */
 FORGE_AUDIO_API ForgeResult forge_voice_set_effect_chain(ForgeVoice *voice, const ForgeEffectChain *effect_chain);
+
+/* Sets the interpolation quality used when this source or submix voice resamples.
+ * Master voices do not resample and return ForgeResultInvalidCall.
+ *
+ * ForgeAudioResamplerCubic is the default. It is Catmull-Rom interpolation:
+ * smoother than linear, but not a bandlimited anti-aliasing sample-rate converter.
+ * ForgeAudioResamplerLinear is available as a lower-CPU fast path.
+ *
+ * The change applies immediately and may slightly change the rendered waveform
+ * if the voice is already active.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_set_resampler_quality(ForgeVoice *voice,
+                                                              ForgeAudioResamplerQuality quality);
+
+/* Gets the interpolation quality used when this source or submix voice resamples.
+ * Master voices do not resample and return ForgeResultInvalidCall.
+ */
+FORGE_AUDIO_API ForgeResult forge_voice_get_resampler_quality(ForgeVoice *voice,
+                                                              ForgeAudioResamplerQuality *quality);
 
 /* Enables an effect in the effect chain.
  *
