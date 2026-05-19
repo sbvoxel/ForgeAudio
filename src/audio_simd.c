@@ -424,9 +424,10 @@ void fa_resample_cubic(float *restrict dCache, float *restrict resampleCache, ui
  *     output(t) = sum tap[k] * input[current + k - 3]
  *
  * The fractional phase indexes a 128-entry table using floor(t * 128).
- * Coefficients are Lanczos-windowed sinc taps normalized per phase for unity
- * DC gain. The table is static storage and initialized deterministically on
- * first use so tests that bypass platform initialization still work.
+ * Coefficients are windowed sinc taps normalized per phase for unity DC gain.
+ * FA_RESAMPLE_SINC8_WINDOW selects the window at compile time. The table is
+ * static storage and initialized deterministically on first use so tests that
+ * bypass platform initialization still work.
  */
 
 static float fa_sinc8_table[FA_RESAMPLE_SINC8_PHASES][FA_RESAMPLE_SINC8_TAPS];
@@ -444,6 +445,39 @@ static double fa_resample_sinc(double x) {
     return forge_sin(pix) / pix;
 }
 
+static double fa_resample_i0(double x) {
+    double y = (x * x) * 0.25;
+    double sum = 1.0;
+    double term = 1.0;
+
+    for (uint32_t i = 1; i <= 16; i += 1) {
+        term *= y / ((double)i * (double)i);
+        sum += term;
+    }
+
+    return sum;
+}
+
+static double fa_resample_sinc8_window(double x) {
+    double radius = x / 4.0;
+
+    if (radius < 0.0) {
+        radius = -radius;
+    }
+
+    if (radius > 1.0) {
+        return 0.0;
+    }
+
+#if FA_RESAMPLE_SINC8_WINDOW == FA_RESAMPLE_SINC8_WINDOW_LANCZOS
+    return fa_resample_sinc(x / 4.0);
+#elif FA_RESAMPLE_SINC8_WINDOW == FA_RESAMPLE_SINC8_WINDOW_KAISER4
+    return fa_resample_i0(4.0 * forge_sqrtf((float)(1.0 - (radius * radius)))) / fa_resample_i0(4.0);
+#else
+#error Unknown FA_RESAMPLE_SINC8_WINDOW value
+#endif
+}
+
 static void fa_resample_sinc8_init_table(void) {
     if (fa_sinc8_table_initialized) {
         return;
@@ -455,7 +489,7 @@ static void fa_resample_sinc8_init_table(void) {
 
         for (uint32_t tap = 0; tap < FA_RESAMPLE_SINC8_TAPS; tap += 1) {
             double x = (double)tap - (double)FA_RESAMPLE_SINC8_LEFT_TAPS - t;
-            double coeff = fa_resample_sinc(x) * fa_resample_sinc(x / 4.0);
+            double coeff = fa_resample_sinc(x) * fa_resample_sinc8_window(x);
             fa_sinc8_table[phase][tap] = (float)coeff;
             sum += coeff;
         }

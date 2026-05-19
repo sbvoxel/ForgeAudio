@@ -264,6 +264,38 @@ static double sinc8_reference_sinc(double x) {
     return forge_sin(pix) / pix;
 }
 
+static double sinc8_reference_i0(double x) {
+    double y = (x * x) * 0.25;
+    double sum = 1.0;
+    double term = 1.0;
+
+    for (uint32_t i = 1; i <= 16; i += 1) {
+        term *= y / ((double)i * (double)i);
+        sum += term;
+    }
+
+    return sum;
+}
+
+static double sinc8_reference_window(double x) {
+    double radius = x / 4.0;
+
+    if (radius < 0.0) {
+        radius = -radius;
+    }
+    if (radius > 1.0) {
+        return 0.0;
+    }
+
+#if FA_RESAMPLE_SINC8_WINDOW == FA_RESAMPLE_SINC8_WINDOW_LANCZOS
+    return sinc8_reference_sinc(x / 4.0);
+#elif FA_RESAMPLE_SINC8_WINDOW == FA_RESAMPLE_SINC8_WINDOW_KAISER4
+    return sinc8_reference_i0(4.0 * forge_sqrtf((float)(1.0 - (radius * radius)))) / sinc8_reference_i0(4.0);
+#else
+#error Unknown FA_RESAMPLE_SINC8_WINDOW value
+#endif
+}
+
 static uint32_t sinc8_reference_phase(uint64_t fraction) {
     return (uint32_t)(((fraction & FIXED_FRACTION_MASK) * FA_RESAMPLE_SINC8_PHASES) >> FIXED_PRECISION);
 }
@@ -275,7 +307,7 @@ static void sinc8_reference_coefficients(uint64_t fraction, float *coefficients)
 
     for (uint32_t tap = 0; tap < FA_RESAMPLE_SINC8_TAPS; tap += 1) {
         double x = (double)tap - (double)FA_RESAMPLE_SINC8_LEFT_TAPS - t;
-        double coeff = sinc8_reference_sinc(x) * sinc8_reference_sinc(x / 4.0);
+        double coeff = sinc8_reference_sinc(x) * sinc8_reference_window(x);
         coefficients[tap] = (float)coeff;
         sum += coeff;
     }
