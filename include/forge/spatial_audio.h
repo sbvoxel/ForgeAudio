@@ -83,6 +83,9 @@ extern "C" {
 #define FORGE_SPATIAL_2PI 6.283185307f
 
 #define FORGE_SPATIAL_CALCULATE_MATRIX 0x00000001
+/* TODO: Implement or remove. This flag currently does not produce useful
+ * spatial delay values.
+ */
 #define FORGE_SPATIAL_CALCULATE_DELAY 0x00000002
 #define FORGE_SPATIAL_CALCULATE_LPF_DIRECT 0x00000004
 #define FORGE_SPATIAL_CALCULATE_LPF_REVERB 0x00000008
@@ -165,6 +168,9 @@ typedef struct ForgeSpatialEmitter {
 
 typedef struct ForgeSpatialDspSettings {
     float *matrix_coefficients;
+    /* TODO: Currently unused except by the unimplemented
+     * FORGE_SPATIAL_CALCULATE_DELAY stub.
+     */
     float *delay_times;
     uint32_t src_channel_count;
     uint32_t dst_channel_count;

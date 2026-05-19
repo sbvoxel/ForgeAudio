@@ -1122,7 +1122,9 @@ void forge_spatializer_calculate(const ForgeSpatializer *spatializer, const Forg
         }
     }
 
-    /* Unimplemented flags */
+    /* TODO: Implement or remove FORGE_SPATIAL_CALCULATE_DELAY. This currently
+     * writes zero stereo delays only to preserve the inherited stub behavior.
+     */
     if ((flags & FORGE_SPATIAL_CALCULATE_DELAY) && SPEAKERMASK(spatializer) == FORGE_SPEAKER_STEREO) {
         for (i = 0; i < dsp_settings->dst_channel_count; i += 1) {
             dsp_settings->delay_times[i] = 0.0f;
