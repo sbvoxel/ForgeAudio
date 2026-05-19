@@ -904,6 +904,49 @@ static int test_sinc8_loop_entry_uses_prior_play_frames_before_first_wrap(void) 
     return failed;
 }
 
+static int test_sinc8_after_wrap_loop_interior_uses_loop_tail_prefix(void) {
+    static const float samples[] = {0.0f, 100.0f, 10.0f, 20.0f, 30.0f};
+    static const float taps[] = {20.0f, 30.0f, 10.0f, 20.0f, 30.0f, 10.0f, 20.0f, 30.0f};
+    SourceHarness harness;
+    ForgeAudioTestSourceResampleResult result;
+    float coefficients[FA_RESAMPLE_SINC8_TAPS];
+    float output[1] = {0};
+    float expected = 0.0f;
+    int failed = 0;
+
+    sinc8_reference_coefficients(DOUBLE_TO_FIXED(0.5), coefficients);
+    for (uint32_t tap = 0; tap < FA_RESAMPLE_SINC8_TAPS; tap += 1) {
+        expected += taps[tap] * coefficients[tap];
+    }
+
+    init_harness(&harness, 5, 1);
+    harness.voice.src.resampleStep = FIXED_ONE;
+    harness.voice.src.resampleOffset = DOUBLE_TO_FIXED(0.5);
+    harness.voice.src.curBufferOffset = 3;
+    harness.voice.src.totalSamples = 8;
+    harness.voice.src.resampleLoopWrapped = 1;
+    set_resampler_quality(&harness, FA_AUDIO_SOURCE_RESAMPLER_SINC8);
+    set_buffer(&harness, 0, samples, 5);
+    harness.buffers[0].buffer.loop_begin = 2;
+    harness.buffers[0].buffer.loop_length = 3;
+    harness.buffers[0].buffer.loop_count = FORGE_AUDIO_LOOP_INFINITE;
+    harness.buffers[0].loop_bytes = 3 * harness.format.block_align;
+    harness.voice.src.queued_buffer_count = 1;
+    harness.voice.src.queued_buffers_capacity = 1;
+
+    result = forge_audio_test_decode_resample_source(&harness.voice, output);
+    if (result.resampled_frames != 1) {
+        fprintf(stderr, "sinc8 after-wrap loop interior resampled_frames: expected 1, got %u\n",
+                result.resampled_frames);
+        failed = 1;
+    }
+
+    failed |= check_values_tolerance("sinc8_after_wrap_loop_interior", output, &expected, 1, 0.000002f);
+
+    destroy_harness(&harness);
+    return failed;
+}
+
 static int test_sinc8_true_start_and_end_policy_matches_reference(void) {
     enum {
         output_frames = 8
@@ -1257,6 +1300,8 @@ int main(void) {
                          test_sinc8_padding_peeks_across_loop_boundary);
     failures += run_test("sinc8_loop_entry_uses_prior_play_frames_before_first_wrap",
                          test_sinc8_loop_entry_uses_prior_play_frames_before_first_wrap);
+    failures += run_test("sinc8_after_wrap_loop_interior_uses_loop_tail_prefix",
+                         test_sinc8_after_wrap_loop_interior_uses_loop_tail_prefix);
     failures += run_test("sinc8_true_start_and_end_policy_matches_reference",
                          test_sinc8_true_start_and_end_policy_matches_reference);
     failures += run_test("sinc8_variable_rate_path_matches_reference",

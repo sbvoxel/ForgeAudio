@@ -192,15 +192,19 @@ static bool decode_previous_frame_at_distance(ForgeSourceVoice *voice, uint32_t 
     buffer = &voice->src.queued_buffers[0];
     offset = voice->src.curBufferOffset;
 
-    if (voice->src.resampleLoopWrapped && buffer->loop_bytes != 0 && offset == buffer->buffer.loop_begin) {
+    if (voice->src.resampleLoopWrapped && buffer->loop_bytes != 0 &&
+        offset >= buffer->buffer.loop_begin &&
+        offset < buffer->buffer.loop_begin + (buffer->loop_bytes / block_size)) {
         uint32_t loop_frames = buffer->loop_bytes / block_size;
-        uint32_t loop_distance;
+        uint32_t loop_offset;
+        uint32_t previous_loop_offset;
 
         if (loop_frames == 0) {
             return false;
         }
-        loop_distance = (distance - 1) % loop_frames;
-        previous_offset = buffer->buffer.loop_begin + loop_frames - 1 - loop_distance;
+        loop_offset = offset - buffer->buffer.loop_begin;
+        previous_loop_offset = (loop_offset + loop_frames - (distance % loop_frames)) % loop_frames;
+        previous_offset = buffer->buffer.loop_begin + previous_loop_offset;
     } else if (offset >= buffer->buffer.play_begin + distance) {
         previous_offset = offset - distance;
     } else {
