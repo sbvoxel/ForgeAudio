@@ -1117,6 +1117,7 @@ void forge_spatializer_calculate(const ForgeSpatializer *spatializer, const Forg
         } else {
             /* Note: emitter->orient_front is normalized. */
             dp = VECTOR_DOT(emitter_to_listener, emitter->orient_front) / emitter_to_listener_distance;
+            dp = forge_clamp(dp, -1.0f, 1.0f);
             dsp_settings->emitter_to_listener_angle = forge_acosf(dp);
         }
     }
