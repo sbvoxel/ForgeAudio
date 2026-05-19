@@ -1,5 +1,12 @@
 # ForgeAudio
 
+<p align="center">
+  <img src="forge-audio.png" alt="ForgeAudio logo" width="320">
+</p>
+
+Logo trivia: this was the very, very first AI-generated logo for the project.
+Zero iteration.
+
 > Status note: ForgeAudio is in active early development. Large pieces of the
 > inherited FAudio/XAudio-shaped surface are being removed, renamed, or
 > redesigned into ForgeAudio-owned APIs. Treat the public API as pre-1.0 and in
