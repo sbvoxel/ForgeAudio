@@ -10,11 +10,18 @@
 #include "audio_render_harness.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct SubmixRenderInfo {
     uint32_t input_samples;
     uint32_t output_samples;
 } SubmixRenderInfo;
+
+typedef struct SubmixHistoryRunInfo {
+    uint32_t input_frames;
+    uint32_t output_frames;
+    uint32_t max_history_frames;
+} SubmixHistoryRunInfo;
 
 static int check_values(const char *name, const float *actual, const float *expected, uint32_t count) {
     for (uint32_t i = 0; i < count; i += 1) {
@@ -80,6 +87,71 @@ static int render_source_to_submix(uint32_t channels, uint32_t master_rate, uint
         info->output_samples = submix->mix.outputSamples;
     }
 
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+static int render_submix_history_long_run(const char *name, uint32_t master_rate, uint32_t submix_rate,
+                                          uint32_t quantum, uint32_t pass_count, SubmixHistoryRunInfo *info) {
+    AudioRenderHarness harness;
+    ForgeSubmixVoice *submix = NULL;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    float *source = NULL;
+    float *output = NULL;
+    uint32_t source_frames;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, 1, master_rate, quantum);
+    if (!failed) {
+        failed = forge_audio_create_submix_voice(harness.audio, &submix, 1, submix_rate, 0, 0, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        format = audio_test_float_format(1, submix_rate);
+        send.flags = 0;
+        send.output_voice = submix;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 FORGE_AUDIO_DEFAULT_FREQ_RATIO, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        source_frames = submix->mix.inputFrames * (pass_count + 2);
+        source = (float *)malloc(sizeof(float) * source_frames);
+        output = (float *)malloc(sizeof(float) * quantum);
+        if (source == NULL || output == NULL) {
+            fprintf(stderr, "%s: allocation failed\n", name);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        fill_mono_ramp(source, source_frames);
+        failed = audio_render_harness_submit_float_buffer(voice, source, source_frames, 1);
+    }
+    if (!failed) {
+        failed = forge_source_voice_start(voice, 0, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        info->input_frames = submix->mix.inputFrames;
+        info->output_frames = submix->mix.outputSamples;
+        info->max_history_frames = 0;
+
+        for (uint32_t pass = 0; pass < pass_count; pass += 1) {
+            failed = audio_render_harness_render(&harness, output, quantum);
+            if (failed) {
+                break;
+            }
+
+            if (submix->mix.resampleHistoryFrames > info->max_history_frames) {
+                info->max_history_frames = submix->mix.resampleHistoryFrames;
+            }
+        }
+    }
+
+    free(source);
+    free(output);
     audio_render_harness_destroy(&harness);
     return failed;
 }
@@ -316,6 +388,44 @@ static int test_submix_downsample_output_size_stays_within_initialized_input(voi
     return failed;
 }
 
+static int test_submix_retained_history_stays_bounded_long_run(void) {
+    enum {
+        quantum = 1024,
+        pass_count = 1000
+    };
+    static const struct {
+        const char *name;
+        uint32_t master_rate;
+        uint32_t submix_rate;
+        uint32_t expected_max_history_frames;
+    } cases[] = {
+        {"submix_history_44100_to_48000", 48000, 44100, 201},
+        {"submix_history_48000_to_44100", 44100, 48000, 443},
+        {"submix_history_3000_to_2000", 3000, 2000, 334}
+    };
+    int failed = 0;
+
+    for (uint32_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i += 1) {
+        SubmixHistoryRunInfo info;
+        int case_failed;
+
+        case_failed = render_submix_history_long_run(cases[i].name, cases[i].master_rate, cases[i].submix_rate,
+                                                     quantum, pass_count, &info);
+        if (!case_failed) {
+            printf("%s: input=%u output=%u max_history=%u\n", cases[i].name, info.input_frames,
+                   info.output_frames, info.max_history_frames);
+            if (info.max_history_frames != cases[i].expected_max_history_frames) {
+                fprintf(stderr, "%s: expected max_history %u, got %u\n", cases[i].name,
+                        cases[i].expected_max_history_frames, info.max_history_frames);
+                case_failed = 1;
+            }
+        }
+        failed |= case_failed;
+    }
+
+    return failed;
+}
+
 static int run_test(const char *name, int (*test_func)(void)) {
     int failed = test_func();
 
@@ -347,6 +457,8 @@ int main(void) {
                          test_submix_true_no_input_drains_history_to_silence);
     failures += run_test("submix_three_channel_history_preserves_channel_order",
                          test_submix_three_channel_history_preserves_channel_order);
+    failures += run_test("submix_retained_history_stays_bounded_long_run",
+                         test_submix_retained_history_stays_bounded_long_run);
 
     return failures == 0 ? 0 : 1;
 }

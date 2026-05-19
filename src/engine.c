@@ -1220,6 +1220,10 @@ static float *stage_submix_resample_input(ForgeSubmixVoice *voice, uint64_t *loc
     float *stage = voice->mix.resampleInputCache;
     uint64_t baseOffset;
 
+    /* TODO: Replace fixed-ceil submix input production with variable per-pass
+     * input scheduling. Until then, retained history can grow deterministically
+     * when each pass produces more input frames than SRC consumes.
+     */
     ensure_submix_resample_input_capacity(voice, stagedFrames);
     stage = voice->mix.resampleInputCache;
 
