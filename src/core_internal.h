@@ -120,6 +120,9 @@ struct ForgeAudioEngine {
 
 /* Temp storage for processing, interleaved PCM32F */
 #define EXTRA_DECODE_PADDING 2
+#define SUBMIX_RESAMPLE_HISTORY_FRAMES 1
+#define SUBMIX_RESAMPLE_EDGE_FRAMES 1
+#define SUBMIX_RESAMPLE_INPUT_PADDING_FRAMES (SUBMIX_RESAMPLE_HISTORY_FRAMES + SUBMIX_RESAMPLE_EDGE_FRAMES)
     uint32_t decodeSamples;
     uint32_t resampleSamples;
     uint32_t effectChainSamples;
@@ -217,10 +220,17 @@ struct ForgeVoice {
         } src;
         struct {
             /* Sample storage */
+            uint32_t inputFrames;
             uint32_t inputSamples;
             uint32_t outputSamples;
             float *inputCache;
+            float *resampleInputCache;
+            float *resampleHistory;
             uint64_t resampleStep;
+            uint64_t resampleOffset;
+            uint64_t inputFrameCursor;
+            uint32_t currentPassInputFrames;
+            uint8_t resampleHistoryValid;
             ForgeAudioResampleCallback resample;
 
             /* Read-only */

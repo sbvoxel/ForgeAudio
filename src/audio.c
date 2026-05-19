@@ -400,6 +400,12 @@ static void cleanup_failed_unlinked_voice(ForgeVoice **failed_voice) {
         if (voice->mix.inputCache != NULL) {
             voice->audio->free_func(voice->mix.inputCache);
         }
+        if (voice->mix.resampleInputCache != NULL) {
+            voice->audio->free_func(voice->mix.resampleInputCache);
+        }
+        if (voice->mix.resampleHistory != NULL) {
+            voice->audio->free_func(voice->mix.resampleHistory);
+        }
     } else if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
         if (voice->master.effectCache != NULL) {
             voice->audio->free_func(voice->master.effectCache);
@@ -958,9 +964,10 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
     }
 
     /* Sample Storage */
-    (*submix_voice)->mix.inputSamples = ((uint32_t)forge_ceil(audio->updateSize * (double)input_sample_rate /
-                                                              (double)audio->master->master.inputSampleRate) +
-                                         EXTRA_DECODE_PADDING) *
+    (*submix_voice)->mix.inputFrames = (uint32_t)forge_ceil(audio->updateSize * (double)input_sample_rate /
+                                                            (double)audio->master->master.inputSampleRate);
+    (*submix_voice)->mix.inputSamples = ((*submix_voice)->mix.inputFrames +
+                                         SUBMIX_RESAMPLE_INPUT_PADDING_FRAMES) *
                                         input_channels;
     (*submix_voice)->mix.inputCache = (float *)audio->malloc_func(sizeof(float) * (*submix_voice)->mix.inputSamples);
     if ((*submix_voice)->mix.inputCache == NULL) {
@@ -968,8 +975,28 @@ ForgeResult forge_audio_create_submix_voice(ForgeAudioEngine *audio, ForgeSubmix
         LOG_API_EXIT(audio)
         return ForgeResultOutOfMemory;
     }
+    (*submix_voice)->mix.resampleInputCache = (float *)audio->malloc_func(
+        sizeof(float) * ((*submix_voice)->mix.inputFrames + SUBMIX_RESAMPLE_HISTORY_FRAMES +
+                         SUBMIX_RESAMPLE_EDGE_FRAMES) *
+        input_channels);
+    if ((*submix_voice)->mix.resampleInputCache == NULL) {
+        cleanup_failed_unlinked_voice(submix_voice);
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
+    (*submix_voice)->mix.resampleHistory = (float *)audio->malloc_func(sizeof(float) * input_channels);
+    if ((*submix_voice)->mix.resampleHistory == NULL) {
+        cleanup_failed_unlinked_voice(submix_voice);
+        LOG_API_EXIT(audio)
+        return ForgeResultOutOfMemory;
+    }
     forge_zero(/* Zero this now, for the first update */
                (*submix_voice)->mix.inputCache, sizeof(float) * (*submix_voice)->mix.inputSamples);
+    forge_zero((*submix_voice)->mix.resampleInputCache,
+               sizeof(float) * ((*submix_voice)->mix.inputFrames + SUBMIX_RESAMPLE_HISTORY_FRAMES +
+                                SUBMIX_RESAMPLE_EDGE_FRAMES) *
+                   input_channels);
+    forge_zero((*submix_voice)->mix.resampleHistory, sizeof(float) * input_channels);
 
     /* Sends/Effects */
     outputRate = send_list_output_rate(audio, send_list);
@@ -3464,6 +3491,8 @@ static void destroy_voice(ForgeVoice *voice) {
 
         /* Delete submix data */
         voice->audio->free_func(voice->mix.inputCache);
+        voice->audio->free_func(voice->mix.resampleInputCache);
+        voice->audio->free_func(voice->mix.resampleHistory);
     } else if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
         if (voice->audio->platform != NULL) {
             fa_platform_quit(voice->audio->platform);
