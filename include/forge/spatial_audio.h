@@ -258,8 +258,8 @@ typedef struct ForgeNativeSpatialDspSettings {
 
 /* Functions */
 
-/* Legacy/inherited X3DAudio/FAudio-style spatial behavior. The newer
- * Forge-native calculator path is forge_native_spatializer_init and
+/* Original X3DAudio/FAudio-style spatial behavior. The newer calculator path
+ * is forge_native_spatializer_init and
  * forge_native_spatializer_calculate.
  */
 FORGE_SPATIAL_API bool forge_spatializer_init(uint32_t speaker_channel_mask, float speed_of_sound,
