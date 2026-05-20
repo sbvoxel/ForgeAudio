@@ -9,6 +9,7 @@
 
 #include "engine_render_tests.h"
 
+#include <forge/spatial_audio.h>
 #include <stdio.h>
 
 static int create_filter_source(AudioRenderHarness *harness, ForgeSourceVoice **voice, uint32_t channels,
@@ -832,6 +833,250 @@ int test_filter_invalid_type_rejected(void) {
                               forge_voice_ramp_output_filter_frames(voice, harness.master, &target, 4,
                                                                     FORGE_AUDIO_BATCH_IMMEDIATE),
                               ForgeResultInvalidArgument);
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_native_spatial_direct_apply_updates_matrix_rate_and_send_filter(void) {
+    enum {
+        source_channels = 1,
+        destination_channels = 2,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    ForgeNativeSpatialDspSettings dsp;
+    ForgeFilterParameters filter_params;
+    float matrix[destination_channels * source_channels] = {0.25f, 0.75f};
+    float got_matrix[destination_channels * source_channels];
+    float output[quantum * destination_channels];
+    float rate = 0.0f;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, destination_channels, sample_rate, quantum);
+    if (!failed) {
+        format = audio_test_float_format(source_channels, sample_rate);
+        send.flags = FORGE_AUDIO_SEND_USEFILTER;
+        send.output_voice = harness.master;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 2.0f, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        forge_zero(&dsp, sizeof(dsp));
+        dsp.matrix_coefficients = matrix;
+        dsp.src_channel_count = source_channels;
+        dsp.dst_channel_count = destination_channels;
+        dsp.doppler_rate_scalar = 1.5f;
+        dsp.direct_lowpass_cutoff_hz = 400.0f;
+        failed = forge_source_voice_apply_native_spatial_direct(voice, harness.master, &dsp, 0,
+                                                                FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        forge_voice_get_output_matrix(voice, harness.master, source_channels, destination_channels, got_matrix);
+        failed = audio_test_check_equal("native_spatial_direct_matrix", got_matrix, matrix,
+                                        destination_channels * source_channels, 0.000001f);
+    }
+    if (!failed) {
+        forge_source_voice_get_rate(voice, &rate);
+        if (audio_test_absf(rate - 1.5f) > 0.000001f) {
+            fprintf(stderr, "native spatial direct rate: got %.8f\n", rate);
+            failed = 1;
+        }
+    }
+    if (!failed) {
+        forge_voice_get_output_filter_parameters(voice, harness.master, &filter_params);
+        if (filter_params.type != ForgeFilterLowPass ||
+            audio_test_absf(filter_params.cutoff_hz - 400.0f) > 0.000001f ||
+            audio_test_absf(filter_params.q - 1.0f) > 0.000001f ||
+            audio_test_absf(filter_params.wet_dry_mix - 1.0f) > 0.000001f) {
+            fprintf(stderr, "native spatial direct filter: type=%d cutoff=%.8f q=%.8f wet=%.8f\n",
+                    filter_params.type, filter_params.cutoff_hz, filter_params.q, filter_params.wet_dry_mix);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_native_spatial_direct_apply_preflight_is_all_or_nothing(void) {
+    enum {
+        source_channels = 1,
+        destination_channels = 2,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeNativeSpatialDspSettings dsp;
+    float start_matrix[destination_channels * source_channels] = {0.3f, 0.4f};
+    float target_matrix[destination_channels * source_channels] = {0.1f, 0.9f};
+    float got_matrix[destination_channels * source_channels];
+    float output[quantum * destination_channels];
+    float rate = 0.0f;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, destination_channels, sample_rate, quantum);
+    if (!failed) {
+        format = audio_test_float_format(source_channels, sample_rate);
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 2.0f, NULL, NULL, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_set_output_matrix(voice, harness.master, source_channels, destination_channels,
+                                               start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        forge_zero(&dsp, sizeof(dsp));
+        dsp.matrix_coefficients = target_matrix;
+        dsp.src_channel_count = source_channels;
+        dsp.dst_channel_count = destination_channels;
+        dsp.doppler_rate_scalar = 1.5f;
+        dsp.direct_lowpass_cutoff_hz = 400.0f;
+        failed = check_result("native_spatial_direct_missing_send_filter",
+                              forge_source_voice_apply_native_spatial_direct(voice, harness.master, &dsp, 0,
+                                                                             FORGE_AUDIO_BATCH_IMMEDIATE),
+                              ForgeResultInvalidCall);
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        forge_voice_get_output_matrix(voice, harness.master, source_channels, destination_channels, got_matrix);
+        failed = audio_test_check_equal("native_spatial_direct_failed_matrix_unchanged", got_matrix, start_matrix,
+                                        destination_channels * source_channels, 0.000001f);
+    }
+    if (!failed) {
+        forge_source_voice_get_rate(voice, &rate);
+        if (audio_test_absf(rate - 1.0f) > 0.000001f) {
+            fprintf(stderr, "native spatial failed preflight changed rate: got %.8f\n", rate);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_native_spatial_direct_apply_rejects_invalid_preflight_arguments(void) {
+    enum {
+        source_channels = 1,
+        destination_channels = 2,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    ForgeAudioFormat format;
+    ForgeSend send;
+    ForgeSendList send_list;
+    ForgeNativeSpatialDspSettings dsp;
+    float start_matrix[destination_channels * source_channels] = {0.3f, 0.4f};
+    float target_matrix[destination_channels * source_channels] = {0.1f, 0.9f};
+    float got_matrix[destination_channels * source_channels];
+    float rate = 0.0f;
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, destination_channels, sample_rate, quantum);
+    if (!failed) {
+        format = audio_test_float_format(source_channels, sample_rate);
+        send.flags = FORGE_AUDIO_SEND_USEFILTER;
+        send.output_voice = harness.master;
+        send_list.send_count = 1;
+        send_list.sends = &send;
+        failed = forge_audio_create_source_voice(harness.audio, &voice, &format, 0,
+                                                 2.0f, NULL, &send_list, NULL) != 0;
+    }
+    if (!failed) {
+        failed = forge_voice_set_output_matrix(voice, harness.master, source_channels, destination_channels,
+                                               start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        forge_zero(&dsp, sizeof(dsp));
+        dsp.matrix_coefficients = target_matrix;
+        dsp.src_channel_count = source_channels;
+        dsp.dst_channel_count = destination_channels + 1;
+        dsp.doppler_rate_scalar = 1.5f;
+        dsp.direct_lowpass_cutoff_hz = 400.0f;
+        failed = check_result("native_spatial_direct_bad_dst_channels",
+                              forge_source_voice_apply_native_spatial_direct(voice, harness.master, &dsp, 0,
+                                                                             FORGE_AUDIO_BATCH_IMMEDIATE),
+                              ForgeResultInvalidCall);
+    }
+    if (!failed) {
+        dsp.dst_channel_count = destination_channels;
+        dsp.doppler_rate_scalar = 0.0f;
+        failed = check_result("native_spatial_direct_bad_rate",
+                              forge_source_voice_apply_native_spatial_direct(voice, harness.master, &dsp, 0,
+                                                                             FORGE_AUDIO_BATCH_IMMEDIATE),
+                              ForgeResultInvalidArgument);
+    }
+    if (!failed) {
+        forge_voice_get_output_matrix(voice, harness.master, source_channels, destination_channels, got_matrix);
+        failed = audio_test_check_equal("native_spatial_direct_invalid_args_matrix_unchanged", got_matrix,
+                                        start_matrix, destination_channels * source_channels, 0.000001f);
+    }
+    if (!failed) {
+        forge_source_voice_get_rate(voice, &rate);
+        if (audio_test_absf(rate - 1.0f) > 0.000001f) {
+            fprintf(stderr, "native spatial invalid preflight changed rate: got %.8f\n", rate);
+            failed = 1;
+        }
+    }
+
+    audio_render_harness_destroy(&harness);
+    return failed;
+}
+
+int test_spatial_send_gain_scales_current_matrix(void) {
+    enum {
+        source_channels = 1,
+        destination_channels = 2,
+        sample_rate = 48000,
+        quantum = 4
+    };
+    AudioRenderHarness harness;
+    ForgeSourceVoice *voice = NULL;
+    float start_matrix[destination_channels * source_channels] = {0.2f, 0.6f};
+    float expected[destination_channels * source_channels];
+    float got_matrix[destination_channels * source_channels];
+    float output[quantum * destination_channels];
+    int failed = 0;
+
+    failed = audio_render_harness_init(&harness, destination_channels, sample_rate, quantum);
+    if (!failed) {
+        failed = audio_render_harness_create_float_source(&harness, &voice, source_channels, sample_rate);
+    }
+    if (!failed) {
+        failed = forge_voice_set_output_matrix(voice, harness.master, source_channels, destination_channels,
+                                               start_matrix, FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        for (uint32_t i = 0; i < destination_channels * source_channels; i += 1) {
+            expected[i] = start_matrix[i] * 0.25f;
+        }
+        failed = forge_voice_ramp_spatial_send_gain(voice, harness.master, 0.25f, 0,
+                                                    FORGE_AUDIO_BATCH_IMMEDIATE) != 0;
+    }
+    if (!failed) {
+        failed = audio_render_harness_render(&harness, output, quantum);
+    }
+    if (!failed) {
+        forge_voice_get_output_matrix(voice, harness.master, source_channels, destination_channels, got_matrix);
+        failed = audio_test_check_equal("spatial_send_gain_matrix", got_matrix, expected,
+                                        destination_channels * source_channels, 0.000001f);
     }
 
     audio_render_harness_destroy(&harness);

@@ -14,6 +14,9 @@
 #include "format_internal.h"
 #include "batch_internal.h"
 #include "simd_internal.h"
+#include <forge/spatial_audio.h>
+
+#include <float.h>
 
 #ifdef FORGE_AUDIO_DUMP_VOICES
 #include "dump_internal.h"
@@ -26,6 +29,10 @@ static void dump_voice_write_buffer(const ForgeSourceVoice *voice, const ForgeBu
 #endif /* FORGE_AUDIO_DUMP_VOICES */
 
 #define FA_AUTOMATION_DEFAULT_TARGET_FRAMES 128
+
+static uint8_t audio_float_finite(float value) {
+    return value == value && value <= FLT_MAX && value >= -FLT_MAX;
+}
 
 static uint8_t validate_pcm_or_float_format(ForgeAudioEngine *audio, const ForgeAudioFormat *format) {
     const ForgeAudioFormat *base = format;
@@ -4261,6 +4268,221 @@ void forge_source_voice_get_rate(ForgeSourceVoice *voice, float *ratio) {
 
     *ratio = voice->src.freqRatio;
     LOG_API_EXIT(voice->audio)
+}
+
+static uint32_t voice_input_channels(const ForgeVoice *voice) {
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER) {
+        return voice->master.inputChannels;
+    }
+    return voice->mix.inputChannels;
+}
+
+static ForgeResult preflight_native_spatial_direct(ForgeSourceVoice *source_voice,
+                                                   ForgeVoice *destination_voice,
+                                                   const ForgeNativeSpatialDspSettings *dsp_settings,
+                                                   uint32_t *source_channels,
+                                                   uint32_t *destination_channels) {
+    ForgeResult result = ForgeResultSuccess;
+    uint32_t send_index = 0;
+    uint32_t coefficient_count;
+
+    if (source_voice == NULL || destination_voice == NULL || dsp_settings == NULL ||
+        dsp_settings->matrix_coefficients == NULL || source_channels == NULL ||
+        destination_channels == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    if (source_voice->type != FORGE_AUDIO_VOICE_SOURCE) {
+        LOG_ERROR(source_voice->audio, "%s", "native spatial direct apply requires a source voice")
+        return ForgeResultInvalidCall;
+    }
+    if (source_voice->flags & FORGE_AUDIO_VOICE_NOPITCH) {
+        LOG_ERROR(source_voice->audio, "%s", "native spatial direct apply requires a pitchable source voice")
+        return ForgeResultInvalidCall;
+    }
+    if (destination_voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+        LOG_ERROR(source_voice->audio, "%s", "native spatial direct destination must be a submix or master voice")
+        return ForgeResultInvalidCall;
+    }
+    if (!audio_float_finite(dsp_settings->doppler_rate_scalar) ||
+        dsp_settings->doppler_rate_scalar <= 0.0f ||
+        !audio_float_finite(dsp_settings->direct_lowpass_cutoff_hz) ||
+        dsp_settings->direct_lowpass_cutoff_hz < 0.0f) {
+        return ForgeResultInvalidArgument;
+    }
+
+    fa_platform_lock_mutex(source_voice->sendLock);
+    LOG_MUTEX_LOCK(source_voice->audio, source_voice->sendLock)
+
+    result = validate_output_matrix_locked(source_voice, destination_voice,
+                                           dsp_settings->src_channel_count,
+                                           dsp_settings->dst_channel_count, &send_index);
+    if (result != ForgeResultSuccess) {
+        goto end;
+    }
+    if (!(source_voice->sends.sends[send_index].send.flags & FORGE_AUDIO_SEND_USEFILTER)) {
+        LOG_ERROR(source_voice->audio, "%s",
+                  "spatial direct LPF requires send created with FORGE_AUDIO_SEND_USEFILTER")
+        result = ForgeResultInvalidCall;
+        goto end;
+    }
+    if (source_voice->sends.sends[send_index].filter.type != ForgeFilterLowPass) {
+        LOG_ERROR(source_voice->audio, "%s", "spatial direct LPF requires a low-pass send filter")
+        result = ForgeResultInvalidCall;
+        goto end;
+    }
+
+    coefficient_count = dsp_settings->src_channel_count * dsp_settings->dst_channel_count;
+    for (uint32_t i = 0; i < coefficient_count; i += 1) {
+        if (!audio_float_finite(dsp_settings->matrix_coefficients[i])) {
+            result = ForgeResultInvalidArgument;
+            goto end;
+        }
+    }
+
+    *source_channels = dsp_settings->src_channel_count;
+    *destination_channels = dsp_settings->dst_channel_count;
+
+end:
+    fa_platform_unlock_mutex(source_voice->sendLock);
+    LOG_MUTEX_UNLOCK(source_voice->audio, source_voice->sendLock)
+    return result;
+}
+
+static ForgeResult preflight_spatial_send_gain(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                               float gain, uint32_t *source_channels,
+                                               uint32_t *destination_channels,
+                                               float matrix[64]) {
+    ForgeResult result;
+    uint32_t send_index = 0;
+    uint32_t coefficient_count;
+
+    if (voice == NULL || destination_voice == NULL || source_channels == NULL ||
+        destination_channels == NULL || matrix == NULL) {
+        return ForgeResultInvalidCall;
+    }
+    if (voice->type == FORGE_AUDIO_VOICE_MASTER ||
+        destination_voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+        return ForgeResultInvalidCall;
+    }
+    if (!audio_float_finite(gain)) {
+        return ForgeResultInvalidArgument;
+    }
+
+    *source_channels = voice->outputChannels;
+    *destination_channels = voice_input_channels(destination_voice);
+    if (*source_channels == 0 || *source_channels > 8 ||
+        *destination_channels == 0 || *destination_channels > 8) {
+        return ForgeResultInvalidCall;
+    }
+
+    fa_platform_lock_mutex(voice->sendLock);
+    LOG_MUTEX_LOCK(voice->audio, voice->sendLock)
+
+    result = validate_output_matrix_locked(voice, destination_voice, *source_channels,
+                                           *destination_channels, &send_index);
+    if (result == ForgeResultSuccess) {
+        coefficient_count = *source_channels * *destination_channels;
+        for (uint32_t i = 0; i < coefficient_count; i += 1) {
+            matrix[i] = voice->sends.sends[send_index].sendCoefficients[i] * gain;
+        }
+    }
+
+    fa_platform_unlock_mutex(voice->sendLock);
+    LOG_MUTEX_UNLOCK(voice->audio, voice->sendLock)
+    return result;
+}
+
+ForgeResult forge_source_voice_apply_native_spatial_direct(
+    ForgeSourceVoice *source_voice, ForgeVoice *destination_voice,
+    const ForgeNativeSpatialDspSettings *dsp_settings, uint32_t ramp_frames,
+    ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t source_channels = 0;
+    uint32_t destination_channels = 0;
+    ForgeFilterTarget lowpass_target;
+
+    if (source_voice == NULL) {
+        return ForgeResultInvalidCall;
+    }
+
+    LOG_API_ENTER(source_voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL) {
+        LOG_API_EXIT(source_voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    result = preflight_native_spatial_direct(source_voice, destination_voice, dsp_settings,
+                                             &source_channels, &destination_channels);
+    if (result != ForgeResultSuccess) {
+        LOG_API_EXIT(source_voice->audio)
+        return result;
+    }
+
+    lowpass_target.field_mask = FORGE_FILTER_TARGET_CUTOFF_HZ;
+    lowpass_target.cutoff_hz = dsp_settings->direct_lowpass_cutoff_hz;
+    lowpass_target.q = 0.0f;
+    lowpass_target.wet_dry_mix = 0.0f;
+
+    /* Preflight above covers the remaining validation performed by these
+     * wrappers in the normal single-writer graph case: batch id, matrix shape,
+     * pitchability, finite rate/cutoff values, filter target mask, live send
+     * attachment, and send-filter availability. ForgeAudio's existing voice
+     * APIs do not make concurrent graph retargeting transactional.
+     */
+    result = queue_or_install_ramp_output_matrix(source_voice, destination_voice,
+                                                 source_channels, destination_channels,
+                                                 dsp_settings->matrix_coefficients,
+                                                 ramp_frames, batch_id);
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_rate(source_voice, dsp_settings->doppler_rate_scalar,
+                                            ramp_frames, batch_id);
+    }
+    if (result == ForgeResultSuccess) {
+        result = queue_or_install_ramp_output_filter(source_voice, destination_voice,
+                                                     &lowpass_target, ramp_frames, batch_id);
+    }
+
+    LOG_API_EXIT(source_voice->audio)
+    return result;
+}
+
+ForgeResult forge_voice_ramp_spatial_send_gain(ForgeVoice *voice, ForgeVoice *destination_voice,
+                                               float gain, uint32_t ramp_frames,
+                                               ForgeAudioBatchId batch_id) {
+    ForgeResult result;
+    uint32_t source_channels = 0;
+    uint32_t destination_channels = 0;
+    float matrix[64];
+
+    if (voice == NULL) {
+        return ForgeResultInvalidCall;
+    }
+
+    LOG_API_ENTER(voice->audio)
+
+    if (batch_id == FORGE_AUDIO_BATCH_ALL || destination_voice == NULL ||
+        voice->type == FORGE_AUDIO_VOICE_MASTER ||
+        destination_voice->type == FORGE_AUDIO_VOICE_SOURCE) {
+        LOG_API_EXIT(voice->audio)
+        return ForgeResultInvalidCall;
+    }
+
+    result = preflight_spatial_send_gain(voice, destination_voice, gain, &source_channels,
+                                         &destination_channels, matrix);
+    if (result != ForgeResultSuccess) {
+        LOG_API_EXIT(voice->audio)
+        return result;
+    }
+
+    /* The preflight copied a validated live matrix and covers the wrapper's
+     * remaining validation in the normal single-writer graph case.
+     */
+    result = queue_or_install_ramp_output_matrix(voice, destination_voice, source_channels,
+                                                 destination_channels, matrix, ramp_frames, batch_id);
+
+    LOG_API_EXIT(voice->audio)
+    return result;
 }
 
 ForgeResult forge_source_voice_set_sample_rate(ForgeSourceVoice *voice, uint32_t new_source_sample_rate) {

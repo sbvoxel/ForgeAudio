@@ -166,6 +166,14 @@ int main(void) {
     failures += run_test("stopped_source_output_filter_ramp_uses_output_rate",
                          test_stopped_source_output_filter_ramp_uses_output_rate);
     failures += run_test("filter_invalid_type_rejected", test_filter_invalid_type_rejected);
+    failures += run_test("native_spatial_direct_apply_updates_matrix_rate_and_send_filter",
+                         test_native_spatial_direct_apply_updates_matrix_rate_and_send_filter);
+    failures += run_test("native_spatial_direct_apply_preflight_is_all_or_nothing",
+                         test_native_spatial_direct_apply_preflight_is_all_or_nothing);
+    failures += run_test("native_spatial_direct_apply_rejects_invalid_preflight_arguments",
+                         test_native_spatial_direct_apply_rejects_invalid_preflight_arguments);
+    failures += run_test("spatial_send_gain_scales_current_matrix",
+                         test_spatial_send_gain_scales_current_matrix);
     failures += run_test("reverb_ramp_getter_reports_current_value",
                          test_reverb_ramp_getter_reports_current_value);
     failures += run_test("reverb_wet_dry_ramp_renders_dry_path",

@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <forge/audio.h>
 #include <forge/result.h>
 
 #ifdef __cplusplus
@@ -283,6 +284,38 @@ FORGE_SPATIAL_API ForgeResult forge_native_spatializer_calculate(const ForgeNati
                                                                  const ForgeNativeSpatialEmitter *emitter,
                                                                  uint32_t flags,
                                                                  ForgeNativeSpatialDspSettings *dsp_settings);
+
+/* Applies direct-path native spatial DSP to an existing voice send. This helper
+ * does not own emitters, listeners, rooms, zones, events, or routing policy.
+ *
+ * The helper applies dsp_settings->matrix_coefficients to the output matrix
+ * from source_voice to destination_voice, applies dsp_settings->doppler_rate_scalar
+ * to the source voice rate, and applies dsp_settings->direct_lowpass_cutoff_hz
+ * to the send filter from source_voice to destination_voice. The direct low-pass
+ * path requires the send to have been created with FORGE_AUDIO_SEND_USEFILTER,
+ * and the send filter must remain a low-pass filter. Only the send filter
+ * cutoff is updated; Q and wet/dry remain caller-configured.
+ *
+ * ramp_frames == 0 applies immediate sets. Nonzero values use one shared
+ * frame-ramp duration for matrix, doppler rate, and direct low-pass cutoff.
+ * All updates are scheduled with the same batch_id.
+ */
+FORGE_SPATIAL_API ForgeResult forge_source_voice_apply_native_spatial_direct(
+    ForgeSourceVoice *source_voice, ForgeVoice *destination_voice,
+    const ForgeNativeSpatialDspSettings *dsp_settings, uint32_t ramp_frames,
+    ForgeAudioBatchId batch_id);
+
+/* Ramps an existing send to its current output matrix scaled by gain.
+ * This helper is intentionally routing-agnostic; callers decide whether the
+ * destination represents a reverb, room, reflection, or any other bus.
+ *
+ * ramp_frames == 0 applies an immediate set. Nonzero values use a frame ramp.
+ */
+FORGE_SPATIAL_API ForgeResult forge_voice_ramp_spatial_send_gain(ForgeVoice *voice,
+                                                                 ForgeVoice *destination_voice,
+                                                                 float gain,
+                                                                 uint32_t ramp_frames,
+                                                                 ForgeAudioBatchId batch_id);
 
 #ifdef __cplusplus
 }
