@@ -4,14 +4,12 @@
   <img src="forge-audio.png" alt="ForgeAudio logo" width="320">
 </p>
 
-Logo trivia: this was the very, very first AI-generated logo for the project.
-Zero iteration.
-
-> Status note: ForgeAudio is in active early development. Large pieces of the
+> Project note: ForgeAudio is in active early development. Large parts of the
 > inherited FAudio/XAudio-shaped surface are being removed, renamed, or
-> redesigned into ForgeAudio-owned APIs. Treat the public API as pre-1.0 and in
-> flux. Furthermore, this README is currently AI-authored and may need later
-> revision for precision.
+> redesigned into ForgeAudio-owned APIs, so the public API should be treated as
+> pre-1.0 and subject to change. This README is also temporary and AI-authored;
+> it is intended as a working overview and may be revised later for accuracy,
+> tone, and completeness.
 
 ForgeAudio is a general-purpose audio runtime for games and interactive
 applications.
